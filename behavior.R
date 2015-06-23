@@ -34,9 +34,26 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # TODO merge compare fxns
 # TODO make stat test for compare fxns a parameter
 
+# TODO TODO TODO marks for start/end assay - extract and make it work
 
 
 
+
+# Converts a time in the format "MINUTES:SECONDS" to a numver of seconds.
+# Fractional seconds are ok (e.g. "3:14.15")
+.timeToSeconds = function(clockTime) {
+	nMinutes = as.numeric(gsub(":.*$", "", clockTime));
+	nSeconds = as.numeric(gsub("^.*:", "", clockTime));
+	return(60 * nMinutes + nSeconds);
+}
+
+# Gets user input as either a yes or no answer to <prompt>.
+# If the inputs starts with 'y' or 'Y', returns true; 'n' or 'N' returns false; other letters result in a reprompt.
+.getYesOrNo = function(prompt) {
+	response = tolower(substr(readline(prompt), 1, 1));
+	while (response != 'y' && response != 'n') response = tolower(substr(readline("Please enter yes (y) or no (n): "), 1, 1));
+	return(response == 'y');
+}
 
 #####################################################################################################
 ## READING DATA FROM SCORE LOGS                                                                    ##
@@ -51,9 +68,13 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	filenames = if (groups) {paste(folderPath,list.files(folderPath, pattern = "txt$", recursive = TRUE),sep = "");}
 	            else {paste(folderPath,list.files(folderPath, pattern = "txt$"),sep = "");}
 	data = list();
+	assayStart = if (.getYesOrNo("Did you mark assay starts in your score logs? ")) NULL else FALSE;
+	print(assayStart); # TODO remove
 	for (f in 1:length(filenames)) {
-		print(filenames[f])
-		data[[f]] = .getData(filenames[f]);
+		print(filenames[f]);
+		datOut = .getData(filenames[f], assayStart);
+		data[[f]] = datOut[[1]];
+		assayStart = datOut[[2]];
 		names(data)[f] = gsub(folderPath, "", filenames[f]);
 	}
 	return(.filterDataList(data, renameSubjects = TRUE));
@@ -62,18 +83,25 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 # Reads in a score log (.txt file) and returns a data frame with columns
 #   time    behavior    subject    type    pair_time    duration
-.getData = function (filename) {
+.getData = function (filename, assayStart = NULL) {
 	data0 = read.table(filename, fill=T, colClasses='character', sep='\t', header=F, quote='', blank.lines.skip=T, strip.white=T);
 	desc_table = .getDescriptionTableFromRawData(data0);
 	
 	fpsRow = which(grepl('^Frames/sec of files:', data0[,1]));
 	framesPerSecond = as.numeric(gsub('[^0-9]', '', data0[fpsRow,1]));
 	
+	asout = .getAssayStart(data0, assayStart);
+	startTime = asout[[1]];
+	assayStart = asout[[2]];
+	
 	df = .parseFullLog(data0, desc_table, framesPerSecond);
 	
 	
 	df = df[order(as.numeric(df$time)),];
 	dimnames(df)[[1]] <- 1:(dim(df)[1]);
+	
+	if (df$time[1] < startTime) warning("Some behavior(s) were scored before the assay start.", immediate. = TRUE);
+	df$time <- df$time - startTime;
 	
 	if (nrow(df)<1) {
 		warning(paste('No data in ', filename, sep=''));
@@ -82,8 +110,48 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #	desc_table = desc_table[as.character(desc_table[, 1]) %in% as.character(df$behavior), ];
 
 #   could return desc_table here if desired
-	return(df);
+	return(list(df, assayStart));
 }
+
+# Helper function for .getData
+# Gets the assay start and returns a list whose first element is the assay start time (or 0 if
+#   no assay start was marked) and whose second element is a character vector of default assay
+#   starts.
+.getAssayStart = function(data0, assayStart) {
+	if (is.logical(assayStart) && !assayStart) return(list(0, assayStart));
+	
+	start_marks = which(data0=='MARKS') + 4;
+	end_marks = length(data0[,1]) - 2;
+	
+	marks = strsplit(data0[start_marks:end_marks, ], '    ');
+	marks = lapply(marks, function(f) gsub('^ *','', gsub(' *$','', f)));
+	markNames = unlist(lapply(marks, function(f) f[[3]]));
+	
+	if (!is.null(assayStart) && sum(markNames %in% assayStart) == 1) {
+		return(list(.timeToSeconds(marks[[which(markNames %in% assayStart)]][2]), assayStart));
+	} else {
+		prompt = if (is.null(assayStart)) {""}
+		else if (sum(markNames %in% assayStart) == 0) {"No default assay start marks found.\n"}
+		else {paste('Two or more default mark names found.\n')}
+		prompt = paste(prompt, 'Mark names found:\n"', paste(markNames, collapse = '" "'), '"\n',
+						'Which mark is the assay start? (enter "quit" to skip assay start for this log or press ESC to abort)\n',
+						sep = "");
+		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
+		while (!(userInput %in% c(markNames, "quit"))) {
+			userInput = gsub('^["\']','', gsub('["\']$','', readline('Please enter a valid mark name or "quit": ')));
+		}
+		if (userInput == "quit") return(list(0, assayStart));
+		
+		if (!userInput %in% assayStart) {
+			addMark = .getYesOrNo(paste('Do you want to save "', userInput, '" as a default assay start mark? ', sep = ""))
+			if (addMark) assayStart = c(assayStart, userInput);
+		}
+		
+		return(list(.timeToSeconds(marks[[which(markNames %in% userInput)]][2]), assayStart));
+	}
+	print(markNames);
+}
+
 
 # Source: ethograms_from_scorevideo.R
 # Helper function for .getData
@@ -183,6 +251,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # behavior before the pause and a "START" before the behavior after the pause. Also inserts a "START" at the
 # beginning of the log and a "STOP" at the end.
 # TODO use type, pair_time, duration to pair "START"s with "STOP"s.
+# TODO BUG make male in pot start -> STOP -> START -> male in pot stop NOT HAPPENNNNNNNN
 .separateBouts = function (data, intervalToSeparate) {
 	# 	names(df) = c('time', 'behavior', 'subject', 'type', 'pair_time', 'duration');
 	newData = data.frame(time = data$time[1], behavior = "START", subject = NA, type = NA, pair_time = NA, duration = NA); 
@@ -534,7 +603,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 								 counts = lapply(groupwiseLogs$groupData[[group]], function(d) {table(d$behavior)}));
 		probMatsByGroup[[group]] <- .combineProbabilityMatrices(groupPMsAndCounts, groupwiseLogs$behnames, byTotal);
 	}
-	return(probMatsByGroup);
+	return(probMatsByGroup); #TODO if it is a list of one item what happens?????? go into .sepGroups the problem may be there BUG
 }
 
 # Helper function for .groupLevelProbMats()
@@ -812,7 +881,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #	minValForLine - only draw lines with probability/frequency greater than minValForLine. Should be between 0 and 1.
 #	weird - hacky fix for drawing markov chains weighted by time, where smaller numbers should correspond to thicker lines. Probably don't use this?
 #	singleCharLables - puts labels inside the circles that are large enough to hold a single 24-pt character. Default is all labels outside.
-#	byTotal - was byTotal on or off when creating the probability matrix? (used in line weighting)
+#	byTotal - was byTotal on or off when creating the probability matrix? (used in line weighting)#
+# BUG TODO test with bad behavior names ([ -/]) to see what happens
 .buildDotFile = function (probMatrix, originalDataVec, file='', title='untitled', fontsize=24, minValForLine = 0, weird = FALSE, singleCharLabels = FALSE, byTotal = FALSE) {
 	# write top line to file
 	cat('digraph', title, '\n', '	{\n', file=file);
@@ -838,9 +908,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #		if (names(freqs)[beh] %in% c("[","]")) {next;}
 		prop = freqs[beh] / sum(freqs) * 10; #print(file)
 		if (!singleCharLabels || prop < 0.7) { # 0.7 is the magic size for single characters in 24pt font
-			cat('		', gsub(' ', '', names(freqs)[beh]), ' [label="", xlabel="', gsub(' ', '', names(freqs)[beh]),'", width=', prop, ', height=', prop, ', fontsize=', fontsize, '];\n', file=file, append=T, sep='');
+			cat('		', gsub('[ /-]', '', names(freqs)[beh]), ' [label="", xlabel="', gsub(' ', '', names(freqs)[beh]),'", width=', prop, ', height=', prop, ', fontsize=', fontsize, '];\n', file=file, append=T, sep='');
 		} else {
-			cat('		', gsub(' ', '', names(freqs)[beh]), ' [width=', prop, ', height=', prop, ', fontsize=', fontsize, '];\n', file=file, append=T, sep='');
+			cat('		', gsub('[ /-]', '', names(freqs)[beh]), ' [width=', prop, ', height=', prop, ', fontsize=', fontsize, '];\n', file=file, append=T, sep='');
 		}
 	}
 	
@@ -860,7 +930,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 				if (leader == "STOP") {next;}
 #				if (follower %in% c("[","]")) {next;}
 		
-				cat('		', gsub(' ', '', leader), ' -> ', gsub(' ', '', follower),
+				cat('		', gsub('[ /-]', '', leader), ' -> ', gsub('[ /-]', '', follower),
 				    ' [label="", style="setlinewidth(', val, ')", arrowsize=1];','\n' ,sep='', file=file, append=T);	
 		 	}
 		}
@@ -1046,7 +1116,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		stop(paste('Invalid color in behaviorsToPlotAndColors: "', behcolors[!(behcolors[,2] %in% colors()), 2], '"\n', sep = ""));
 	}
 	if (!is.null(validBehNames) && sum(!(behcolors[,1] %in% validBehNames)) != 0) {
-		stop(paste('Invalid behavior in behaviorsToPlotAndColors: "', behcolors[!(behcolors[,1] %in% validBehNames), 1], '"\n', sep = ""));
+		stop(paste('Behavior in behaviorsToPlotAndColors: "', behcolors[!(behcolors[,1] %in% validBehNames), 1], '" not found in any score log\n', sep = ""));
 	}
 }
 
@@ -1062,11 +1132,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # weightingStyle refers to the way the y axis is supposed to be normalized. If it is "singlebeh", the y-values represent the fraction of
 # the total occurrances of the plotted behavior that occur in a given time bin. If it is "allbeh". the y-values represent the fraction of
 # all behaviors that are (1) the plotted behavior and (2) in the given time bin. If it is "rawcounts", the y-value is just the count of
-# the plotted behavior that occurs in that timebin.
+# the plotted behavior that occurs in that timebin. # TODO normalize by centering beh
 # Note that if you call this function directly, there is no check on the names of behaviors in behaviorsToPlotAndColors. This enables
 # you to do things like give the same color key for each group even if a behavior in it is never performed in a given group, but it
 # also enables you to make errors. Be careful!
-# TODO add axis labels
 # TODO hist & normalize for each fish separately, THEN combine
 # TODO sliding window
 # TODO write function that makes generation of <behaviorsToPlotAndColors> easier
