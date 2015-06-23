@@ -1,0 +1,172 @@
+0. All code is in ~/Desktop/Katrina/behavior_code/behavior.R. So source() that in.
+	> source("~/Desktop/Katrina/behavior_code/behavior.R")
+
+1. Start with .getDataBatch().
+	If you have score logs from more than one group, put the logs from each group
+	in their own folder, then put all the folders in directory <folderPath> and call:
+		> my_data <- .getDataBatch(folderPath, groups = TRUE)
+	If you only have one group, put them all in directory <folderPath> and call:
+		> my_data <- .getDataBatch(folderPath, groups = FALSE)
+   Either way, make sure the logs are the only .txt files in the given directory.
+
+2. Make sure you have the same behavior descriptions in all the score logs. For example,
+   some logs may have "Female Follows" and some may have "Female follows". To do this,
+   call
+	> .findDupBehaviors(my_data)
+   and manually inspect the result.
+
+   If you have behaviors you would like to combine, call .replaceBehAll(). For example, to
+   change "Female follows" to "Female Follows", we would call
+	> my_data = .replaceBehAll(my_data, "Female follows", "Female Follows")
+
+   You can also write a function specifically for a given batch of data to clean it up. For
+   examples of this, see .cleanUpMariana() and .cleanUpPGF2A(). If you do this, call
+	> my_data = .filterDataList(my_data, renameSubjects = TRUE)
+   to make sure you did not introduce any ambiguity in which subject a particular behavior
+   belongs to.
+
+3. Filter data (if desired) using .filterDataList(). This function has a LOT of options - 
+   see documentation in behavior.R for a complete list. Here are some examples of what you
+   might want to use it for:
+	Ignore approaches.
+		> my_data_NoApproach <- .filterDataList(my_data, toExclude = c("Approach male", "Approach female"))
+	Change "Lead" and "Quiver" from durational behaviors into start-only behaviors.
+		> my_data <- .filterDataList(my_data, startOnly = c("Lead", "Quiver"));
+   Obviously there are other uses, but there are too many combinations to include them
+   all :)
+
+4. Run .calcBasicStats() on your data. This function outputs several .csv files that can be
+   opened in Excel:
+	1. "<outfilePrefix>_<GROUPNAME>_data.csv" for each group, which contains the
+	   counts, latencies, total duration, and average duration of each behavior
+	   for each fish in the group; and
+	2. "<outfilePrefix>_stats.csv", which contains the average and standard deviation
+	   for each group of the counts, latencies, and durations of each behavior. It also
+	   has p-values for each measure. P-values are not calculated for the latencies if
+	   there is a group for which fewer than three fish performed the behavior.
+	3. JPGs of the plots produced by the bootstrap function
+	Example function call:
+		> .calcBasicStats(my_data, "~/Desktop/myExperiment");
+
+5. Get probability matrices. For a single fish:
+	> pm_1 <- .getProbabilityMatrix(.filterData(my_data[[1]], renameStartStop = TRUE))
+   To get probability matrices combined by group:
+	> probMatsByGroup <- .groupLevelProbMats(my_data)
+   If you want to have the probability of each transition be (count transition) / (total
+   num transitions), rather than the default (count transition) / (count leader), add the
+   parameter byTotal=TRUE to either of these function calls.
+
+   Also, it's good to double-check that your rows all add up to 1 (if byTotal=FALSE) or
+   that your matrix adds up to 1 (if byTotal = TRUE) with
+	> apply(probMatsByGroup$nameOfAGroup$probMat,1,sum)
+   or
+	> sum(probMatsByGroup$nameOfAGroup$probMat)
+
+6. Compute entropy. To compute entropy separately for each fish, then find the average for
+   each group, call
+	> .groupLevelEntropy(my_data)
+   To find the entropy of the combined probability matrices for each group, call
+	> lapply(probMatsByGroup, function(d){.computeEntropyProbMatrix(d$probMat)$h_norm})	
+
+7. Compare entropies and transitional probabilities. The function calls should be:
+	> .compareTransitionalProbabilites(my_data, byTotal=F, outfilePrefix = "~/Desktop/myExperiment")
+   and
+	> .compareEntropy(my_data, "~/Desktop/myExperiment")
+   These functions have mostly the same options as .calcBasicStats. It's also
+   potentially desirable to call them on .filterDataList(my_data, startOnly = T).
+   .compareTransitionalProbabilities can be called with either byTotal=T or byTotal=F,
+   which do the same things as they did in step 5. Also, you can use .filterDataList() with
+   any of the options in the next step to directly compare two markov chains that show
+   something other than just raw transitional probabilities.
+
+8. Make Markov chains. There are several options for this. The most common is 
+   .makeGroupDotPlots(), which outputs one markov chain graph for each group. Example
+   function call:
+	> .makeGroupDotPlots(my_data, "~/Desktop/unmodified_markov", minValForLine = .02)
+   minValForLine is definitely one of the more important parameters. Only lines that
+   represent a probability greater than minValForLine will be drawn (here, 2%). The
+   parameter byTotal is exactly the same as for the probability matrices.
+   All the fancy Markov chains are done by passing through optional parameters that go
+   to .filterData.
+	For example, to only get behaviors from five minutes into the video to ten minutes
+	into the video, you would call:
+		> .makeGroupDotPlots(my_data, "~/Desktop/0510_markov", minValForLine = .02, startTime = 300, endTime = 600)
+   	To get a Markov chain for just male behaviors:
+		> .makeGroupDotPlots(my_data, "~/Desktop/male_markov", minValForLine = .02, subject="male")
+  	To only include the starts of durational behaviors:
+		> .makeGroupDotPlots(my_data, "~/Desktop/startonly_markov", minValForLine = .02, startOnly=T)
+	To call any pause of 10 seconds the start of a new bout:
+		> .makeGroupDotPlots(my_data, "~/Desktop/10sbout_markov", minValForLine = .02, boutInterval = 10)
+   Any of these options can be combined with each other. To get a complete list, look at
+   the comment for .filterData.
+
+   The other relevant functions are .makeDotPlotsFromProbMas, which directly takes the
+   output of .groupLevelProbMats (be sure to tell it whether you used byTotal or not!),
+   and .makeDotPlots(), which functions similarly to .makeGroupDotPlots except that it
+   draws a separate markov chain for each fish in the group rather than making a single
+   markov chain representing the probability matrix for the entire group.
+
+   If the Markov chains won't open in GraphViz but look fine in TextEdit, try removing non-
+   alphanumeric characters from your behavior names. '[', ']', and '/' are all definitely
+   not allowed, and there may be others as well.
+
+9. Make Behavioral Density plots. The best way to do this with .behavioralDensityGraphs(),
+   which makes one graph for each group for each behavior you tell it to plot. You will
+   need a nx2 matrix, where n is the number of behaviors you wish to be plotted, that gives
+   the color each behavior should be. For example, to look at spawning behavior in CRISPR
+   fish, we used this matrix:
+	      [,1]                  [,2]             
+	 [1,] "Circling start"      "magenta"        
+	 [2,] "Circling stop"       "violetred3"     
+	 [3,] "Female Follows"      "palegreen3"     
+	 [4,] "Female In Pot start" "mediumblue"     
+	 [5,] "Female In Pot stop"  "royalblue1"     
+	 [6,] "Female Peck"         "grey75"         
+	 [7,] "Lead"                "springgreen4"   
+	 [8,] "Male In Pot start"   "purple"         
+	 [9,] "Male In Pot stop"    "mediumpurple1"  
+	[10,] "Male Peck"           "grey25"         
+	[11,] "Quiver"              "mediumturquoise"
+   Another such matrix can be source()d from "~/Desktop/Katrina/labmeeting/behcolors.R". At 
+   this time, you need to make your own key; I recommend screenshotting little samples of
+   each color in "~/Desktop/R_ColorChart.pdf" and using PowerPoint to finagle them into a
+   pretty table. We'll call this matrix <behcolors> from here on out.
+
+   Here's an example function call to .behavioralDensityGraphs()
+	> .behavioralDensityGraphs(my_data, behcolors, filePref = "~/Desktop/behdensityplots/", ymax=0.4)
+   Important parameters:
+	targetBehs = c("Lead", "Quiver")    # only make graphs centered at Lead and centered
+          # at Quiver. Every behavior in behcolors will be plotted on these graphs.
+	lim = 20      # plot 20 seconds before and after the center behavior (default 15)
+	timesPerBin = 1.0   # have 1-second bins instead of the default half-second bins.
+	ymax = 0.4    # the max on the y axis is now 0.4 (obvious, I know).
+   The parameter <weightingStyle> controls how the y-axis values are weighted. It must be
+   either "singlebeh" (default), "allbeh", or "rawcounts". If it is "singlebeh", the y
+   values represent the fraction of the total occurrances of the plotted behavior that
+   occur in a given time bin. If it is "allbeh". the y-values represent the fraction of all
+   behaviors that are (1) the plotted behavior and (2) in the given time bin. If it is
+   "rawcounts", the y-value is just the count of the plotted behavior that occurs in that
+   time bin.
+
+   You can also call .behavioralDensityGraph() directly to plot a single graph centered at
+   <centerBeh> without separating by group (multifish = TRUE) or to plot a single fish
+   (multifish = FALSE).
+   
+
+10. Other Relevant Information (for development)
+Other functions that are archaic, untested, incomplete, etc. are at the bottom of the file.
+
+.getAllContexts() is the start of what will eventually be used to make branching diagrams.
+.sepGroups() is THE FUNCTION to use if you are implementing anything, really; it separates
+	the fish by experimental group and extracts a list of all the behavior names.
+
+To-do items are marked TODO in the code file, so they are super easy to edit-find. They are
+usually listed right before the relevant function.
+
+TROUBLESHOOTING COMMON ERRORS AND ISSUES:
+Is there a weird character in a behavior name? ie '/', ':', '\', '{', '}', etc.
+Do you need to filter your data to be startOnly or renameStartStop?
+Are you giving this function a single data frame (one log) or a list?
+Did you skip step 2?
+
+TODO: Change beh density calculation as per Ryan's suggestion
