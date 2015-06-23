@@ -134,13 +134,13 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		else if (sum(markNames %in% assayStart) == 0) {"No default assay start marks found.\n"}
 		else {paste('Two or more default mark names found.\n')}
 		prompt = paste(prompt, 'Mark names found:\n"', paste(markNames, collapse = '" "'), '"\n',
-						'Which mark is the assay start? (enter "quit" to skip assay start for this log or press ESC to abort)\n',
+						'Which mark is the assay start? (enter "q" to skip assay start for this log or press ESC to abort)\n',
 						sep = "");
 		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
-		while (!(userInput %in% c(markNames, "quit"))) {
-			userInput = gsub('^["\']','', gsub('["\']$','', readline('Please enter a valid mark name or "quit": ')));
+		while (!(userInput %in% c(markNames, "q"))) {
+			userInput = gsub('^["\']','', gsub('["\']$','', readline('Please enter a valid mark name or "q", or press ESC to abort: ')));
 		}
-		if (userInput == "quit") return(list(0, assayStart));
+		if (userInput == "q") return(list(0, assayStart));
 		
 		if (!userInput %in% assayStart) {
 			addMark = .getYesOrNo(paste('Do you want to save "', userInput, '" as a default assay start mark? ', sep = ""))
