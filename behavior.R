@@ -77,8 +77,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	assayStart = if (.getYesOrNo("Did you mark assay starts in your score logs? ")) NULL else FALSE;
 	print(assayStart); # TODO remove
 	for (f in 1:length(filenames)) {
-		cat("Loading file ", filenames[f], "...", sep = "");
-		datOut = .getData(filenames[f], assayStart);
+		cat("Loading file \"", filenames[f], "\"...\n", sep = "");
+		datOut = .getData(filenames[f], assayStart, single = FALSE);
 		data[[f]] = datOut[[1]];
 		assayStart = datOut[[2]];
 		names(data)[f] = gsub(folderPath, "", filenames[f]);
@@ -89,7 +89,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 # Reads in a score log (.txt file) and returns a data frame with columns
 #   time    behavior    subject    type    pair_time    duration
-.getData = function (filename, assayStart = NULL) {
+.getData = function (filename, assayStart = NULL, single = TRUE) { # TODO rewrite w/o single and with assayStart passed-by-ref in C.
 	data0 = read.table(filename, fill=T, colClasses='character', sep='\t', header=F, quote='', blank.lines.skip=T, strip.white=T);
 	desc_table = .getDescriptionTableFromRawData(data0);
 	
@@ -117,7 +117,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #	desc_table = desc_table[as.character(desc_table[, 1]) %in% as.character(df$behavior), ];
 
 #   could return desc_table here if desired
-	return(list(df, assayStart));
+	return(if (single) df else list(df, assayStart));
 }
 
 # Helper function for .getData
@@ -144,12 +144,13 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 						'Which mark is the assay start? (enter "q" to skip assay start for this log or press ESC to abort)\n',
 						sep = "");
 		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
+		if (userInput == "q") return(list(0, assayStart));
 		userInput = .autocomplete(userInput, markNames);
-		while (!(userInput %in% c(markNames, "q"))) {
+		while (!(userInput %in% c(markNames))) {
 			userInput = gsub('^["\']','', gsub('["\']$','', readline('Please enter a valid mark name or "q", or press ESC to abort: ')));
+			if (userInput == "q") return(list(0, assayStart));
 			userInput = .autocomplete(userInput, markNames);
 		}
-		if (userInput == "q") return(list(0, assayStart));
 		
 		if (!userInput %in% assayStart) {
 			addMark = .getYesOrNo(paste('Do you want to save "', userInput, '" as a default assay start mark? ', sep = ""))
