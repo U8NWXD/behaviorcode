@@ -1360,7 +1360,18 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 
 
-
+.makeRasters = function(data, outfilePrefix) {
+	outdir = paste(outfilePrefix, "raster_plots/", sep = "");
+	dir.create(outdir);
+	for (i in 1:length(data)) {
+		print(names(data[i]));
+		filename = paste(outdir, gsub("\\.txt", ".jpeg", gsub("(.*/)*", "", names(data)[i])), sep = "");
+		jpeg(filename = filename, width = 7.5, height = 10, units = "in",
+		     quality = 100, res = 300, type = "quartz");
+		.makeRasterPlot(data[[i]]);
+		dev.off();
+	}
+}
 
 .makeRasterPlot = function (dataFrame, plots=T, ...) {
 	data = dataFrame$behavior;
