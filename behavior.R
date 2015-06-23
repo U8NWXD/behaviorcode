@@ -28,7 +28,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # heatmap(cor(t(probma)), symm = TRUE)
 
 
-
+# TODO output to excel the trans prob mats. MAKE THIS PART OF MAIN DATA PIPELINE. in .compareProbMats?
 
 # TODO add option for all compare fxns verbose = false
 # TODO merge compare fxns
@@ -517,10 +517,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	studentT = numeric();
 	bootstrap = numeric();
 	rownames = dimnames(dataByGroup[[1]]$total)[[1]];
-	for (row in rownames) {
+	if (length(dataByGroup) >=2) { for (row in rownames) { #THIS IS BAD FIXIT TODO BUG
 		print(row);
 		group1dat = dataByGroup[[1]]$total[row,];
-		group2dat = dataByGroup[[2]]$total[row,];
+		group2dat = dataByGroup[[2]]$total[row,]; 
 		enoughObservations = (sum(!is.na(group1dat)) >= minNumLogs && sum(!is.na(group2dat)) >= minNumLogs);
 		if (enoughObservations) {
 			wilcox = c(wilcox, wilcox.test(x=group1dat, y=group2dat)$p.value);
@@ -539,9 +539,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			bootstrap = c(bootstrap, NA);
 		}
 	}
-	df = data.frame(average = average, stddev = stddev, wilcox_p = wilcox, studentT_p = studentT, bootstrap_p = bootstrap);
+	df = data.frame(average = average, stddev = stddev, wilcox_p = wilcox, studentT_p = studentT, bootstrap_p = bootstrap); # TODO should be able to get average with any # of groups
 	write.csv(df, file = paste(outfilePrefix, "stats.csv", sep = "_"));
-	return(df);
+	return(df); }
 }
 
 
