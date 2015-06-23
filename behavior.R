@@ -34,7 +34,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # TODO merge compare fxns
 # TODO make stat test for compare fxns a parameter
 
-# TODO TODO TODO marks for start/end assay - extract and make it work
+# TODO add or ask about folder slash-at-end. Maybe do this in the Big Shell that asks for ONE outfile path.
 
 
 
@@ -77,7 +77,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	assayStart = if (.getYesOrNo("Did you mark assay starts in your score logs? ")) NULL else FALSE;
 	print(assayStart); # TODO remove
 	for (f in 1:length(filenames)) {
-		print(filenames[f]);
+		cat("Loading file ", filenames[f], "...", sep = "");
 		datOut = .getData(filenames[f], assayStart);
 		data[[f]] = datOut[[1]];
 		assayStart = datOut[[2]];
@@ -96,7 +96,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	fpsRow = which(grepl('^Frames/sec of files:', data0[,1]));
 	framesPerSecond = as.numeric(gsub('[^0-9]', '', data0[fpsRow,1]));
 	
-	asout = .getAssayStart(data0, assayStart);
+	asout = .getAssayStart(data0, assayStart, filename);
 	startTime = asout[[1]];
 	assayStart = asout[[2]];
 	
@@ -108,6 +108,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	
 	if (df$time[1] < startTime) warning("Some behavior(s) were scored before the assay start.", immediate. = TRUE);
 	df$time <- df$time - startTime;
+	df$pair_time <- df$pair_time - startTime;
 	
 	if (nrow(df)<1) {
 		warning(paste('No data in ', filename, sep=''));
@@ -123,11 +124,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # Gets the assay start and returns a list whose first element is the assay start time (or 0 if
 #   no assay start was marked) and whose second element is a character vector of default assay
 #   starts.
-.getAssayStart = function(data0, assayStart) {
+.getAssayStart = function(data0, assayStart, logname) {
 	if (is.logical(assayStart) && !assayStart) return(list(0, assayStart));
 	
 	start_marks = which(data0=='MARKS') + 4;
-	end_marks = length(data0[,1]) - 2;
+	end_marks = length(data0[,1]) - 1;
 	
 	marks = strsplit(data0[start_marks:end_marks, ], '    ');
 	marks = lapply(marks, function(f) gsub('^ *','', gsub(' *$','', f)));
@@ -137,7 +138,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		return(list(.timeToSeconds(marks[[which(markNames %in% assayStart)]][2]), assayStart));
 	} else {
 		prompt = if (is.null(assayStart)) {""}
-		else if (sum(markNames %in% assayStart) == 0) {"No default assay start marks found.\n"}
+		else if (sum(markNames %in% assayStart) == 0) {paste('No default assay start marks found.\n', sep = "")}
 		else {paste('Two or more default mark names found.\n')}
 		prompt = paste(prompt, 'Mark names found:\n"', paste(markNames, collapse = '" "'), '"\n',
 						'Which mark is the assay start? (enter "q" to skip assay start for this log or press ESC to abort)\n',
