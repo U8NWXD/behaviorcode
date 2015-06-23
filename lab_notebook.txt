@@ -1,0 +1,9 @@
+June 22 2015
+Made test data set and saved
+Added create folder to .calcBasicStats, .compareTransitionalProbability, .compareEntropy
+Added labels to .behavioralDensityGraph
+Try ? points to make color key
+Talked with Scott; added todos.
+
+June 23 2015
+Installed git and sourcetree to add version control, commits, etc.
