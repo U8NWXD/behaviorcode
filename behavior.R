@@ -55,6 +55,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(response == 'y');
 }
 
+.autocomplete = function(input, choices, caseSensitive = FALSE) {
+	greplResult = if (caseSensitive) grepl(paste("^", input, sep = ""), choices) else grepl(paste("^", tolower(input), sep = ""), tolower(choices));
+	if (sum(greplResult) == 1) {return(choices[greplResult]);}
+	else return(input);
+}
+
 #####################################################################################################
 ## READING DATA FROM SCORE LOGS                                                                    ##
 #####################################################################################################
@@ -137,8 +143,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 						'Which mark is the assay start? (enter "q" to skip assay start for this log or press ESC to abort)\n',
 						sep = "");
 		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
+		userInput = .autocomplete(userInput, markNames);
 		while (!(userInput %in% c(markNames, "q"))) {
 			userInput = gsub('^["\']','', gsub('["\']$','', readline('Please enter a valid mark name or "q", or press ESC to abort: ')));
+			userInput = .autocomplete(userInput, markNames);
 		}
 		if (userInput == "q") return(list(0, assayStart));
 		
