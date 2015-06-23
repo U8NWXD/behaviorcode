@@ -544,6 +544,43 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(df); }
 }
 
+# comparison function must take x,y and return list with entry "p.value"
+# TODO test
+.runStats = function(dataByGroup, outfilePrefix, twoGroups = TRUE, minNumLogsForComparison = 3, ...){
+	average = lapply(dataByGroup, function(d) {apply(d$total, 1, mean)});
+	stddev = lapply(dataByGroup, function(d) {apply(d$total, 1, sd)});
+	rownames = dimnames(dataByGroup[[1]]$total)[[1]]; # get out this $total business
+	df = data.frame(average = average, stddev = stddev)
+	offset = dim(df)[2]
+	
+	if (twoGroups) { # potentially tests cannot b empty TODO test thaaaaat
+		tests = list(...)
+		for (i in 1:length(tests)) {
+			df = data.frame(df, numeric(dim(df)[1])) #TODO resume here
+		}
+		for (i in 1:length(rownames)) {
+			row = rownames[i]
+			print(row);
+			group1dat = dataByGroup[[1]]$total[row,];
+			group2dat = dataByGroup[[2]]$total[row,]; 
+			enoughObservations = (sum(!is.na(group1dat)) >= minNumLogsForComparison && sum(!is.na(group2dat)) >= minNumLogsForComparison);
+			if (enoughObservations) {
+				for (j in 1:length(tests)) {
+					fxn = get(tests[j]);
+					dataByGroup[i, j + offset] <- fxn(x=group1dat, y=group2dat)$p.value
+				}
+			} else {
+				warning(paste('Skipping "', row, '" (not enough observations)', sep = ""), immediate.=T);
+				dataByGroup[i, (offset + 1):(offset + length(tests))] <- NA;
+			}
+		}
+	}
+	write.csv(df, file = paste(outfilePrefix, "stats.csv", sep = "_"));
+	return(df); }
+}
+
+
+
 
 #####################################################################################################
 ## PROBABILITY MATRICES                                                                            ##
