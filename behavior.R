@@ -436,12 +436,18 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #    $groupData, a list of lists of data frames. groupData[[1]] is a list of the data frames of all the
 #      subjects in group 1, groupData[[2]] has the data for the subjects in group 2, etc.
 .sepGroups = function(data) {
-	groupNames = names(table(gsub("/.+", "", names(data))));
+	groupNames = names(table(gsub("((.+)/)?.+", "\\2", names(data))));
+	ungrouped = "" %in% groupNames
+	groupNames[groupNames == ""] <- "Default Group";
 	behnames = names(table(unlist(lapply(data, function(f) {names(table(f$behavior))}))));
 	groupData = list();
 	for (i in 1:length(groupNames)) {
 		groupData[[i]] = data[grepl(paste("^", groupNames[i], sep = ""), names(data))];
 		names(groupData)[i] <- groupNames[i];
+	}
+	if (ungrouped) {
+		defaultGroupIndex = groupNames[groupNames == "Default Group"];
+		groupData[[defaultGroupIndex]] = data[grepl("^[^/]*$", names(data))];
 	}
 	return(list(groupNames = groupNames, groupData = groupData, behnames = behnames));
 }
