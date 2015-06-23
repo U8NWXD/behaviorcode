@@ -89,6 +89,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 # Reads in a score log (.txt file) and returns a data frame with columns
 #   time    behavior    subject    type    pair_time    duration
+# If called with single = FALSE (should only be done from .getDataBatch), this
+#   is returned as the first element of a list whose second element is the updated
+#   assayStart (since no pass-by-reference).
 .getData = function (filename, assayStart = NULL, single = TRUE) { # TODO rewrite w/o single and with assayStart passed-by-ref in C.
 	data0 = read.table(filename, fill=T, colClasses='character', sep='\t', header=F, quote='', blank.lines.skip=T, strip.white=T);
 	desc_table = .getDescriptionTableFromRawData(data0);
@@ -121,9 +124,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 }
 
 # Helper function for .getData
-# Gets the assay start and returns a list whose first element is the assay start time (or 0 if
-#   no assay start was marked) and whose second element is a character vector of default assay
-#   starts.
+# Gets the assay start mark with assistence from the user and returns a list whose first element
+#   is the assay start time (or 0 if no assay start was marked) and whose second element is a
+#   character vector of default assay starts.
 .getAssayStart = function(data0, assayStart, logname) {
 	if (is.logical(assayStart) && !assayStart) return(list(0, assayStart));
 	
@@ -445,6 +448,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #    $groupNames, the names of the groups;
 #    $groupData, a list of lists of data frames. groupData[[1]] is a list of the data frames of all the
 #      subjects in group 1, groupData[[2]] has the data for the subjects in group 2, etc.
+# In this implementation, score logs that did not come from a folder (either from grouped datasets
+#    or ungrouped datasets) are placed in "Default Group".
 .sepGroups = function(data) {
 	groupNames = names(table(gsub("((.+)/)?.+", "\\2", names(data))));
 	ungrouped = "" %in% groupNames
@@ -556,7 +561,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 # comparison function must take x,y and return list with entry "p.value"
 # TODO test
-.runStats = function(dataByGroup, outfilePrefix, twoGroups = TRUE, minNumLogsForComparison = 3, ...){
+.runStats = function(..., dataByGroup, outfilePrefix, twoGroups = TRUE, minNumLogsForComparison = 3){
 	average = lapply(dataByGroup, function(d) {apply(d$total, 1, mean)});
 	stddev = lapply(dataByGroup, function(d) {apply(d$total, 1, sd)});
 	rownames = dimnames(dataByGroup[[1]]$total)[[1]]; # get out this $total business
@@ -576,17 +581,17 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			enoughObservations = (sum(!is.na(group1dat)) >= minNumLogsForComparison && sum(!is.na(group2dat)) >= minNumLogsForComparison);
 			if (enoughObservations) {
 				for (j in 1:length(tests)) {
-					fxn = get(tests[j]);
-					dataByGroup[i, j + offset] <- fxn(x=group1dat, y=group2dat)$p.value
+					fxn = get(tests[[j]]);
+					df[i, j + offset] <- fxn(x=group1dat, y=group2dat)$p.value
 				}
 			} else {
 				warning(paste('Skipping "', row, '" (not enough observations)', sep = ""), immediate.=T);
-				dataByGroup[i, (offset + 1):(offset + length(tests))] <- NA;
+				df[i, (offset + 1):(offset + length(tests))] <- NA;
 			}
 		}
 	}
 	write.csv(df, file = paste(outfilePrefix, "stats.csv", sep = "_"));
-	return(df); }
+	return(df);
 }
 
 
@@ -1406,7 +1411,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 
 
-
+# Calls .makeRasterPlot on every data frame in <data> and saves the results as jpegs
+#   to a new folder called "raster_plots" in <outfilePrefix>.
 .makeRasters = function(data, outfilePrefix) {
 	outdir = paste(outfilePrefix, "raster_plots/", sep = "");
 	dir.create(outdir);
