@@ -525,7 +525,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #   and control - so this behavior is not terrible) with three different tests - wilcox.test(), t.test(), and bootstrap2independent().
 #   Latencies are only compared for behaviors that occur in at least <minNumLogs> score logs in each group. Graphs output by the
 #   bootstrap function are also saved.
-.calcBasicStats = function(data, outfilePrefix, tests, minNumLogs = 3) {
+.calcBasicStats = function(data, outfilePrefix, tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper, trials = 10000)), minNumLogs = 3) {
 	groupwiseLogs = .sepGroups(data);
 
 	durBehDat = lapply(data, function(d) {d[!is.na(d$type) & d$type == "start",]});
@@ -540,6 +540,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 }
 
 # A wrapper function for bootstrap2independent that makes it play well with .runStats
+# argList must contain x, y, row, outfilePrefix, groupNames, and trials.
 .bootstrapWrapper = function(argList) {
 	# print(argList);
 	bs = bootstrap2independent(x = argList$x, y = argList$y, dataDescriptor = argList$row,
@@ -559,14 +560,17 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #   myFunctionWrapper = function(arglist) {
 #		return(myFunction(group1 = arglist$x, group2 = arglist$y, arg1Name = arglist$arg1Name, outpref = arglist$outfilePrefix))
 #   }
-.runStats = function(dataByGroup, outfilePrefix, tests, twoGroups = TRUE, minNumLogsForComparison = 3){
+.runStats = function(dataByGroup, outfilePrefix, tests, minNumLogsForComparison = 3){
 	average = lapply(dataByGroup, apply, 1, mean);
 	stddev = lapply(dataByGroup, apply, 1, sd);
 	rownames = dimnames(dataByGroup[[1]])[[1]];
-	df = data.frame(average = average, stddev = stddev)
-	offset = dim(df)[2]
+	df = data.frame(average = average, stddev = stddev);
+	offset = dim(df)[2];
 	
-	if (twoGroups) { # potentially tests cannot b empty TODO test thaaaaat
+	if (length(dataByGroup) >= 2) { # potentially tests cannot b empty TODO test thaaaaat
+		if (length(dataByGroup) > 2) warning(paste("It looks like you have more than two experimental groups. ",
+												   "Contact Katrina if you want code to deal with that.\nFor now, I'll run tests on the first two groups (\"",
+												   names(dataByGroup)[1], "\" and \"", names(dataByGroup)[2], "\")", sep = ""), immediate. = TRUE)
 		for (i in 1:length(tests)) {
 			df = data.frame(df, numeric(dim(df)[1]));
 			names(df)[i + offset] <- names(tests)[i];
@@ -714,7 +718,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # These values are compared with three different tests: wilcox.test(), t.test(), and bootstrap2independent(). Transitional
 # probabilities are only compared for behaviors that occur in at least <minNumLogs> score logs in each group, and where at
 # least one animal had a nonzero transitional probability. Graphs output by the bootstrap function are also saved.
-.compareTransitionalProbabilities = function(data, byTotal = FALSE, outfilePrefix, tests, minNumLogs = 3) {
+.compareTransitionalProbabilities = function(data, byTotal = FALSE, outfilePrefix,
+											 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper, trials = 10000)), minNumLogs = 3) {
 	data = .filterDataList(data, renameStartStop = TRUE);
 	groupwiseLogs = .sepGroups(data);
 	
@@ -722,7 +727,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	for (group in groupwiseLogs$groupNames) {
 		groupPMs = lapply(groupwiseLogs$groupData[[group]], function(d) {.getProbabilityMatrix(d$behavior, byTotal=byTotal)});
 		transProbsByGroup[[group]] <- .makeTPMatrix(groupPMs, groupwiseLogs$behnames, byTotal);
-		write.csv(transProbsByGroup[[group]], file = paste(outfilePrefix, group, "transitionalprobabilities.csv", sep = "_"));
+		write.csv(transProbsByGroup[[group]], file = paste(outfilePrefix, group, "transitionalprobabilities_datadump.csv", sep = "_"));
+		groupPMsAndCounts = list(probMats = groupPMs, counts = lapply(groupwiseLogs$groupData[[group]], function(d) {table(d$behavior)}));
+		write.csv(.combineProbabilityMatrices(groupPMsAndCounts, groupwiseLogs$behnames, byTotal),
+				  file = paste(outfilePrefix, group, "transitionalprobabilities_average.csv", sep = "_"));
 	}
 	return(.runStats(dataByGroup = transProbsByGroup, outfilePrefix = paste(outfilePrefix, "transitionalprobabilities", sep = "_"),
 			tests = tests, minNumLogsForComparison = minNumLogs)); #BUG (maybe?) average and stddev are ALL NA when byTotal = FALSE  #TODO twoGroups
@@ -837,7 +845,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # only compared for behaviors that occur in at least <minNumLogs> score logs in each group. Graphs output by
 # the bootstrap function are also saved.
 # TODO combine with .calcBasicStats???
-.compareEntropy = function(data, outfilePrefix, tests, minNumLogs = 3) {
+.compareEntropy = function(data, outfilePrefix, tests = list(t.test = t.test, wilcox = wilcox.test,
+						   bootstrap = list(func = .bootstrapWrapper, trials = 10000)), minNumLogs = 3) {
 	data = .filterDataList(data, renameStartStop = TRUE);
 	groupwiseLogs = .sepGroups(data);
 	# 	return(list(groupNames = groupNames, groupData = groupData, behnames = behnames));
@@ -884,7 +893,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #	weird - hacky fix for drawing markov chains weighted by time, where smaller numbers should correspond to thicker lines. Probably don't use this?
 #	singleCharLables - puts labels inside the circles that are large enough to hold a single 24-pt character. Default is all labels outside.
 #	byTotal - was byTotal on or off when creating the probability matrix? (used in line weighting)#
-# BUG TODO test with bad behavior names ([ -/]) to see what happens
 .buildDotFile = function (probMatrix, originalDataVec, file='', title='untitled', fontsize=24, minValForLine = 0, weird = FALSE, singleCharLabels = FALSE, byTotal = FALSE) {
 	# write top line to file
 	cat('digraph', title, '\n', '	{\n', file=file);
@@ -910,9 +918,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #		if (names(freqs)[beh] %in% c("[","]")) {next;}
 		prop = freqs[beh] / sum(freqs) * 10; #print(file)
 		if (!singleCharLabels || prop < 0.7) { # 0.7 is the magic size for single characters in 24pt font
-			cat('		', gsub('[ /-]', '', names(freqs)[beh]), ' [label="", xlabel="', gsub(' ', '', names(freqs)[beh]),'", width=', prop, ', height=', prop, ', fontsize=', fontsize, '];\n', file=file, append=T, sep='');
+			cat('		', gsub('[^A-Za-z1-9]', '', names(freqs)[beh]), ' [label="", xlabel="', gsub(' ', '', names(freqs)[beh]),'", width=', prop, ', height=', prop, ', fontsize=', fontsize, '];\n', file=file, append=T, sep='');
 		} else {
-			cat('		', gsub('[ /-]', '', names(freqs)[beh]), ' [width=', prop, ', height=', prop, ', fontsize=', fontsize, '];\n', file=file, append=T, sep='');
+			cat('		', gsub('[^A-Za-z1-9]', '', names(freqs)[beh]), ' [width=', prop, ', height=', prop, ', fontsize=', fontsize, '];\n', file=file, append=T, sep='');
 		}
 	}
 	
@@ -932,7 +940,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 				if (leader == "STOP") {next;}
 #				if (follower %in% c("[","]")) {next;}
 		
-				cat('		', gsub('[ /-]', '', leader), ' -> ', gsub('[ /-]', '', follower),
+				cat('		', gsub('[^A-Za-z1-9]', '', leader), ' -> ', gsub('[^A-Za-z1-9]', '', follower),
 				    ' [label="", style="setlinewidth(', val, ')", arrowsize=1];','\n' ,sep='', file=file, append=T);	
 		 	}
 		}

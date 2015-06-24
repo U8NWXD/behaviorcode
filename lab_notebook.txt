@@ -7,3 +7,4 @@ Talked with Scott; added todos.
 
 June 23 2015
 Installed git and sourcetree to add version control, commits, etc.
+My work is there now. This was shortlived.
