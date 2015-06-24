@@ -85,6 +85,11 @@ confidenceInterval = function(data,
 #### bootstrap2independent() tests two numeric data vectors representing independent groups ####
 ################################################################################################
 
+bootstrapWrapper = function(argList) {
+	print(argList);
+	return(list(p.value = 2));
+}
+
 bootstrap2independent = function(x, y, 
 						  		 trials = 10000, 
 						  		 Func = 'mean', 

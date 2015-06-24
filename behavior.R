@@ -579,6 +579,14 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 # comparison function must take x,y and return list with entry "p.value"
 # tests is a list of functions. the names of the list are used to label columns. ie, list(ttest = t.text, wilcox = wilcox.test)
+# if a function needs other arguments:
+#   pass it in as a list(func = myFunctionWrapper, arg1Name = arg1, arg2Name = arg2, ...)
+#   the function will be called as myFunctionWrapper(list(arg1Name = arg1, arg2Name = arg2, ..., x = data, y = data, ....))
+#   as a FREE BONUS you also get the row name, group names, and outfile prefix passed along as part of that list
+#   inside myFunctionWrapper you might do something like:
+#   myFunctionWrapper = function(arglist) {
+#		return(myFunction(group1 = arglist$x, group2 = arglist$y, arg1Name = arglist$arg1Name, outpref = arglist$outfilePrefix))
+#   }
 .runStats = function(dataByGroup, outfilePrefix, tests, twoGroups = TRUE, minNumLogsForComparison = 3){
 	average = lapply(dataByGroup, apply, 1, mean);
 	stddev = lapply(dataByGroup, apply, 1, sd);
@@ -605,8 +613,14 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			enoughObservations = (sum(!is.na(group1dat)) >= minNumLogsForComparison && sum(!is.na(group2dat)) >= minNumLogsForComparison);
 			if (enoughObservations) {
 				for (j in 1:length(tests)) {
-					fxn = tests[[j]];
-					df[i, j + offset] <- fxn(x=group1dat, y=group2dat)$p.value
+					if (!is.list(tests[[j]])) {
+						fxn = tests[[j]];
+						df[i, j + offset] <- fxn(x=group1dat, y=group2dat)$p.value
+					} else {
+						functionList = tests[[j]];
+						df[i, j + offset] <- functionList[[1]](c(functionList[-1], list(x = group1dat, y = group2dat, row = row,
+															   outfilePrefix = outfilePrefix, groupNames = names(dataByGroup)[1:2]))) #TODO change 1:2
+					}
 				}
 			} else {
 				warning(paste('Skipping "', row, '" (not enough observations)', sep = ""), immediate.=T);
@@ -908,7 +922,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		write.csv(entropiesByGroup[[group]], file = paste(outfilePrefix, group, "entropydata.csv", sep = "_")); #TODO check output
 	}
 	return(.runStats(entropiesByGroup, paste(outfilePrefix, "entropy", sep = "_"),
-			list(t.test = t.test, wilcox = wilcox.test, bootstrap = bootstrap2independent))); #TODO twoGroups
+			list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = bootstrapWrapper)))); #TODO twoGroups
 }
 
 # TODO remove this		
