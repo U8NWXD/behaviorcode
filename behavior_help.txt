@@ -8,6 +8,10 @@
 	If you only have one group, put them all in directory <folderPath> and call:
 		> my_data <- .getDataBatch(folderPath, groups = FALSE)
    Either way, make sure the logs are the only .txt files in the given directory.
+   Follow the prompts to either use the start of video as the assay start for all logs,
+   or select a mark left in the logs to be used as the assay start. Saving a mark as
+   a default will result in all logs with that mark using it as an assay start. You can
+   have more than one default at a time.
 
 2. Make sure you have the same behavior descriptions in all the score logs. For example,
    some logs may have "Female Follows" and some may have "Female follows". To do this,
