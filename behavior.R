@@ -619,7 +619,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 					} else {
 						functionList = tests[[j]];
 						df[i, j + offset] <- functionList[[1]](c(functionList[-1], list(x = group1dat, y = group2dat, row = row,
-															   outfilePrefix = outfilePrefix, groupNames = names(dataByGroup)[1:2]))) #TODO change 1:2
+															   outfilePrefix = outfilePrefix, groupNames = names(dataByGroup)[1:2])))$p.value #TODO change 1:2
 					}
 				}
 			} else {
@@ -922,7 +922,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		write.csv(entropiesByGroup[[group]], file = paste(outfilePrefix, group, "entropydata.csv", sep = "_")); #TODO check output
 	}
 	return(.runStats(entropiesByGroup, paste(outfilePrefix, "entropy", sep = "_"),
-			list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = bootstrapWrapper)))); #TODO twoGroups
+			list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = bootstrapWrapper, trials = 12000)))); #TODO twoGroups
 }
 
 # TODO remove this		

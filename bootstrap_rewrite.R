@@ -86,15 +86,19 @@ confidenceInterval = function(data,
 ################################################################################################
 
 bootstrapWrapper = function(argList) {
-	print(argList);
-	return(list(p.value = 2));
+	# print(argList);
+	bs = bootstrap2independent(x = argList$x, y = argList$y, dataDescriptor = argList$row,
+	       						 outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"),
+	       						 groupNames = argList$groupNames, trials = argList$trials, verbose = F);
+	# print(list(p = bs$p.value, dat = bs$data));
+	return(bs);
 }
 
 bootstrap2independent = function(x, y, 
 						  		 trials = 10000, 
 						  		 Func = 'mean', 
 						  		 replace = T, 
-						  		 plots = F, # TODO change back to T
+						  		 plots = T,
 						  		 col = 'grey',
 						  		 border = 'darkgrey',
 						  		 col.line = 'red',
