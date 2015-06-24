@@ -37,6 +37,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # TODO make stat test for compare fxns a parameter
 
 # TODO add or ask about folder slash-at-end. Maybe do this in the Big Shell that asks for ONE outfile path.
+# TODO make the Big Shell
 
 
 
@@ -577,7 +578,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # }
 
 # comparison function must take x,y and return list with entry "p.value"
-# TODO test
+# tests is a list of functions. the names of the list are used to label columns. ie, list(ttest = t.text, wilcox = wilcox.test)
 .runStats = function(dataByGroup, outfilePrefix, tests, twoGroups = TRUE, minNumLogsForComparison = 3){
 	average = lapply(dataByGroup, apply, 1, mean);
 	stddev = lapply(dataByGroup, apply, 1, sd);
@@ -907,7 +908,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		write.csv(entropiesByGroup[[group]], file = paste(outfilePrefix, group, "entropydata.csv", sep = "_")); #TODO check output
 	}
 	return(.runStats(entropiesByGroup, paste(outfilePrefix, "entropy", sep = "_"),
-			list(t.test = t.test, wilcox = wilcox.test))); #TODO twoGroups
+			list(t.test = t.test, wilcox = wilcox.test, bootstrap = bootstrap2independent))); #TODO twoGroups
 }
 
 # TODO remove this		
