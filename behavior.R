@@ -27,6 +27,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 # heatmap(cor(t(probma)), symm = TRUE)
 
+#TODO check all prints and make more clear what is getting printed exactly
+#TODO figure out how to print in get-response purple
 
 # TODO output to excel the trans prob mats. MAKE THIS PART OF MAIN DATA PIPELINE. in .compareProbMats?
 
@@ -157,7 +159,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		prompt = paste(prompt, 'Mark names found:\n"', paste(markNames, collapse = '" "'), '"\n',
 						'Which mark is the assay start? (enter "q" to skip assay start for this log or press ESC to abort)\n',
 						sep = "");
-		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
+		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt))); #BUG readline 256 chars - figure out how to print in purple
 		if (userInput == "q") return(list(time = 0, name = NA, assayStart = assayStart));
 		userInput = .autocomplete(userInput, markNames);
 		while (!(userInput %in% markNames)) {
@@ -534,44 +536,45 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		dataByGroup[[group]] <- .extractBasicStats(groupwiseLogs$groupData[[group]], groupwiseLogs$behnames, durBehNames);
 		write.csv(dataByGroup[[group]]$total, file = paste(outfilePrefix, group, "data.csv", sep = "_"));
 	}
-	return(.runStats(lapply(dataByGroup, function(d){d$total}), outfilePrefix, list("t.test", "wilcox.test"))); #TODO twoGroups
+	return(.runStats(lapply(dataByGroup, function(d){d$total}), outfilePrefix, list(t.test = t.test, wilcox = wilcox.test))); #TODO twoGroups
 }
 
-	average = lapply(dataByGroup, function(d) {apply(d$total, 1, mean)});
-	stddev = lapply(dataByGroup, function(d) {apply(d$total, 1, sd)});
+#TODO remove this
+	# average = lapply(dataByGroup, function(d) {apply(d$total, 1, mean)});
+	# stddev = lapply(dataByGroup, function(d) {apply(d$total, 1, sd)});
 	
-	bootdir = paste(outfilePrefix, "basicstats_bootstrap/", sep = "");
-	dir.create(bootdir);
-	wilcox = numeric();
-	studentT = numeric();
-	bootstrap = numeric();
-	rownames = dimnames(dataByGroup[[1]]$total)[[1]];
-	if (length(dataByGroup) >=2) { for (row in rownames) { #THIS IS BAD FIXIT TODO BUG
-		print(row);
-		group1dat = dataByGroup[[1]]$total[row,];
-		group2dat = dataByGroup[[2]]$total[row,]; 
-		enoughObservations = (sum(!is.na(group1dat)) >= minNumLogs && sum(!is.na(group2dat)) >= minNumLogs);
-		if (enoughObservations) {
-			wilcox = c(wilcox, wilcox.test(x=group1dat, y=group2dat)$p.value);
-			studentT = c(studentT, t.test(x=group1dat, y=group2dat)$p.value);
-			bootstrap = c(bootstrap,  bootstrap2independent(group1 = group1dat,
-															group2 = group2dat,
-															dataDescriptor = row,
-															outfile = paste(bootdir, gsub("[ :/]", "", row), "bootstrap.jpg", sep = "_"),
-															groupNames = names(dataByGroup)[1:2],
-															printResults = F, verbose = F,
-															trials = bootstrapTrials)$p);
-		} else {
-			warning(paste('Skipping "', row, '" (not enough observations)', sep = ""), immediate.=T);
-			wilcox = c(wilcox, NA);
-			studentT = c(studentT, NA);
-			bootstrap = c(bootstrap, NA);
-		}
-	}
-	df = data.frame(average = average, stddev = stddev, wilcox_p = wilcox, studentT_p = studentT, bootstrap_p = bootstrap); # TODO should be able to get average with any # of groups
-	write.csv(df, file = paste(outfilePrefix, "stats.csv", sep = "_"));
-	return(df); }
-}
+	# bootdir = paste(outfilePrefix, "basicstats_bootstrap/", sep = "");
+	# dir.create(bootdir);
+	# wilcox = numeric();
+	# studentT = numeric();
+	# bootstrap = numeric();
+	# rownames = dimnames(dataByGroup[[1]]$total)[[1]];
+	# if (length(dataByGroup) >=2) { for (row in rownames) { #THIS IS BAD FIXIT TODO BUG
+		# print(row);
+		# group1dat = dataByGroup[[1]]$total[row,];
+		# group2dat = dataByGroup[[2]]$total[row,]; 
+		# enoughObservations = (sum(!is.na(group1dat)) >= minNumLogs && sum(!is.na(group2dat)) >= minNumLogs);
+		# if (enoughObservations) {
+			# wilcox = c(wilcox, wilcox.test(x=group1dat, y=group2dat)$p.value);
+			# studentT = c(studentT, t.test(x=group1dat, y=group2dat)$p.value);
+			# bootstrap = c(bootstrap,  bootstrap2independent(group1 = group1dat,
+															# group2 = group2dat,
+															# dataDescriptor = row,
+															# outfile = paste(bootdir, gsub("[ :/]", "", row), "bootstrap.jpg", sep = "_"),
+															# groupNames = names(dataByGroup)[1:2],
+															# printResults = F, verbose = F,
+															# trials = bootstrapTrials)$p);
+		# } else {
+			# warning(paste('Skipping "', row, '" (not enough observations)', sep = ""), immediate.=T);
+			# wilcox = c(wilcox, NA);
+			# studentT = c(studentT, NA);
+			# bootstrap = c(bootstrap, NA);
+		# }
+	# }
+	# df = data.frame(average = average, stddev = stddev, wilcox_p = wilcox, studentT_p = studentT, bootstrap_p = bootstrap); # TODO should be able to get average with any # of groups
+	# write.csv(df, file = paste(outfilePrefix, "stats.csv", sep = "_"));
+	# return(df); }
+# }
 
 # comparison function must take x,y and return list with entry "p.value"
 # TODO test
@@ -585,17 +588,23 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	if (twoGroups) { # potentially tests cannot b empty TODO test thaaaaat
 		for (i in 1:length(tests)) {
 			df = data.frame(df, numeric(dim(df)[1]));
-			names(df)[i + offset] <- tests[i]; #TODO resume here
+			names(df)[i + offset] <- names(tests)[i]; #TODO resume here
 		}
 		for (i in 1:length(rownames)) {
 			row = rownames[i]
 			print(row);
 			group1dat = dataByGroup[[1]][row,];
-			group2dat = dataByGroup[[2]][row,]; 
+			group2dat = dataByGroup[[2]][row,];
+			
+			if (sum(group1dat[!is.na(group1dat)]) + sum(group2dat[!is.na(group2dat)]) == 0) {
+				df[i, (offset + 1):(offset + length(tests))] <- NA;
+				next;
+			}
+			
 			enoughObservations = (sum(!is.na(group1dat)) >= minNumLogsForComparison && sum(!is.na(group2dat)) >= minNumLogsForComparison);
 			if (enoughObservations) {
 				for (j in 1:length(tests)) {
-					fxn = get(tests[[j]]);
+					fxn = tests[[j]];
 					df[i, j + offset] <- fxn(x=group1dat, y=group2dat)$p.value
 				}
 			} else {
@@ -726,49 +735,54 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	for (group in groupwiseLogs$groupNames) {
 		groupPMs = lapply(groupwiseLogs$groupData[[group]], function(d) {.getProbabilityMatrix(d$behavior, byTotal=byTotal)});
 		transProbsByGroup[[group]] <- .makeTPMatrix(groupPMs, groupwiseLogs$behnames, byTotal);
-		# TODO write.csv a la write.csv(dataByGroup[[group]]$total, file = paste(outfilePrefix, group, "data.csv", sep = "_"));
+		write.csv(transProbsByGroup[[group]], file = paste(outfilePrefix, group, "transitionalprobabilities.csv", sep = "_")); #TODO inspect output
 	}
-	
-	bootdir = paste(outfilePrefix, "transitionalprob_bootstrap/", sep = "");
-	dir.create(bootdir);	
-	wilcox = numeric();
-	studentT = numeric();
-	bootstrap = numeric();
-	rownames = dimnames(transProbsByGroup[[1]])[[1]];
-	for (row in rownames) {
-		print(row);
-		group1dat = transProbsByGroup[[1]][row,];
-		group2dat = transProbsByGroup[[2]][row,];
-		
-		if (sum(group1dat[!is.na(group1dat)]) + sum(group2dat[!is.na(group2dat)]) == 0) {
-			wilcox = c(wilcox, NA);
-			studentT = c(studentT, NA);
-			bootstrap = c(bootstrap, NA);
-			next;
-		}
-		
-		enoughObservations = (sum(!is.na(group1dat)) >= minNumLogs && sum(!is.na(group2dat)) >= minNumLogs);
-		if (enoughObservations) {
-			wilcox = c(wilcox, wilcox.test(x=group1dat, y=group2dat)$p.value);
-			studentT = c(studentT, t.test(x=group1dat, y=group2dat)$p.value);
-			bootstrap = c(bootstrap,  bootstrap2independent(group1 = group1dat,
-															group2 = group2dat,
-															dataDescriptor = row,
-															outfile = paste(bootdir, gsub("[ :/]", "", gsub(" -> ", "To", row)), "tp_bootstrap.jpg", sep = "_"),
-															groupNames = names(transProbsByGroup)[1:2],
-															printResults = F, verbose = F,
-															trials = bootstrapTrials)$p );
-		} else {
-			wilcox = c(wilcox, NA);
-			studentT = c(studentT, NA);
-			bootstrap = c(bootstrap, NA);
-		}
-	}
-	df = data.frame(wilcox_p = wilcox, studentT_p = studentT, bootstrap_p = bootstrap);
-	dimnames(df)[[1]] <- rownames;
-	write.csv(df, file = paste(outfilePrefix, "transitionalprobability_stats.csv", sep = "_"));
-	return(df);
+	return(.runStats(transProbsByGroup, paste(outfilePrefix, "transitionalprobabilities", sep = "_"),
+			list(t.test = t.test, wilcox = wilcox.test))); # TODO two groups #BUG (maybe?) average and stddev are ALL NA when byTotal = FALSE
 }
+	
+	
+#TODO remove this
+	# bootdir = paste(outfilePrefix, "transitionalprob_bootstrap/", sep = "");
+	# dir.create(bootdir);	
+	# wilcox = numeric();
+	# studentT = numeric();
+	# bootstrap = numeric();
+	# rownames = dimnames(transProbsByGroup[[1]])[[1]];
+	# for (row in rownames) {
+		# print(row);
+		# group1dat = transProbsByGroup[[1]][row,];
+		# group2dat = transProbsByGroup[[2]][row,];
+		
+		# if (sum(group1dat[!is.na(group1dat)]) + sum(group2dat[!is.na(group2dat)]) == 0) {
+			# wilcox = c(wilcox, NA);
+			# studentT = c(studentT, NA);
+			# bootstrap = c(bootstrap, NA);
+			# next;
+		# }
+		
+		# enoughObservations = (sum(!is.na(group1dat)) >= minNumLogs && sum(!is.na(group2dat)) >= minNumLogs);
+		# if (enoughObservations) {
+			# wilcox = c(wilcox, wilcox.test(x=group1dat, y=group2dat)$p.value);
+			# studentT = c(studentT, t.test(x=group1dat, y=group2dat)$p.value);
+			# bootstrap = c(bootstrap,  bootstrap2independent(group1 = group1dat,
+															# group2 = group2dat,
+															# dataDescriptor = row,
+															# outfile = paste(bootdir, gsub("[ :/]", "", gsub(" -> ", "To", row)), "tp_bootstrap.jpg", sep = "_"),
+															# groupNames = names(transProbsByGroup)[1:2],
+															# printResults = F, verbose = F,
+															# trials = bootstrapTrials)$p );
+		# } else {
+			# wilcox = c(wilcox, NA);
+			# studentT = c(studentT, NA);
+			# bootstrap = c(bootstrap, NA);
+		# }
+	# }
+	# df = data.frame(wilcox_p = wilcox, studentT_p = studentT, bootstrap_p = bootstrap);
+	# dimnames(df)[[1]] <- rownames;
+	# write.csv(df, file = paste(outfilePrefix, "transitionalprobability_stats.csv", sep = "_"));
+	# return(df);
+# }
 
 # Helper function for .compareTransitionalProbabilities(). Returns a matrix with a row for each pair of
 # behaviors and a column for each subject, giving the transitional probability for that pair of behaviors
@@ -890,41 +904,45 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		# groupEMsAndCounts = list(probMats = lapply(entropyLists, function(l) {return(l$hMat)}),
 								 # counts = lapply(groupwiseLogs$groupData[[group]], function(d) {table(d$behavior)}));
 		entropiesByGroup[[group]] <- .makeEntropyVecMatrix(entropyVecs, groupwiseLogs$behnames);
-		# TODO write.csv a la write.csv(dataByGroup[[group]]$total, file = paste(outfilePrefix, group, "data.csv", sep = "_"));
+		write.csv(entropiesByGroup[[group]], file = paste(outfilePrefix, group, "entropydata.csv", sep = "_")); #TODO check output
 	}
-		
-	bootdir = paste(outfilePrefix, "entropy_bootstrap/", sep = "");
- 	dir.create(bootdir);
-	wilcox = numeric();
-	studentT = numeric();
-	bootstrap = numeric();
-	rownames = dimnames(entropiesByGroup[[1]])[[1]];
-	for (row in rownames) {
-		print(row);
-		group1dat = entropiesByGroup[[1]][row,];
-		group2dat = entropiesByGroup[[2]][row,];
-		enoughObservations = (sum(!is.na(group1dat)) >= minNumLogs && sum(!is.na(group2dat)) >= minNumLogs);
-		if (enoughObservations) {
-			wilcox = c(wilcox, wilcox.test(x=group1dat, y=group2dat)$p.value);
-			studentT = c(studentT, t.test(x=group1dat, y=group2dat)$p.value);
-			bootstrap = c(bootstrap,  bootstrap2independent(group1 = group1dat,
-															group2 = group2dat,
-															dataDescriptor = row,
-															outfile = paste(bootdir, gsub("[ :/]", "", row), "entropy_bootstrap.jpg", sep = "_"),
-															groupNames = names(entropiesByGroup)[1:2],
-															printResults = F, verbose = F,
-															trials = bootstrapTrials)$p );
-		} else {
-			wilcox = c(wilcox, NA);
-			studentT = c(studentT, NA);
-			bootstrap = c(bootstrap, NA);
-		}
-	}
-	df = data.frame(wilcox_p = wilcox, studentT_p = studentT, bootstrap_p = bootstrap);
-	dimnames(df)[[1]] <- rownames;
-	write.csv(df, file = paste(outfilePrefix, "entropy_stats.csv", sep = "_"));
-	return(df);
+	return(.runStats(entropiesByGroup, paste(outfilePrefix, "entropy", sep = "_"),
+			list(t.test = t.test, wilcox = wilcox.test))); #TODO twoGroups
 }
+
+# TODO remove this		
+	# bootdir = paste(outfilePrefix, "entropy_bootstrap/", sep = "");
+ 	# dir.create(bootdir);
+	# wilcox = numeric();
+	# studentT = numeric();
+	# bootstrap = numeric();
+	# rownames = dimnames(entropiesByGroup[[1]])[[1]];
+	# for (row in rownames) {
+		# print(row);
+		# group1dat = entropiesByGroup[[1]][row,];
+		# group2dat = entropiesByGroup[[2]][row,];
+		# enoughObservations = (sum(!is.na(group1dat)) >= minNumLogs && sum(!is.na(group2dat)) >= minNumLogs);
+		# if (enoughObservations) {
+			# wilcox = c(wilcox, wilcox.test(x=group1dat, y=group2dat)$p.value);
+			# studentT = c(studentT, t.test(x=group1dat, y=group2dat)$p.value);
+			# bootstrap = c(bootstrap,  bootstrap2independent(group1 = group1dat,
+															# group2 = group2dat,
+															# dataDescriptor = row,
+															# outfile = paste(bootdir, gsub("[ :/]", "", row), "entropy_bootstrap.jpg", sep = "_"),
+															# groupNames = names(entropiesByGroup)[1:2],
+															# printResults = F, verbose = F,
+															# trials = bootstrapTrials)$p );
+		# } else {
+			# wilcox = c(wilcox, NA);
+			# studentT = c(studentT, NA);
+			# bootstrap = c(bootstrap, NA);
+		# }
+	# }
+	# df = data.frame(wilcox_p = wilcox, studentT_p = studentT, bootstrap_p = bootstrap);
+	# dimnames(df)[[1]] <- rownames;
+	# write.csv(df, file = paste(outfilePrefix, "entropy_stats.csv", sep = "_"));
+	# return(df);
+# }
 
 # Helper function for .compareEntropy(). Returns a matrix with a row for each behavior and a column
 # for each subject, giving the entropy for that behavior in that subject. If the behavior never occurs
