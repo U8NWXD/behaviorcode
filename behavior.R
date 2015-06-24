@@ -921,8 +921,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		entropiesByGroup[[group]] <- .makeEntropyVecMatrix(entropyVecs, groupwiseLogs$behnames);
 		write.csv(entropiesByGroup[[group]], file = paste(outfilePrefix, group, "entropydata.csv", sep = "_")); #TODO check output
 	}
-	return(.runStats(entropiesByGroup, paste(outfilePrefix, "entropy", sep = "_"),
-			list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = bootstrapWrapper, trials = 12000)))); #TODO twoGroups
+	return(.runStats(dataByGroup = entropiesByGroup, outfilePrefix = paste(outfilePrefix, "entropy", sep = "_"),
+					 tests = list(t.test = t.test, wilcox = wilcox.test,
+					 			  bootstrap = list(func = bootstrapWrapper, trials = bootstrapTrials)),
+					 minNumLogsForComparison = minNumLogs)); #TODO twoGroups
 }
 
 # TODO remove this		
