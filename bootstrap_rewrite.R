@@ -85,15 +85,6 @@ confidenceInterval = function(data,
 #### bootstrap2independent() tests two numeric data vectors representing independent groups ####
 ################################################################################################
 
-bootstrapWrapper = function(argList) {
-	# print(argList);
-	bs = bootstrap2independent(x = argList$x, y = argList$y, dataDescriptor = argList$row,
-	       						 outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"),
-	       						 groupNames = argList$groupNames, trials = argList$trials, verbose = F);
-	# print(list(p = bs$p.value, dat = bs$data));
-	return(bs);
-}
-
 bootstrap2independent = function(x, y, 
 						  		 trials = 10000, 
 						  		 Func = 'mean', 

@@ -541,6 +541,15 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			tests = tests, minNumLogsForComparison = minNumLogs));  #TODO twoGroups
 }
 
+# TODO comment
+.bootstrapWrapper = function(argList) {
+	# print(argList);
+	bs = bootstrap2independent(x = argList$x, y = argList$y, dataDescriptor = argList$row,
+	       						 outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"),
+	       						 groupNames = argList$groupNames, trials = argList$trials, verbose = F);
+	# print(list(p = bs$p.value, dat = bs$data));
+	return(bs);
+}
 
 # comparison function must take x,y and return list with entry "p.value"
 # tests is a list of functions. the names of the list are used to label columns. ie, list(ttest = t.text, wilcox = wilcox.test)
@@ -845,8 +854,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		write.csv(entropiesByGroup[[group]], file = paste(outfilePrefix, group, "entropydata.csv", sep = "_")); #TODO check output
 	}
 	return(.runStats(dataByGroup = entropiesByGroup, outfilePrefix = paste(outfilePrefix, "entropy", sep = "_"),
-					 # tests = list(t.test = t.test, wilcox = wilcox.test,
-					 			  # bootstrap = list(func = bootstrapWrapper, trials = bootstrapTrials)),
 					 tests = tests, minNumLogsForComparison = minNumLogs));  #TODO twoGroups
 }
 
