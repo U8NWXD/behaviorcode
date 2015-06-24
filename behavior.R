@@ -33,8 +33,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # TODO output to excel the trans prob mats. MAKE THIS PART OF MAIN DATA PIPELINE. in .compareProbMats?
 
 # TODO add option for all compare fxns verbose = false
-# TODO merge compare fxns
-# TODO make stat test for compare fxns a parameter
 
 # TODO add or ask about folder slash-at-end. Maybe do this in the Big Shell that asks for ONE outfile path.
 # TODO make the Big Shell
@@ -541,7 +539,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			tests = tests, minNumLogsForComparison = minNumLogs));  #TODO twoGroups
 }
 
-# TODO comment
+# A wrapper function for bootstrap2independent that makes it play well with .runStats
 .bootstrapWrapper = function(argList) {
 	# print(argList);
 	bs = bootstrap2independent(x = argList$x, y = argList$y, dataDescriptor = argList$row,
@@ -571,7 +569,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	if (twoGroups) { # potentially tests cannot b empty TODO test thaaaaat
 		for (i in 1:length(tests)) {
 			df = data.frame(df, numeric(dim(df)[1]));
-			names(df)[i + offset] <- names(tests)[i]; #TODO resume here
+			names(df)[i + offset] <- names(tests)[i];
 		}
 		for (i in 1:length(rownames)) {
 			row = rownames[i]
@@ -594,7 +592,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 						functionList = tests[[j]];
 						df[i, j + offset] <- functionList[[1]](c(functionList[-1], list(x = group1dat, y = group2dat, row = row,
 															   outfilePrefix = outfilePrefix, groupNames = names(dataByGroup)[1:2])))$p.value #TODO change 1:2
-					}  #TODO twoGroups
+					}
 				}
 			} else {
 				warning(paste('Skipping "', row, '" (not enough observations)', sep = ""), immediate.=T);
@@ -673,7 +671,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 								 counts = lapply(groupwiseLogs$groupData[[group]], function(d) {table(d$behavior)}));
 		probMatsByGroup[[group]] <- .combineProbabilityMatrices(groupPMsAndCounts, groupwiseLogs$behnames, byTotal);
 	}
-	return(probMatsByGroup); #TODO if it is a list of one item what happens?????? go into .sepGroups the problem may be there BUG
+	return(probMatsByGroup);
 }
 
 # Helper function for .groupLevelProbMats()
@@ -716,7 +714,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # These values are compared with three different tests: wilcox.test(), t.test(), and bootstrap2independent(). Transitional
 # probabilities are only compared for behaviors that occur in at least <minNumLogs> score logs in each group, and where at
 # least one animal had a nonzero transitional probability. Graphs output by the bootstrap function are also saved.
-.compareTransitionalProbabilites = function(data, byTotal = FALSE, outfilePrefix, tests, minNumLogs = 3) {
+.compareTransitionalProbabilities = function(data, byTotal = FALSE, outfilePrefix, tests, minNumLogs = 3) {
 	data = .filterDataList(data, renameStartStop = TRUE);
 	groupwiseLogs = .sepGroups(data);
 	
@@ -724,7 +722,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	for (group in groupwiseLogs$groupNames) {
 		groupPMs = lapply(groupwiseLogs$groupData[[group]], function(d) {.getProbabilityMatrix(d$behavior, byTotal=byTotal)});
 		transProbsByGroup[[group]] <- .makeTPMatrix(groupPMs, groupwiseLogs$behnames, byTotal);
-		write.csv(transProbsByGroup[[group]], file = paste(outfilePrefix, group, "transitionalprobabilities.csv", sep = "_")); #TODO inspect output
+		write.csv(transProbsByGroup[[group]], file = paste(outfilePrefix, group, "transitionalprobabilities.csv", sep = "_"));
 	}
 	return(.runStats(dataByGroup = transProbsByGroup, outfilePrefix = paste(outfilePrefix, "transitionalprobabilities", sep = "_"),
 			tests = tests, minNumLogsForComparison = minNumLogs)); #BUG (maybe?) average and stddev are ALL NA when byTotal = FALSE  #TODO twoGroups
@@ -851,7 +849,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		# groupEMsAndCounts = list(probMats = lapply(entropyLists, function(l) {return(l$hMat)}),
 								 # counts = lapply(groupwiseLogs$groupData[[group]], function(d) {table(d$behavior)}));
 		entropiesByGroup[[group]] <- .makeEntropyVecMatrix(entropyVecs, groupwiseLogs$behnames);
-		write.csv(entropiesByGroup[[group]], file = paste(outfilePrefix, group, "entropydata.csv", sep = "_")); #TODO check output
+		write.csv(entropiesByGroup[[group]], file = paste(outfilePrefix, group, "entropydata.csv", sep = "_"));
 	}
 	return(.runStats(dataByGroup = entropiesByGroup, outfilePrefix = paste(outfilePrefix, "entropy", sep = "_"),
 					 tests = tests, minNumLogsForComparison = minNumLogs));  #TODO twoGroups

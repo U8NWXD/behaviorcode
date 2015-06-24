@@ -73,7 +73,7 @@
 	> lapply(probMatsByGroup, function(d){.computeEntropyProbMatrix(d$probMat)$h_norm})	
 
 7. Compare entropies and transitional probabilities. The function calls should be:
-	> .compareTransitionalProbabilites(my_data, byTotal=F, outfilePrefix = "~/Desktop/myExperiment")
+	> .compareTransitionalProbabilities(my_data, byTotal=F, outfilePrefix = "~/Desktop/myExperiment")
    and
 	> .compareEntropy(my_data, "~/Desktop/myExperiment")
    These functions have mostly the same options as .calcBasicStats. It's also
