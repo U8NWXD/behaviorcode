@@ -55,9 +55,14 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(response == 'y');
 }
 
+# "Autocompletes" <input> to be one of the strings in <choices> by looking to see if there
+# is exactly one string in <choices> that has <input> as a prefix.
+# If case sensitivity is turned off (default), <input> will be modified to match the case
+# of its match in <choices>.
 .autocomplete = function(input, choices, caseSensitive = FALSE) {
 	greplResult = if (caseSensitive) grepl(paste("^", input, sep = ""), choices) else grepl(paste("^", tolower(input), sep = ""), tolower(choices));
 	if (sum(greplResult) == 1) {return(choices[greplResult]);}
+	else if (!caseSensitive && tolower(input) %in% tolower(choices)) {return(choices[which(tolower(choices) == tolower(input))]);}
 	else return(input);
 }
 
@@ -75,7 +80,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	            else {paste(folderPath,list.files(folderPath, pattern = "txt$"),sep = "");}
 	data = list();
 	assayStart = if (.getYesOrNo("Did you mark assay starts in your score logs? ")) NULL else FALSE;
-	print(assayStart); # TODO remove
 	for (f in 1:length(filenames)) {
 		cat("Loading file \"", filenames[f], "\"...\n", sep = "");
 		datOut = .getData(filenames[f], assayStart, single = FALSE);
@@ -100,8 +104,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	framesPerSecond = as.numeric(gsub('[^0-9]', '', data0[fpsRow,1]));
 	
 	asout = .getAssayStart(data0, assayStart, filename);
-	startTime = asout[[1]];
-	assayStart = asout[[2]];
+	startTime = asout$time;
 	
 	df = .parseFullLog(data0, desc_table, framesPerSecond);
 	
@@ -112,6 +115,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	if (df$time[1] < startTime) warning("Some behavior(s) were scored before the assay start.", immediate. = TRUE);
 	df$time <- df$time - startTime;
 	df$pair_time <- df$pair_time - startTime;
+	attr(df, 'assay.start') <- list(mark = asout$name, time = startTime);
 	
 	if (nrow(df)<1) {
 		warning(paste('No data in ', filename, sep=''));
@@ -120,7 +124,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #	desc_table = desc_table[as.character(desc_table[, 1]) %in% as.character(df$behavior), ];
 
 #   could return desc_table here if desired
-	return(if (single) df else list(df, assayStart));
+	return(if (single) df else list(df, asout$assayStart));
 }
 
 # Helper function for .getData
@@ -128,7 +132,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #   is the assay start time (or 0 if no assay start was marked) and whose second element is a
 #   character vector of default assay starts.
 .getAssayStart = function(data0, assayStart, logname) {
-	if (is.logical(assayStart) && !assayStart) return(list(0, assayStart));
+	if (is.logical(assayStart) && !assayStart) return(list(time = 0, name = NA, assayStart = assayStart));
 	
 	start_marks = which(data0=='MARKS') + 4;
 	end_marks = length(data0[,1]) - 1;
@@ -138,7 +142,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	markNames = unlist(lapply(marks, function(f) f[[3]]));
 	
 	if (!is.null(assayStart) && sum(markNames %in% assayStart) == 1) {
-		return(list(.timeToSeconds(marks[[which(markNames %in% assayStart)]][2]), assayStart));
+		markIndex = which(markNames %in% assayStart);
+		return(list(time = .timeToSeconds(marks[[markIndex]][2]), name = markNames[markIndex], assayStart = assayStart));
 	} else {
 		prompt = if (is.null(assayStart)) {""}
 		else if (sum(markNames %in% assayStart) == 0) {paste('No default assay start marks found.\n', sep = "")}
@@ -147,11 +152,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 						'Which mark is the assay start? (enter "q" to skip assay start for this log or press ESC to abort)\n',
 						sep = "");
 		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
-		if (userInput == "q") return(list(0, assayStart));
+		if (userInput == "q") return(list(time = 0, name = NA, assayStart = assayStart));
 		userInput = .autocomplete(userInput, markNames);
-		while (!(userInput %in% c(markNames))) {
+		while (!(userInput %in% markNames)) {
 			userInput = gsub('^["\']','', gsub('["\']$','', readline('Please enter a valid mark name or "q", or press ESC to abort: ')));
-			if (userInput == "q") return(list(0, assayStart));
+			if (userInput == "q") return(list(time = 0, name = NA, assayStart = assayStart));
 			userInput = .autocomplete(userInput, markNames);
 		}
 		
@@ -160,9 +165,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			if (addMark) assayStart = c(assayStart, userInput);
 		}
 		
-		return(list(.timeToSeconds(marks[[which(markNames %in% userInput)]][2]), assayStart));
+		markIndex = which(markNames == userInput);
+		return(list(time = .timeToSeconds(marks[[markIndex]][2]), name = markNames[markIndex], assayStart = assayStart));
 	}
-	print(markNames);
 }
 
 
@@ -571,7 +576,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	if (twoGroups) { # potentially tests cannot b empty TODO test thaaaaat
 		tests = list(...)
 		for (i in 1:length(tests)) {
-			df = data.frame(df, numeric(dim(df)[1])) #TODO resume here
+			df = data.frame(df, numeric(dim(df)[1]));
+			names(df)[i + offset] <- tests[i]; #TODO resume here
 		}
 		for (i in 1:length(rownames)) {
 			row = rownames[i]
