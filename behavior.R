@@ -93,6 +93,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 # Reads in a score log (.txt file) and returns a data frame with columns
 #   time    behavior    subject    type    pair_time    duration
+# This data frame has an attribute called assay.start that gives the name
+#   of the mark the user indicated was the assay start and the time in the
+#   video that this mark occured. Regardless of the time given in this attribute,
+#   the assay start is defined as time 0 in the timescale used for "time" and
+#   "pair_time" in the data frame itself (that is, behavior times are given
+#   in seconds after the assay start, NOT seconds after the video start).
 # If called with single = FALSE (should only be done from .getDataBatch), this
 #   is returned as the first element of a list whose second element is the updated
 #   assayStart (since no pass-by-reference).
@@ -528,6 +534,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		dataByGroup[[group]] <- .extractBasicStats(groupwiseLogs$groupData[[group]], groupwiseLogs$behnames, durBehNames);
 		write.csv(dataByGroup[[group]]$total, file = paste(outfilePrefix, group, "data.csv", sep = "_"));
 	}
+	return(.runStats(lapply(dataByGroup, function(d){d$total}), outfilePrefix, list("t.test", "wilcox.test"))); #TODO twoGroups
+}
+
 	average = lapply(dataByGroup, function(d) {apply(d$total, 1, mean)});
 	stddev = lapply(dataByGroup, function(d) {apply(d$total, 1, sd)});
 	
@@ -566,15 +575,14 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 # comparison function must take x,y and return list with entry "p.value"
 # TODO test
-.runStats = function(..., dataByGroup, outfilePrefix, twoGroups = TRUE, minNumLogsForComparison = 3){
-	average = lapply(dataByGroup, function(d) {apply(d$total, 1, mean)});
-	stddev = lapply(dataByGroup, function(d) {apply(d$total, 1, sd)});
-	rownames = dimnames(dataByGroup[[1]]$total)[[1]]; # get out this $total business
+.runStats = function(dataByGroup, outfilePrefix, tests, twoGroups = TRUE, minNumLogsForComparison = 3){
+	average = lapply(dataByGroup, apply, 1, mean);
+	stddev = lapply(dataByGroup, apply, 1, sd);
+	rownames = dimnames(dataByGroup[[1]])[[1]];
 	df = data.frame(average = average, stddev = stddev)
 	offset = dim(df)[2]
 	
 	if (twoGroups) { # potentially tests cannot b empty TODO test thaaaaat
-		tests = list(...)
 		for (i in 1:length(tests)) {
 			df = data.frame(df, numeric(dim(df)[1]));
 			names(df)[i + offset] <- tests[i]; #TODO resume here
@@ -582,8 +590,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		for (i in 1:length(rownames)) {
 			row = rownames[i]
 			print(row);
-			group1dat = dataByGroup[[1]]$total[row,];
-			group2dat = dataByGroup[[2]]$total[row,]; 
+			group1dat = dataByGroup[[1]][row,];
+			group2dat = dataByGroup[[2]][row,]; 
 			enoughObservations = (sum(!is.na(group1dat)) >= minNumLogsForComparison && sum(!is.na(group2dat)) >= minNumLogsForComparison);
 			if (enoughObservations) {
 				for (j in 1:length(tests)) {
