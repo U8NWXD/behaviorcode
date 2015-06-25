@@ -554,7 +554,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 }
 
 # Calculates the average and standard deviation of <dataByGroup> (and optionally statistical tests in <tests>) and
-#   outputs the results to a .csv starting with <outfilePrefix>.
+#   outputs the results to a .csv starting with <outfilePrefix>. If <skipNA>, the average and standard deviation
+#   are calculated ignoring NAs. ie, average = (sum of not-NA data) / (number of subjects with not-NA data)
 # <dataByGroup> should be a list of matrices. Each matrix represents an experimental group, with a column for each
 #   subject and a row for each measurement (ie "Lead count" or "Quiver -> Lead Transitional Probability"). The list
 #   has length two for a two-group experiment.
@@ -569,9 +570,17 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #   myFunctionWrapper = function(arglist) {
 #		return(myFunction(group1 = arglist$x, group2 = arglist$y, arg1Name = arglist$arg1Name, outpref = arglist$outfilePrefix))
 #   }
-.runStats = function(dataByGroup, outfilePrefix, tests, minNumLogsForComparison = 3){
-	average = lapply(dataByGroup, apply, 1, mean);
-	stddev = lapply(dataByGroup, apply, 1, sd);
+.runStats = function(dataByGroup, outfilePrefix, tests, minNumLogsForComparison = 3, skipNA = F) {
+	average = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){mean(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, mean);
+	stddev = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){sd(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, sd);
+	if (skipNA) {
+		print(dataByGroup);
+		for (i in 1:length(dataByGroup)) {
+			allNARows = apply(dataByGroup[[i]], 1, function(row){sum(!is.na(row)) == 0});
+			average[[i]][allNARows] <- NA;
+			stddev[[i]][allNARows] <- NA;
+		}
+	}
 	rownames = dimnames(dataByGroup[[1]])[[1]];
 	df = data.frame(average = average, stddev = stddev);
 	offset = dim(df)[2];
@@ -738,11 +747,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		transProbsByGroup[[group]] <- .makeTPMatrix(groupPMs, groupwiseLogs$behnames, byTotal);
 		write.csv(transProbsByGroup[[group]], file = paste(outfilePrefix, group, "transitionalprobabilities_datadump.csv", sep = "_"));
 		groupPMsAndCounts = list(probMats = groupPMs, counts = lapply(groupwiseLogs$groupData[[group]], function(d) {table(d$behavior)}));
-		write.csv(.combineProbabilityMatrices(groupPMsAndCounts, groupwiseLogs$behnames, byTotal),
+		write.csv(.combineProbabilityMatrices(groupPMsAndCounts, groupwiseLogs$behnames, byTotal)$probMat,
 				  file = paste(outfilePrefix, group, "transitionalprobabilities_average.csv", sep = "_"));
 	}
 	return(.runStats(dataByGroup = transProbsByGroup, outfilePrefix = paste(outfilePrefix, "transitionalprobabilities", sep = "_"),
-			tests = tests, minNumLogsForComparison = minNumLogs)); #BUG (maybe?) average and stddev are ALL NA when byTotal = FALSE  #TODO twoGroups
+			tests = tests, minNumLogsForComparison = minNumLogs, skipNA = !byTotal)); #BUG (maybe?) average and stddev are ALL NA when byTotal = FALSE  #TODO twoGroups
 }
 
 
@@ -870,7 +879,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		write.csv(entropiesByGroup[[group]], file = paste(outfilePrefix, group, "entropydata.csv", sep = "_"));
 	}
 	return(.runStats(dataByGroup = entropiesByGroup, outfilePrefix = paste(outfilePrefix, "entropy", sep = "_"),
-					 tests = tests, minNumLogsForComparison = minNumLogs));  #TODO twoGroups
+					 tests = tests, minNumLogsForComparison = minNumLogs, skipNA = T));  #TODO twoGroups
 }
 
 
