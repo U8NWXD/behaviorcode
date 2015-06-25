@@ -1450,6 +1450,16 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			);
 }
 
+# Returns a vector of the names of behaviors that are durational
+.startStopBehs = function(data) {
+	behaviors <- names(.findDupBehaviors(data));
+	ssBehs = character();
+	for (beh in behaviors) {
+		if (sum(!is.na(unlist(lapply(data, function(d){d$type[d$behavior == beh][1]})))) > 0) ssBehs <- c(ssBehs, beh);
+	}
+	return(ssBehs);
+}
+
 .makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, ...) {
 	# if (is.null(.checkInputDataVecOK(data))) {
 		# return(NULL);
