@@ -1472,17 +1472,23 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		for (i in 1:length(temp_behcolors[,1])) {
 			beh = temp_behcolors[i,1];
 			# print(beh);
-			plot(dataFrame$time[dataFrame$behavior == beh], rep(n, length.out = length(dataFrame$time[dataFrame$behavior == beh])), # TODO change the 1 to subject #
-			 		frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(0, maxtime), ylim = c(0, num_subj + 1),
-				 	col= temp_behcolors[i,2], cex=3, pch=3, 
-			 		...);
+			if (is.na(dataFrame$type[dataFrame$behavior == beh][1])) {
+				plot(dataFrame$time[dataFrame$behavior == beh], rep(n, length.out = length(dataFrame$time[dataFrame$behavior == beh])),
+			 			frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(0, maxtime), ylim = c(0, num_subj + 1),
+				 		col= temp_behcolors[i,2], cex=3, pch=3, 
+			 			...);
+			} else {
+				occurrences = data.frame(start = dataFrame$time[dataFrame$behavior == beh & dataFrame$type == "start"],
+										 duration = as.numeric(dataFrame$duration[dataFrame$behavior == beh & dataFrame$type == "start"])); #TODO handle orphan start?? maybe scorevideo does this.
+				rect(xleft = occurrences$start, ybottom = n - .2, xright = occurrences$start + occurrences$duration, ytop = n + .2, col = temp_behcolors[i,2], border = NA);
+			}
 			par(new = TRUE);
 		}
 	}
 	par(new = FALSE);
 
 	title(xlab = "time (seconds)");
-	axis(2, at=1:num_subj, labels=subjects, tick=F, las=2); # TODO this is where to label subjects
+	axis(2, at=1:num_subj, labels=subjects, tick=F, las=2);
 	axis(1, yaxp=c(0, maxtime, 10), col='white', col.ticks='black');
 	for (i in 1:num_subj) { 
 		abline(h=i, col='black');
