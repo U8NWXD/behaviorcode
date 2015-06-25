@@ -223,7 +223,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		df = rbind(df, newRow);
 	}
 	names(df) = c('time', 'behavior', 'subject', 'type', 'pair_time', 'duration');
-	df$type <- as.factor(df$type);
+	df$type <- as.character(df$type);
 	df$time <- as.numeric(df$time) / framesPerSecond;
 	df$pair_time <- as.numeric(df$pair_time);
 	df = df[-1, ];
@@ -267,7 +267,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # this function does nothing.
 .renameStartStop = function(data) {
 	for (i in 1:dim(data)[1]) {
-		if (!is.na(data$type[i]) && !grepl(" st[oa][rp]t?$", data$behavior[i])) data$behavior[i] <- paste(data$behavior[i], " ", as.character(data$type[i]), sep = "");  
+		if (!is.na(data$type[i]) && !grepl(" st[oa][rp]t?$", data$behavior[i])) data$behavior[i] <- paste(data$behavior[i], " ", data$type[i], sep = "");  
 	}
 	return(data);
 }
