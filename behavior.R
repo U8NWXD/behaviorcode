@@ -277,9 +277,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # behavior before the pause and a "START" before the behavior after the pause. Also inserts a "START" at the
 # beginning of the log and a "STOP" at the end.
 # TODO use type, pair_time, duration to pair "START"s with "STOP"s.
-# TODO add option to allow a given state behavior to be separated by bout. accomplish this by changing types to sTaRt and sToP and then changing back?
-.separateBouts = function (data, intervalToSeparate) {
+.separateBouts = function (data, intervalToSeparate, stateBehaviors = NULL) {
 	# 	names(df) = c('time', 'behavior', 'subject', 'type', 'pair_time', 'duration');
+	data$type[!is.na(data$type) & data$type == "start" & data$behavior %in% stateBehaviors] <- "sTaRt";
+	data$type[!is.na(data$type) & data$type == "stop" & data$behavior %in% stateBehaviors] <- "sToP";
+	
 	newData = data.frame(time = data$time[1], behavior = "START", subject = NA, type = NA, pair_time = NA, duration = NA); 
 	newData = rbind(newData, data[1,]);
 	# print(data[1:20,]);
@@ -297,6 +299,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	stopRow = data.frame(time = data$time[length(data$time)], behavior = "STOP", subject = NA, type = NA, pair_time = NA, duration = NA);
 	newData = rbind(newData, stopRow);
 	dimnames(newData)[[1]] <- 1:length(dimnames(newData)[[1]])
+	
+	newData$type[!is.na(newData$type) & newData$type == "sTaRt"] <- "start";
+	newData$type[!is.na(newData$type) & newData$type == "sToP"] <- "stop";
 	return(newData);
 }
 
@@ -306,6 +311,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # startOnly - if TRUE, only consider starts of behaviors (ignore ends). If a character vector,
 #   ignore ends only for the behaviors named in the character vector.
 # boutInterval - interval to separate bouts, in seconds. Default is null (no bout separation)
+# stateBehaviors - when boutInterval is given, a vector of behaviors to treat as states. These
+#   behaviors can start in one bout and end in another bout.
 # minNumBehaviors - remove behaviors that do not occur at least this many times.
 # toExclude - remove all behaviors in this character vector.
 # splitPot - option specifically for Scott's PGF2a data to separate "inside POT" by subject into
@@ -315,7 +322,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # TODO pretty sloooooow on renameStartStop, esp. w/ a lot of logs. Try to optimize a bit.
 # TODO before/after spawning (or an arbitrary behavior)
 .filterData = function(data, startTime = NA, endTime = NA, subject = NULL, startOnly = NULL,
-					   boutInterval = NULL, minNumBehaviors = NULL, toExclude = NULL,
+					   boutInterval = NULL, stateBehaviors = NULL, minNumBehaviors = NULL, toExclude = NULL,
 					   renameStartStop = FALSE) {
 	if (!is.na(startTime)) {data <- data[data$time >= startTime,];}
 	if (!is.na(endTime)) {data <- data[data$time <= endTime,];}
