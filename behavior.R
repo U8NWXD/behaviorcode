@@ -154,22 +154,22 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		return(list(time = .timeToSeconds(marks[[markIndex]][2]), name = markNames[markIndex], assayStart = assayStart));
 	} else {
 		prompt = if (is.null(assayStart)) {""}
-		else if (sum(markNames %in% assayStart) == 0) {paste('No default assay start marks found.\n', sep = "")}
-		else {paste('Two or more default mark names found.\n')}
-		prompt = paste(prompt, 'Mark names found:\n"', paste(markNames, collapse = '" "'), '"\n',
-						'Which mark is the assay start? (enter "q" to skip assay start for this log or press ESC to abort)\n', # just do it with cat #TODO
-						sep = "");
+		else if (sum(markNames %in% assayStart) == 0) {paste('  No default assay start marks found.\n', sep = "")}
+		else {paste('  Two or more default mark names found.\n')}
+		prompt = paste(prompt, '  Mark names found:\n  "', paste(markNames, collapse = '" "'), '"\n', sep = "");
+		cat(prompt);
+		prompt = '  Which mark is the assay start? (enter "q" to skip assay start for this log or press ESC to abort)\n  > '; # just do it with cat #TODO
 		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt))); #BUG readline 256 chars - figure out how to print in purple
 		if (userInput == "q") return(list(time = 0, name = NA, assayStart = assayStart));
 		userInput = .autocomplete(userInput, markNames);
 		while (!(userInput %in% markNames)) {
-			userInput = gsub('^["\']','', gsub('["\']$','', readline('Please enter a valid mark name or "q", or press ESC to abort: ')));
+			userInput = gsub('^["\']','', gsub('["\']$','', readline('  Please enter a valid mark name or "q", or press ESC to abort: ')));
 			if (userInput == "q") return(list(time = 0, name = NA, assayStart = assayStart));
 			userInput = .autocomplete(userInput, markNames);
 		}
 		
 		if (!userInput %in% assayStart) {
-			addMark = .getYesOrNo(paste('Do you want to save "', userInput, '" as a default assay start mark? ', sep = ""))
+			addMark = .getYesOrNo(paste('  Do you want to save "', userInput, '" as a default assay start mark? ', sep = ""))
 			if (addMark) assayStart = c(assayStart, userInput);
 		}
 		
@@ -265,6 +265,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 # Renames behaviors to differentiate between starts and stops. If the behavior has already been renamed,
 # this function does nothing.
+# TODO can this be rewritten without a for loop? that might be why its slow
 .renameStartStop = function(data) {
 	for (i in 1:dim(data)[1]) {
 		if (!is.na(data$type[i]) && !grepl(" st[oa][rp]t?$", data$behavior[i])) data$behavior[i] <- paste(data$behavior[i], " ", data$type[i], sep = "");  
