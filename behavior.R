@@ -27,8 +27,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 # heatmap(cor(t(probma)), symm = TRUE)
 
-#TODO check all prints and make more clear what is getting printed exactly
-#TODO figure out how to print in get-response purple
 
 # TODO output to excel the trans prob mats. MAKE THIS PART OF MAIN DATA PIPELINE. in .compareProbMats?
 
@@ -158,8 +156,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		else {paste('  Two or more default mark names found.\n')}
 		prompt = paste(prompt, '  Mark names found:\n  "', paste(markNames, collapse = '" "'), '"\n', sep = "");
 		cat(prompt);
-		prompt = '  Which mark is the assay start? (enter "q" to skip assay start for this log or press ESC to abort)\n  > '; # just do it with cat #TODO
-		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt))); #BUG readline 256 chars - figure out how to print in purple
+		prompt = '  Which mark is the assay start? (enter "q" to skip assay start for this log or press ESC to abort)\n  > ';
+		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
 		if (userInput == "q") return(list(time = 0, name = NA, assayStart = assayStart));
 		userInput = .autocomplete(userInput, markNames);
 		while (!(userInput %in% markNames)) {
@@ -371,8 +369,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			if (length(table(unlist(lapply(data, function(d) {d[d$behavior == beh,]$subject})))) != 1) problemBehs <- c(problemBehs, beh);
 		}
 		if (length(problemBehs > 0)) {
-			print("Renaming behaviors: ");
-			print(problemBehs);
+			cat("Renaming behaviors: \"");
+			cat(problemBehs, sep = '" "');
+			cat('"\n')
 		}
 		data = lapply(data, function(d) {.sepSubject(d, problemBehs)});
 	}
@@ -605,7 +604,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		}
 		for (i in 1:length(rownames)) {
 			row = rownames[i]
-			print(row);
+			cat('Analyzing "', row, '"...\n', sep = "");
 			group1dat = dataByGroup[[1]][row,];
 			group2dat = dataByGroup[[2]][row,];
 			
@@ -1230,7 +1229,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	.validateColorKey(behaviorsToPlotAndColors, groupwiseLogs$behnames);
 	
 	for (beh in behnames) {
-		print(paste("Plotting behavior", beh));
+		cat("Plotting behavior \"", beh, '"...\n', sep = "");
 		par(mfrow = c(length(groupwiseLogs$groupNames), 1));
 		for (i in 1:length(groupwiseLogs$groupNames)) {
 			.behavioralDensityGraph(groupwiseLogs$groupData[[i]], behaviorsToPlotAndColors, centerBeh = beh,
