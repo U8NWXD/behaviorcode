@@ -1450,4 +1450,49 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			);
 }
 
+.makeMulticolorRasterPlot = function (dataFrame, behaviorsToPlotAndColors, ...) {
+	data = dataFrame$behavior;
+	# if (is.null(.checkInputDataVecOK(data))) {
+		# return(NULL);
+	# } 
+	codes = names(table(dataFrame$behavior));
+	times = as.numeric(dataFrame$time);
+	counts = table(data);
+	num_subj = 1; # TODO change
+	diffs = diff(times);
+	
+	# TODO validate key
+	behaviorsToPlotAndColors = behaviorsToPlotAndColors[behaviorsToPlotAndColors[,1] %in% dataFrame$behavior,];
+	
+	
+	
+	par(mfrow=c(2, 1));
+	par(oma=c(0,5,0,0));
+	for (i in 1:length(behaviorsToPlotAndColors[,1])) {
+		beh = behaviorsToPlotAndColors[i,1];
+		print(beh);
+		plot(dataFrame$time[dataFrame$behavior == beh], rep(1, length.out = length(dataFrame$time[dataFrame$behavior == beh])), # TODO change the 1 to subject #
+		 		frame.plot=F, axes=F, xlab='time (seconds)', ylab='', xlim = c(0, max(times)),
+			 	col=behaviorsToPlotAndColors[i,2], cex=3, pch=3, 
+		 		...);
+		par(new = TRUE);
+	}
+	
+	# par(new = FALSE);
+
+	axis(2, at=1:num_subj, labels="Subject 1", tick=F, las=2); # TODO this is where to label subjects
+	axis(1, yaxp=c(0, max(times), 10), col='white', col.ticks='black');
+	for (i in 1:num_subj) { 
+		abline(h=i, col='black');
+	}
+	
+	boxplot(times ~ as.factor(data), frame.plot=F,
+			col='grey', notch=F, width=table(data)/length(data), 
+			horizontal=T, names=codes, las=1
+			);
+	
+	probMat = .getProbabilityMatrix(data);
+	return(.makeRasterPlot(dataFrame, plots = F));
+}
+
 
