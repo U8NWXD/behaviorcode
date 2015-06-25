@@ -1450,10 +1450,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			);
 }
 
-.makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, ...) {
+.makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, ...) {
 	# if (is.null(.checkInputDataVecOK(data))) {
 		# return(NULL);
 	# } 
+	if (!is.null(filename)) jpeg(filename = filename, width = 12, height = 12, units = "in", quality = 100, res = 300, type = "quartz");
 	subjects = names(data);
 	num_subj = length(subjects); # TODO change
 	maxtime = max(unlist(lapply(data, function(d){max(d$time)})));
@@ -1486,6 +1487,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	for (i in 1:num_subj) { 
 		abline(h=i, col='black');
 	}
+	
+	if (!is.null(filename)) dev.off();
 	
 	# return(.makeRasterPlot(dataFrame, plots = F));
 }
