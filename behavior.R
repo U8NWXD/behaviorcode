@@ -1473,7 +1473,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			beh = temp_behcolors[i,1];
 			# print(beh);
 			plot(dataFrame$time[dataFrame$behavior == beh], rep(n, length.out = length(dataFrame$time[dataFrame$behavior == beh])), # TODO change the 1 to subject #
-			 		frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(0, maxtime), ylim = c(0, num_subj),
+			 		frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(0, maxtime), ylim = c(0, num_subj + 1),
 				 	col= temp_behcolors[i,2], cex=3, pch=3, 
 			 		...);
 			par(new = TRUE);
