@@ -224,6 +224,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	df$type <- as.character(df$type);
 	df$time <- as.numeric(df$time) / framesPerSecond;
 	df$pair_time <- as.numeric(df$pair_time);
+	df$duration <- as.numeric(df$duration);
 	df = df[-1, ];
 	
 	# Match up starts and stops; calculate durations
@@ -1460,7 +1461,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(ssBehs);
 }
 
-.makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, ...) {
+.makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, wiggle = .2, ...) {
 	# if (is.null(.checkInputDataVecOK(data))) {
 		# return(NULL);
 	# } 
@@ -1468,41 +1469,62 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	subjects = names(data);
 	num_subj = length(subjects); # TODO change
 	maxtime = max(unlist(lapply(data, function(d){max(d$time)})));
+	ssBehs = .startStopBehs(data);
 	
 	# TODO validate key
 	# behaviorsToPlotAndColors = behaviorsToPlotAndColors[behaviorsToPlotAndColors[,1] %in% dataFrame$behavior,];
-	
-	
+	singleBehsAndColors = behaviorsToPlotAndColors[!(behaviorsToPlotAndColors[,1] %in% ssBehs),];
+	ssBehsAndColors = behaviorsToPlotAndColors[behaviorsToPlotAndColors[,1] %in% ssBehs,];
+	# print(singleBehsAndColors);
+	# print(ssBehsAndColors);
+	# TODO robustness what if a ssBeh IS NOT ss in all logs! Add code to catch this case, draw a line, throw a warning.
 	
 	# par(mfrow=c(2, 1));
 	par(oma=c(0,5,0,0));
 	for (n in 1:num_subj) {
 		dataFrame = data[[n]];
-		temp_behcolors = behaviorsToPlotAndColors[behaviorsToPlotAndColors[,1] %in% dataFrame$behavior,];
+		temp_behcolors = singleBehsAndColors[singleBehsAndColors[,1] %in% dataFrame$behavior,];
 		for (i in 1:length(temp_behcolors[,1])) {
 			beh = temp_behcolors[i,1];
 			# print(beh);
-			if (is.na(dataFrame$type[dataFrame$behavior == beh][1])) {
-				plot(dataFrame$time[dataFrame$behavior == beh], rep(n, length.out = length(dataFrame$time[dataFrame$behavior == beh])),
-			 			frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(0, maxtime), ylim = c(0, num_subj + 1),
-				 		col= temp_behcolors[i,2], cex=3, pch=3, 
-			 			...);
-			} else {
-				occurrences = data.frame(start = dataFrame$time[dataFrame$behavior == beh & dataFrame$type == "start"],
-										 duration = as.numeric(dataFrame$duration[dataFrame$behavior == beh & dataFrame$type == "start"])); #TODO handle orphan start?? maybe scorevideo does this.
-				rect(xleft = occurrences$start, ybottom = n - .2, xright = occurrences$start + occurrences$duration, ytop = n + .2, col = temp_behcolors[i,2], border = NA);
-			}
+			plot(dataFrame$time[dataFrame$behavior == beh], rep(n, length.out = length(dataFrame$time[dataFrame$behavior == beh])),
+			 		frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(0, maxtime), ylim = c(0, num_subj + 1),
+				 	col= temp_behcolors[i,2], cex=3, pch=3, 
+			 		...);
+			# else {
+				# occurrences = data.frame(start = dataFrame$time[dataFrame$behavior == beh & dataFrame$type == "start"],
+										 # duration = as.numeric(dataFrame$duration[dataFrame$behavior == beh & dataFrame$type == "start"])); #TODO handle orphan start?? maybe scorevideo does this.
+				# rect(xleft = occurrences$start, ybottom = n - .2, xright = occurrences$start + occurrences$duration, ytop = n + .2, col = temp_behcolors[i,2], border = NA);
+			# }
 			par(new = TRUE);
 		}
 	}
-	par(new = FALSE);
+	par(new = FALSE); 
 
 	title(xlab = "time (seconds)");
 	axis(2, at=1:num_subj, labels=subjects, tick=F, las=2);
 	axis(1, yaxp=c(0, maxtime, 10), col='white', col.ticks='black');
-	for (i in 1:num_subj) { 
-		abline(h=i, col='black');
+	
+	nSsBehs = length(ssBehs);
+	durBehBounds = data.frame(bottomBound = ((0:(nSsBehs - 1)) * 2 * wiggle / nSsBehs) - wiggle, topBound = ((1:nSsBehs) * 2 * wiggle / nSsBehs) - wiggle);
+	print(durBehBounds);
+	dimnames(durBehBounds)[[1]] <- ssBehsAndColors[,1];
+	for (n in 1:num_subj) { 
+		abline(h=n, col='black');
+		dataFrame = data[[n]];
+		temp_behcolors = data.frame(behs = ssBehsAndColors[ssBehsAndColors[,1] %in% dataFrame$behavior,1], colors = ssBehsAndColors[ssBehsAndColors[,1] %in% dataFrame$behavior,2]);
+#		print(temp_behcolors);
+		for (i in 1:length(temp_behcolors[,1])) {
+			beh = temp_behcolors[i,1];
+			# print(beh);
+			occurrences = data.frame(start = dataFrame$time[dataFrame$behavior == beh & dataFrame$type == "start"],
+									 duration = as.numeric(dataFrame$duration[dataFrame$behavior == beh & dataFrame$type == "start"])); #TODO handle orphan start?? maybe scorevideo does this.
+			rect(xleft = occurrences$start, xright = occurrences$start + occurrences$duration,
+				 ybottom = n + durBehBounds[beh,]$bottomBound, ytop =  n + durBehBounds[beh,]$topBound,
+				 col = temp_behcolors[i,2], border = NA);
+		}
 	}
+	abline(v = 0, col='black');
 	
 	if (!is.null(filename)) dev.off();
 	
