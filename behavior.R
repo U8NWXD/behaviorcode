@@ -76,11 +76,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # Calls .getData() on every file in <folderPath> and returns the results in a list.
 # If groups = TRUE, will recurse through directories. Use with one folder for control animals,
 # one folder for experimental condition 1, etc.
-.getDataBatch = function (folderPath, groups = FALSE) {
+# Advanced: Assay start can be FALSE to turn off assay starts, or NULL or a vector of default assay starts
+.getDataBatch = function (folderPath, groups = FALSE, assayStart = NA) {
 	filenames = if (groups) {paste(folderPath,list.files(folderPath, pattern = "txt$", recursive = TRUE),sep = "");}
 	            else {paste(folderPath,list.files(folderPath, pattern = "txt$"),sep = "");}
 	data = list();
-	assayStart = if (.getYesOrNo("Did you mark assay starts in your score logs? ")) NULL else FALSE;
+	if (!is.null(assayStart) && is.na(assayStart)) assayStart = if (.getYesOrNo("Did you mark assay starts in your score logs? ")) NULL else FALSE;
 	for (f in 1:length(filenames)) {
 		cat("Loading file \"", filenames[f], "\"...\n", sep = "");
 		datOut = .getData(filenames[f], assayStart, single = FALSE);
@@ -541,8 +542,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 # A wrapper function for bootstrap2independent that makes it play well with .runStats
 # argList must contain x, y, row, outfilePrefix, groupNames, and trials.
+# This means the function must be passed in as list(func = .bootstrapWrapper, trials = <a number>)
 .bootstrapWrapper = function(argList) {
 	# print(argList);
+	# TODO try if(!(trials %in% names(argList))) argList$trials <- 10000; and get rid of repetitive stuff elsewhere
 	bs = bootstrap2independent(x = argList$x, y = argList$y, dataDescriptor = argList$row,
 	       						 outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"),
 	       						 groupNames = argList$groupNames, trials = argList$trials, verbose = F);
@@ -550,13 +553,19 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(bs);
 }
 
-# comparison function must take x,y and return list with entry "p.value"
-# tests is a list of functions. the names of the list are used to label columns. ie, list(ttest = t.text, wilcox = wilcox.test)
-# if a function needs other arguments:
-#   pass it in as a list(func = myFunctionWrapper, arg1Name = arg1, arg2Name = arg2, ...)
-#   the function will be called as myFunctionWrapper(list(arg1Name = arg1, arg2Name = arg2, ..., x = data, y = data, ....))
-#   as a FREE BONUS you also get the row name, group names, and outfile prefix passed along as part of that list
-#   inside myFunctionWrapper you might do something like:
+# Calculates the average and standard deviation of <dataByGroup> (and optionally statistical tests in <tests>) and
+#   outputs the results to a .csv starting with <outfilePrefix>.
+# <dataByGroup> should be a list of matrices. Each matrix represents an experimental group, with a column for each
+#   subject and a row for each measurement (ie "Lead count" or "Quiver -> Lead Transitional Probability"). The list
+#   has length two for a two-group experiment.
+# <tests> is a list of functions. The names of the list are used to label columns. e.g. list(ttest = t.text, wilcox = wilcox.test)
+# The test functions must take their data as x and y and return a list with the p value stored under name "p.value".
+# If a function needs other arguments than just the data:
+#   Pass it in as a list(func = myFunctionWrapper, arg1Name = arg1, arg2Name = arg2, etc)
+#   The function will be called as myFunctionWrapper(list(arg1Name = arg1, arg2Name = arg2, etc, x = data, y = data, etc))
+#   You also get the row name, group names, and outfile prefix passed along as part of that list. You can make a list of length
+#     1 to trigger this behavior if that's all you needed anyway.
+#   Inside myFunctionWrapper you might do something like:
 #   myFunctionWrapper = function(arglist) {
 #		return(myFunction(group1 = arglist$x, group2 = arglist$y, arg1Name = arglist$arg1Name, outpref = arglist$outfilePrefix))
 #   }
@@ -567,7 +576,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	df = data.frame(average = average, stddev = stddev);
 	offset = dim(df)[2];
 	
-	if (length(dataByGroup) >= 2) { # potentially tests cannot b empty TODO test thaaaaat
+	if (length(dataByGroup) >= 2 && length(tests) > 0) { # potentially tests cannot b empty TODO test thaaaaat
 		if (length(dataByGroup) > 2) warning(paste("It looks like you have more than two experimental groups. ",
 												   "Contact Katrina if you want code to deal with that.\nFor now, I'll run tests on the first two groups (\"",
 												   names(dataByGroup)[1], "\" and \"", names(dataByGroup)[2], "\")", sep = ""), immediate. = TRUE)
