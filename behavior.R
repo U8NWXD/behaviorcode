@@ -277,13 +277,16 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # behavior before the pause and a "START" before the behavior after the pause. Also inserts a "START" at the
 # beginning of the log and a "STOP" at the end.
 # TODO use type, pair_time, duration to pair "START"s with "STOP"s.
-# TODO BUG make male in pot start -> STOP -> START -> male in pot stop NOT HAPPENNNNNNNN
+# TODO add option to allow a given state behavior to be separated by bout. accomplish this by changing types to sTaRt and sToP and then changing back?
 .separateBouts = function (data, intervalToSeparate) {
 	# 	names(df) = c('time', 'behavior', 'subject', 'type', 'pair_time', 'duration');
 	newData = data.frame(time = data$time[1], behavior = "START", subject = NA, type = NA, pair_time = NA, duration = NA); 
 	newData = rbind(newData, data[1,]);
+	# print(data[1:20,]);
 	for (i in 2:length(data[,1])) {
-		if (as.numeric(data$time[i]) - as.numeric(data$time[i-1]) >= intervalToSeparate) {
+	#	print(paste(sum(data$type[!is.na(data$type)][1:(i-1)] == "start"), sum(data$type[!is.na(data$type)][1:(i-1)] == "stop"), sum(data$type[!is.na(data$type)][1:(i-1)] == "start") == sum(data$type[!is.na(data$type)][1:(i-1)] == "stop")));
+		if (as.numeric(data$time[i]) - as.numeric(data$time[i-1]) >= intervalToSeparate &&
+		    sum(data$type[1:(i-1)][!is.na(data$type)[1:(i-1)]] == "start") == sum(data$type[1:(i-1)][!is.na(data$type)[1:(i-1)]] == "stop")) {
 			stopRow = data.frame(time = data$time[i-1], behavior = "STOP", subject = NA, type = NA, pair_time = NA, duration = NA);
 			newData = rbind(newData, stopRow);
 			startRow = data.frame(time = data$time[i], behavior = "START", subject = NA, type = NA, pair_time = NA, duration = NA);
@@ -302,7 +305,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # subject - only consider this subject's behavior
 # startOnly - if TRUE, only consider starts of behaviors (ignore ends). If a character vector,
 #   ignore ends only for the behaviors named in the character vector.
-# boutInterval - interval to separate bouts, in times. Default is null (no bout separation)
+# boutInterval - interval to separate bouts, in seconds. Default is null (no bout separation)
 # minNumBehaviors - remove behaviors that do not occur at least this many times.
 # toExclude - remove all behaviors in this character vector.
 # splitPot - option specifically for Scott's PGF2a data to separate "inside POT" by subject into
