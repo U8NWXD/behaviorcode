@@ -1461,7 +1461,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(ssBehs);
 }
 
-.makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, wiggle = .2, ...) {
+.makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, wiggle = .2, defaultDur = 1, ...) {
 	# if (is.null(.checkInputDataVecOK(data))) {
 		# return(NULL);
 	# } 
@@ -1481,21 +1481,22 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	
 	# par(mfrow=c(2, 1));
 	par(oma=c(0,5,0,0));
+	plot(0, 0, frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(0, maxtime), ylim = c(0, num_subj + 1), col = "white");
+
 	for (n in 1:num_subj) {
 		dataFrame = data[[n]];
 		temp_behcolors = singleBehsAndColors[singleBehsAndColors[,1] %in% dataFrame$behavior,];
 		for (i in 1:length(temp_behcolors[,1])) {
 			beh = temp_behcolors[i,1];
 			# print(beh);
-			plot(dataFrame$time[dataFrame$behavior == beh], rep(n, length.out = length(dataFrame$time[dataFrame$behavior == beh])),
-			 		frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(0, maxtime), ylim = c(0, num_subj + 1),
-				 	col= temp_behcolors[i,2], cex=3, pch=3, 
-			 		...);
-			# else {
-				# occurrences = data.frame(start = dataFrame$time[dataFrame$behavior == beh & dataFrame$type == "start"],
-										 # duration = as.numeric(dataFrame$duration[dataFrame$behavior == beh & dataFrame$type == "start"])); #TODO handle orphan start?? maybe scorevideo does this.
-				# rect(xleft = occurrences$start, ybottom = n - .2, xright = occurrences$start + occurrences$duration, ytop = n + .2, col = temp_behcolors[i,2], border = NA);
-			# }
+			times = dataFrame$time[dataFrame$behavior == beh];
+			rect(xleft = times, xright = times + defaultDur,
+				 ybottom = n - 0.5, ytop =  n + 0.5,
+				 col = temp_behcolors[i,2], border = NA);
+			# plot(dataFrame$time[dataFrame$behavior == beh], rep(n, length.out = length(dataFrame$time[dataFrame$behavior == beh])),
+			 		# frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(0, maxtime), ylim = c(0, num_subj + 1),
+				 	# col= temp_behcolors[i,2], cex=3, pch=3, 
+			 		# ...);
 			par(new = TRUE);
 		}
 	}
@@ -1527,8 +1528,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	abline(v = 0, col='black');
 	
 	if (!is.null(filename)) dev.off();
-	
-	# return(.makeRasterPlot(dataFrame, plots = F));
 }
 
 
