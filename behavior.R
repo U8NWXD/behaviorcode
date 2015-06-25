@@ -526,7 +526,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #   and control - so this behavior is not terrible) with three different tests - wilcox.test(), t.test(), and bootstrap2independent().
 #   Latencies are only compared for behaviors that occur in at least <minNumLogs> score logs in each group. Graphs output by the
 #   bootstrap function are also saved.
-.calcBasicStats = function(data, outfilePrefix, tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper, trials = 10000)), minNumLogs = 3) {
+.calcBasicStats = function(data, outfilePrefix, tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), minNumLogs = 3) {
 	groupwiseLogs = .sepGroups(data);
 
 	durBehDat = lapply(data, function(d) {d[!is.na(d$type) & d$type == "start",]});
@@ -541,11 +541,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 }
 
 # A wrapper function for bootstrap2independent that makes it play well with .runStats
-# argList must contain x, y, row, outfilePrefix, groupNames, and trials.
-# This means the function must be passed in as list(func = .bootstrapWrapper, trials = <a number>)
+# argList must contain x, y, row, outfilePrefix, groupNames, and can optional contain <trials> (the number of trials).
+# The function must be passed in in a list.
 .bootstrapWrapper = function(argList) {
 	# print(argList);
-	# TODO try if(!(trials %in% names(argList))) argList$trials <- 10000; and get rid of repetitive stuff elsewhere
+	if(!("trials" %in% names(argList))) argList$trials <- 10000;
 	bs = bootstrap2independent(x = argList$x, y = argList$y, dataDescriptor = argList$row,
 	       						 outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"),
 	       						 groupNames = argList$groupNames, trials = argList$trials, verbose = F);
@@ -562,7 +562,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # <tests> is a list of functions. The names of the list are used to label columns. e.g. list(ttest = t.text, wilcox = wilcox.test)
 # The test functions must take their data as x and y and return a list with the p value stored under name "p.value".
 # If a function needs other arguments than just the data:
-#   Pass it in as a list(func = myFunctionWrapper, arg1Name = arg1, arg2Name = arg2, etc)
+#   Pass it in as a list(func = myFunctionWrapper, arg1Name = arg1, arg2Name = arg2, etc). The function MUST be the first argument.
 #   The function will be called as myFunctionWrapper(list(arg1Name = arg1, arg2Name = arg2, etc, x = data, y = data, etc))
 #   You also get the row name, group names, and outfile prefix passed along as part of that list. You can make a list of length
 #     1 to trigger this behavior if that's all you needed anyway.
@@ -574,7 +574,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	average = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){mean(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, mean);
 	stddev = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){sd(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, sd);
 	if (skipNA) {
-		print(dataByGroup);
 		for (i in 1:length(dataByGroup)) {
 			allNARows = apply(dataByGroup[[i]], 1, function(row){sum(!is.na(row)) == 0});
 			average[[i]][allNARows] <- NA;
@@ -737,7 +736,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # probabilities are only compared for behaviors that occur in at least <minNumLogs> score logs in each group, and where at
 # least one animal had a nonzero transitional probability. Graphs output by the bootstrap function are also saved.
 .compareTransitionalProbabilities = function(data, byTotal = FALSE, outfilePrefix,
-											 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper, trials = 10000)), minNumLogs = 3) {
+											 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), minNumLogs = 3) {
 	data = .filterDataList(data, renameStartStop = TRUE);
 	groupwiseLogs = .sepGroups(data);
 	
@@ -864,7 +863,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # the bootstrap function are also saved.
 # TODO combine with .calcBasicStats???
 .compareEntropy = function(data, outfilePrefix, tests = list(t.test = t.test, wilcox = wilcox.test,
-						   bootstrap = list(func = .bootstrapWrapper, trials = 10000)), minNumLogs = 3) {
+						   bootstrap = list(func = .bootstrapWrapper)), minNumLogs = 3) {
 	data = .filterDataList(data, renameStartStop = TRUE);
 	groupwiseLogs = .sepGroups(data);
 	# 	return(list(groupNames = groupNames, groupData = groupData, behnames = behnames));
