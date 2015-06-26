@@ -248,6 +248,50 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(df);
 }
 
+.getSupplementalDataPGF2a = function(infile, data) {
+	supplementalData = read.csv("PGF2a injections/PGF2a_animal_data.csv")[1:60,] # change; prompt for actual length
+	# supplementalData$index = numeric();
+	for (i in 1:length(supplementalData$Assay.name)) {
+		subj = supplementalData$Assay.name[i];
+		print(subj);
+		logs = grepl(subj, names(data));
+		if (sum(logs) == 0) supplementalData$index[i] <- NA
+		else if (sum(logs) == 1) supplementalData$index[i] <- which(logs)
+		else (warning("More than one log matches assay name.", immediate. = TRUE))
+	}
+	return(supplementalData);
+}
+
+sortByGSI = function(data, suppData) {
+	gsis = numeric()
+	for (i in 1:length(data)) {
+		gsis = c(gsis, as.numeric(suppData$GSI[which(suppData$index == i)]));
+	}
+	print(gsis[order(gsis)])
+	return(data[order(gsis, na.last = NA)]);
+}
+
+.cleanUpPGF2a = function(my_data) {
+	my_data <- .filterDataList(my_data, toExclude=c("approach", "APPROACH", "BITE", "flee", "QUIVER"))
+	my_data <- .filterDataList(my_data, startOnly=c("chase", "female FOLLOW", "FLEE", "FOLLOW", "lead", "male CHASE", "male LEAD", "male QUIVER", "quiver"))
+	.cleanFxn = function(dat) {
+		clean <- .replaceBehAll(dat, "female FOLLOW", "female follow");
+		clean <- .replaceBehAll(clean, "female IN POT", "female in pot");
+		clean <- .replaceBehAll(clean, "FLEE", "female flee");
+		clean <- .replaceBehAll(clean, "FOLLOW", "female follow");
+		clean <- .replaceBehAll(clean, "inside pot", "male in pot");
+		clean <- .replaceBehAll(clean, "inside POT", "female in pot");
+		clean <- .replaceBehAll(clean, "male BITES", "bite");
+		clean <- .replaceBehAll(clean, "male CHASE", "chase");
+		clean <- .replaceBehAll(clean, "male IN POT", "male in pot");
+		clean <- .replaceBehAll(clean, "male LEAD", "lead");
+		clean <- .replaceBehAll(clean, "male QUIVER", "quiver");
+		return(clean);
+	}
+	my_data <- .cleanFxn(my_data);
+	return(my_data);
+}
+
 #####################################################################################################
 ## FILTERING AND EDITING DATA                                                                      ##
 #####################################################################################################
