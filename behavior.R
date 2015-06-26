@@ -1203,11 +1203,26 @@ sortByGSI = function(data, suppData) {
 }
 
 # TODO make plottttt
+
+
+.plotColorLegend = function(colorkey) {
+	behaviors = colorkey[,1];
+	colors = colorkey[,2];
+	par(mai = c(1, 3, 1, 1))
+	plot(c(0, 1), c(0, length(behaviors)), frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(0, 1), ylim = c(0.5, length(behaviors) + 0.5), col = "white", main = "Color Key");
+	for (i in 1:length(behaviors)) {
+		rect(xleft = 0, xright = 1, border = NA,
+			 col = colors[i], ybottom = length(behaviors) - i + .5, ytop = length(behaviors) - i+1.5);
+	}
+	axis(2, at=1:length(behaviors), labels=behaviors[length(behaviors):1], tick=F, las=2);
+}
+
 .printColorKey = function(colorKey, whitespace = "") {
 	paddingLengths = 1 + max(nchar(colorKey)) - nchar(colorKey);
 	for (i in 1:length(colorKey[,1])) {
 		cat(whitespace, '"', colorKey[i,1], '":', rep_len(' ', paddingLengths[i]), '"', colorKey[i, 2], '"\n', sep = "");
 	}
+	.plotColorLegend(colorKey);
 }
 
 .getColor = function(beh) {
@@ -1684,7 +1699,6 @@ sortByGSI = function(data, suppData) {
 	
 	if (!is.null(filename)) dev.off();
 }
-
 
 
 
