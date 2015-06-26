@@ -316,6 +316,21 @@ sortByGSI = function(data, suppData) {
 	return(data);
 }
 
+# Finds the nth occurance of <behavior> in the log <data> and sets data's <time> column to the offset
+# relative to that behavior.
+.setZeroToNthOfBehavior = function(data, behavior, n = 1) {
+	data = rbind(data, list(time = 0, behavior = "assay start", subject = NA, type = NA, pair_time = NA, duration = NA)); # TODO make this line better
+	targetBehIndices = which(data$behavior == behavior);
+	newStartTime = 0;
+	if (length(targetBehIndices) >= n) {
+		newStartTime = data$time[targetBehIndices[n]];
+	} else {
+		newStartTime = max(data$time) + 1;
+	}
+	data$time <- data$time - newStartTime; # TODO change attribute
+	return(data);
+}
+
 
 # Whenever there are <intervalToSeparate> seconds between adjacent behaviors, inserts a "STOP" after the
 # behavior before the pause and a "START" before the behavior after the pause. Also inserts a "START" at the
@@ -363,11 +378,13 @@ sortByGSI = function(data, suppData) {
 #   into "male IN POT" and "female IN POT"
 # renameStartStop - for durational behaviors, append "start" to the behavioral description at
 #   the start of the behavior, and "stop" to the behavioral description at the end of the behavior.
+# zeroBeh - Changes time=0 in all logs from being the start of the assay to being the first
+#   of <zeroBeh>. If <zeroBeh> never occurs, the whole log is in negative time. Runs AFTER
+#   startTime/endTime!
 # TODO pretty sloooooow on renameStartStop, esp. w/ a lot of logs. Try to optimize a bit.
-# TODO before/after spawning (or an arbitrary behavior)
 .filterData = function(data, startTime = NA, endTime = NA, subject = NULL, startOnly = NULL,
 					   boutInterval = NULL, stateBehaviors = NULL, minNumBehaviors = NULL, toExclude = NULL,
-					   renameStartStop = FALSE) {
+					   renameStartStop = FALSE, zeroBeh = NULL, zeroBehN = 1) {
 	if (!is.na(startTime)) {data <- data[data$time >= startTime,];}
 	if (!is.na(endTime)) {data <- data[data$time <= endTime,];}
 	if (!is.null(subject)) {
@@ -398,6 +415,7 @@ sortByGSI = function(data, suppData) {
 		data <- data[!(data$behavior %in% toExclude),];
 	}
 	if (renameStartStop) {data = .renameStartStop(data);}
+	if (!is.null(zeroBeh)) {data = .setZeroToNthOfBehavior(data, zeroBeh, zeroBehN)}
 	return(data);
 }
 
@@ -1204,7 +1222,7 @@ sortByGSI = function(data, suppData) {
 
 # TODO make plottttt
 
-
+# Plots a color key to make it human-readable
 .plotColorLegend = function(colorkey) {
 	behaviors = colorkey[,1];
 	colors = colorkey[,2];
@@ -1217,6 +1235,8 @@ sortByGSI = function(data, suppData) {
 	axis(2, at=1:length(behaviors), labels=behaviors[length(behaviors):1], tick=F, las=2);
 }
 
+# Prints out the color key in a nice format to the console, with each row preceded by <whitespace>.
+# Also plots it.
 .printColorKey = function(colorKey, whitespace = "") {
 	paddingLengths = 1 + max(nchar(colorKey)) - nchar(colorKey);
 	for (i in 1:length(colorKey[,1])) {
@@ -1225,6 +1245,7 @@ sortByGSI = function(data, suppData) {
 	.plotColorLegend(colorKey);
 }
 
+# Prompts the user to enter a color for <beh> and reprompts until they enter either a valid color or "none".
 .getColor = function(beh) {
 	prompt = paste("  What color should \"", beh, '" be? (Enter "none" to not plot this behavior)\n  > ', sep = "");
 	userInput = gsub('^["\']','', gsub('["\']$','', gsub(' ', '', readline(prompt))));
@@ -1237,6 +1258,7 @@ sortByGSI = function(data, suppData) {
 	return(userInput);
 }
 
+# Allows rows to be added to <colorkey>, removed from <colorkey>, or have their colors changed.
 .editColorKey = function(colorkey, validBehNames) {
 	prompt = "Enter a behavior name to edit its color, \"p\" to print the current key, or \"q\" to quit color editor.\n  > ";
 	userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
@@ -1251,15 +1273,17 @@ sortByGSI = function(data, suppData) {
 			} else {
 				colorkey = rbind(colorkey, c(userInput, color));
 			}
+			.plotColorLegend(colorkey);
 		} else if (userInput == "p") {
 			.printColorKey(colorkey, "  ");
 		}
 		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
-		userInput = .autocomplete(userInput, c("q", "p", colorkey[,1]));
+		userInput = .autocomplete(userInput, c("q", "p", colorkey[,1]))
 	}
 	return(colorkey);
 }
 
+# Allows the user to reorder <colorkey> by typing in the behaviors in a new order.
 .reorderColorKey = function(colorkey) {
 	prompt = "  Which behavior do you want in the very back? (type \"l\" to list remaining behaviors, or \"q\" to cancel reordering)\n  > ";
 	userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
@@ -1298,6 +1322,7 @@ sortByGSI = function(data, suppData) {
 	return(newcolorkey);
 }
 
+# A user-friendly color key constructor.
 .buildColorKey = function(validBehNames) {
 	cat("Building color key...\nI found these behaviors:\n\"");
 	cat(validBehNames, sep = '" "');
@@ -1319,7 +1344,7 @@ sortByGSI = function(data, suppData) {
 		.printColorKey(colorkey, "  ");
 	}
 	
-	cat("In graphs, behaviors will be plotted in the order shown in this key.\nThat is, the behaviors at the bottom will be in front of those at the top.\n")
+	cat("In graphs, behaviors will be plotted in the order shown in this key.\nThat is, the behaviors at the bottom of the key will be plotted in front of those at the top.\n")
 	while (!(.getYesOrNo("Is this order okay? "))) {
 		colorkey = .reorderColorKey(colorkey);
 		cat("Color key created: \n");
