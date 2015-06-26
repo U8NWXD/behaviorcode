@@ -1202,6 +1202,118 @@ sortByGSI = function(data, suppData) {
 	}
 }
 
+# TODO make plottttt
+.printColorKey = function(colorKey, whitespace = "") {
+	paddingLengths = 1 + max(nchar(colorKey)) - nchar(colorKey);
+	for (i in 1:length(colorKey[,1])) {
+		cat(whitespace, '"', colorKey[i,1], '":', rep_len(' ', paddingLengths[i]), '"', colorKey[i, 2], '"\n', sep = "");
+	}
+}
+
+.getColor = function(beh) {
+	prompt = paste("  What color should \"", beh, '" be? (Enter "none" to not plot this behavior)\n  > ', sep = "");
+	userInput = gsub('^["\']','', gsub('["\']$','', gsub(' ', '', readline(prompt))));
+	userInput = .autocomplete(userInput, c("none", colors()));
+	while (!(userInput %in% c("none", colors()))) {
+		prompt = paste("  Please enter a valid color name or \"none\", or press ESC to quit. What color should \"", beh, "\" be?\n  > ", sep = "");
+		userInput = gsub('^["\']','', gsub('["\']$','', gsub(' ', '', readline(prompt))));
+		userInput = .autocomplete(userInput, c("none", colors()));
+	}
+	return(userInput);
+}
+
+.editColorKey = function(colorkey, validBehNames) {
+	prompt = "Enter a behavior name to edit its color, \"p\" to print the current key, or \"q\" to quit color editor.\n  > ";
+	userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
+	userInput = .autocomplete(userInput, c("q", "p", validBehNames));
+	while (userInput != "q") {
+		if (userInput %in% validBehNames) {
+			color = .getColor(userInput);
+			if (color == "none" && userInput %in% colorkey[,1]) {
+				colorkey <- colorkey[-which(colorkey[,1] == userInput),];
+			} else if (userInput %in% colorkey[,1]) {
+				colorkey[which(colorkey[,1] == userInput), 2] <- color;
+			} else {
+				colorkey = rbind(colorkey, c(userInput, color));
+			}
+		} else if (userInput == "p") {
+			.printColorKey(colorkey, "  ");
+		}
+		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
+		userInput = .autocomplete(userInput, c("q", "p", colorkey[,1]));
+	}
+	return(colorkey);
+}
+
+.reorderColorKey = function(colorkey) {
+	prompt = "  Which behavior do you want in the very back? (type \"l\" to list remaining behaviors, or \"q\" to cancel reordering)\n  > ";
+	userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
+	userInput = .autocomplete(userInput, c("l", "q", colorkey[,1]));
+	prompt = "  Which behavior do you want next? (type \"l\" to list remaining behaviors, or \"q\" to cancel reordering)\n  > ";
+	newcolorkey = NULL;
+	behsleft = colorkey[,1];
+	while (length(behsleft) > 0) {
+		if (userInput %in% behsleft) {
+			newcolorkey = rbind(newcolorkey, colorkey[which(colorkey[,1] == userInput),]);
+			behsleft = behsleft[-which(behsleft == userInput)];
+		} else if (userInput == "l") {
+			cat('  "');
+			cat(behsleft, sep = '" "');
+			cat('"\n');
+		} else if (userInput == "q") {
+			return(colorkey);
+		} else {
+			if (userInput %in% newcolorkey[,1]) {
+				cat("  Behavior \"", userInput, "\" was already added. ", sep = "");
+				if (.getYesOrNo("  Would you like to move it to the front? ")) {
+					newcolorkey = rbind(newcolorkey[-which(newcolorkey[,1] == userInput),], newcolorkey[which(newcolorkey[,1] == userInput),]);
+				}
+			} else {
+				cat("  Not a valid behavior.\n  Behaviors left:\n    \"");
+				cat(behsleft, sep = '" "');
+				cat('"\n');
+			}
+		}
+		
+		if (length(behsleft > 0)) {
+			userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
+			userInput = .autocomplete(userInput, c("l", "q", colorkey[,1]));
+		}
+	}
+	return(newcolorkey);
+}
+
+.buildColorKey = function(validBehNames) {
+	cat("Building color key...\nI found these behaviors:\n\"");
+	cat(validBehNames, sep = '" "');
+	cat('"\n');
+	
+	colorkey = NULL;
+	for (beh in validBehNames) {
+		color = .getColor(beh);
+		if (color != "none") {
+			colorkey = rbind(colorkey, c(beh, color));
+		}
+	}
+	
+	cat("Color key created: \n");
+	.printColorKey(colorkey, "  ");
+	while (!(.getYesOrNo("Are these colors okay? "))) {
+		colorkey = .editColorKey(colorkey, validBehNames);
+		cat("Color key created: \n");
+		.printColorKey(colorkey, "  ");
+	}
+	
+	cat("In graphs, behaviors will be plotted in the order shown in this key.\nThat is, the behaviors at the bottom will be in front of those at the top.\n")
+	while (!(.getYesOrNo("Is this order okay? "))) {
+		colorkey = .reorderColorKey(colorkey);
+		cat("Color key created: \n");
+		.printColorKey(colorkey, "  ");
+	}
+
+	return(colorkey);
+}
+
 # Makes a behavioral density plot of the behaviors around <centerBeh> for either a single fish (multifish = FALSE) or every fish in
 # a list (multifish = TRUE). Each behavior to be plotted must have a row in <behaviorsToPlotAndColors>: its name in column 1, and the color
 # it should be in column 2. It is the caller's responsibility to make this key and remember which color corresponds to which behavior.
@@ -1513,9 +1625,11 @@ sortByGSI = function(data, suppData) {
 	subjects = names(data);
 	num_subj = length(subjects); # TODO change
 	maxtime = max(unlist(lapply(data, function(d){max(d$time)})));
+	mintime = min(c(0, unlist(lapply(data, function(d){min(d$time)}))));
 	ssBehs = .startStopBehs(data);
 	
 	# TODO validate key
+	.validateColorKey(behaviorsToPlotAndColors);
 	# behaviorsToPlotAndColors = behaviorsToPlotAndColors[behaviorsToPlotAndColors[,1] %in% dataFrame$behavior,];
 	singleBehsAndColors = behaviorsToPlotAndColors[!(behaviorsToPlotAndColors[,1] %in% ssBehs),];
 	ssBehsAndColors = behaviorsToPlotAndColors[behaviorsToPlotAndColors[,1] %in% ssBehs,];
@@ -1525,7 +1639,7 @@ sortByGSI = function(data, suppData) {
 	
 	# par(mfrow=c(2, 1));
 	par(oma=c(0,5,0,0));
-	plot(0, 0, frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(0, maxtime), ylim = c(0, num_subj + 1), col = "white");
+	plot(0, 0, frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(mintime, maxtime), ylim = c(0, num_subj + 1), col = "white");
 
 	for (n in 1:num_subj) {
 		dataFrame = data[[n]];
@@ -1537,10 +1651,7 @@ sortByGSI = function(data, suppData) {
 			rect(xleft = times, xright = times + defaultDur,
 				 ybottom = n - 0.5, ytop =  n + 0.5,
 				 col = temp_behcolors[i,2], border = NA);
-			# plot(dataFrame$time[dataFrame$behavior == beh], rep(n, length.out = length(dataFrame$time[dataFrame$behavior == beh])),
-			 		# frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(0, maxtime), ylim = c(0, num_subj + 1),
-				 	# col= temp_behcolors[i,2], cex=3, pch=3, 
-			 		# ...);
+
 			par(new = TRUE);
 		}
 	}
@@ -1548,7 +1659,7 @@ sortByGSI = function(data, suppData) {
 
 	title(xlab = "time (seconds)");
 	axis(2, at=1:num_subj, labels=subjects, tick=F, las=2);
-	axis(1, yaxp=c(0, maxtime, 10), col='white', col.ticks='black');
+	axis(1, yaxp=c(mintime, maxtime, 10), col='white', col.ticks='black');
 	
 	nSsBehs = length(ssBehs);
 	durBehBounds = data.frame(bottomBound = ((0:(nSsBehs - 1)) * 2 * wiggle / nSsBehs) - wiggle, topBound = ((1:nSsBehs) * 2 * wiggle / nSsBehs) - wiggle);
@@ -1573,5 +1684,7 @@ sortByGSI = function(data, suppData) {
 	
 	if (!is.null(filename)) dev.off();
 }
+
+
 
 
