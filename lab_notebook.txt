@@ -8,3 +8,19 @@ Talked with Scott; added todos.
 June 23 2015
 Installed git and sourcetree to add version control, commits, etc.
 My work is there now. This was shortlived.
+
+June 26 2015
+
+WEEK ONE ACHIEVEMENTS
+Good backup system. Also handy for tracking work.
+Good todo list system.
+Helpfile Fridays.
+Lots of small bug fixes from pre-Madrid.
+
+Assay start time is read in with logs.
+Generalized runStats; can theoretically plug in any stats test now. Side effect: better output from .compareEntropy and .compareTransitionalProbabilities
+Started to implement UI with color key and assay starts.
+Multicolor Rasters (*) highlight of week
+
+
+
