@@ -808,6 +808,11 @@ sortByGSI = function(data, suppData) {
 # These values are compared with three different tests: wilcox.test(), t.test(), and bootstrap2independent(). Transitional
 # probabilities are only compared for behaviors that occur in at least <minNumLogs> score logs in each group, and where at
 # least one animal had a nonzero transitional probability. Graphs output by the bootstrap function are also saved.
+#
+# TODO check rows & cols add up to 1.
+# > apply(probMatsByGroup$nameOfAGroup$probMat,1,sum)
+# or
+# > sum(probMatsByGroup$nameOfAGroup$probMat) (byTotal true)
 .compareTransitionalProbabilities = function(data, byTotal = FALSE, outfilePrefix,
 											 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), minNumLogs = 3) {
 	data = .filterDataList(data, renameStartStop = TRUE);
