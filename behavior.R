@@ -69,6 +69,42 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 ## READING DATA FROM SCORE LOGS                                                                    ##
 #####################################################################################################
 
+.printFindDupBehaviors = function(data) {
+	behTable = .findDupBehaviors(data);
+	for (i in 1:length(behTable)) {
+		cat(" \"", names(behTable)[i], "\" (occurs in ", behTable[i], " logs)\n", sep = "");
+	}
+}
+
+.promptToElimDups = function(data) {
+	prompt = 'Please enter the name of a behavior that you would like to merge into another behavior, or "l" to print the current list of behaviors or "s" to save and quit.\n> '
+	userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
+	userInput = .autocomplete(userInput, c(names(.findDupBehaviors(data)), "s", "l"), caseSensitive = TRUE);
+	while (userInput != "s") {
+		if (userInput == "l") {
+			.printFindDupBehaviors(data);
+		} else if (userInput %in% names(.findDupBehaviors(data))) {
+			prompt2 = paste('  What behavior do you want to merge "', userInput, '" with? (enter "q" to cancel)\n  > ', sep = "");
+			input2 = gsub('^["\']','', gsub('["\']$','', readline(prompt2)));
+			input2 = .autocomplete(input2, c(names(.findDupBehaviors(data)), "q"), caseSensitive = TRUE);
+			while (!(input2 %in% c(names(.findDupBehaviors(data)), "q"))) {
+				input2 = gsub('^["\']','', gsub('["\']$','', readline(prompt2)));
+				input2 = .autocomplete(input2, c(names(.findDupBehaviors(data)), "q"), caseSensitive = TRUE);
+			}
+			confirmPrompt = paste('  Are you sure you want to merge behavior "', userInput, '" into "', input2,'"? ', sep = "")
+			if (input2 != "q" && .getYesOrNo(confirmPrompt)) {
+				data = .replaceBehAll(data, userInput, input2);
+			}
+		} else {
+			cat("  That is not a valid behavior name.\n")
+		}
+
+		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
+		userInput = .autocomplete(userInput, c(names(.findDupBehaviors(data)), "s", "l"), caseSensitive = TRUE);
+	}
+	data = .filterDataList(data, renameSubjects = T);
+	return(data);
+}
 
 # Source: ethograms_from_scorevideo.R
 # Calls .getData() on every file in <folderPath> and returns the results in a list.
@@ -87,6 +123,21 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		assayStart = datOut[[2]];
 		names(data)[f] = gsub(folderPath, "", filenames[f]);
 	}
+	cat("Behaviors found:\n");
+	.printFindDupBehaviors(data);
+	cat('There may be some behaviors in the list above that should be combined (for example, "Female Follows" and "female follows").\n');
+	if (.getYesOrNo("Are there any behaviors in the list that should be combined? ")) {
+		data <- .promptToElimDups(data);
+	}
+	
+	if(.getYesOrNo("Were all of your assays the same length of time? ")) {
+		userInput = readline("Please enter the length of your assay in seconds.\n> ");
+		while (!grepl("^[0-9]*$", userInput)) userInput = readline("Unreadable time format.\nPlease enter the length of your assay in seconds.\n> ");
+		data = .filterDataList(data, endTime = as.numeric(userInput));
+	}
+	
+	# TODO common errors check
+	cat("Data entry complete.\n")
 	return(.filterDataList(data, renameSubjects = TRUE));
 }
 
@@ -614,7 +665,7 @@ sortByGSI = function(data, suppData) {
 }
 
 # A wrapper function for bootstrap2independent that makes it play well with .runStats
-# argList must contain x, y, row, outfilePrefix, groupNames, and can optional contain <trials> (the number of trials).
+# argList must contain x, y, row, outfilePrefix, groupNames, and can optionally contain <trials> (the number of trials).
 # The function must be passed in in a list.
 .bootstrapWrapper = function(argList) {
 	# print(argList);
