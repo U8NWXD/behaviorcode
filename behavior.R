@@ -301,7 +301,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 .getSupplementalDataPGF2a = function(infile, data) {
 	supplementalData = read.csv("PGF2a injections/PGF2a_animal_data.csv")[1:60,] # change; prompt for actual length
-	# supplementalData$index = numeric();
 	for (i in 1:length(supplementalData$Assay.name)) {
 		subj = supplementalData$Assay.name[i];
 		print(subj);
@@ -883,8 +882,14 @@ sortByGSI = function(data, suppData) {
 		transProbsByGroup[[group]] <- .makeTPMatrix(groupPMs, groupwiseLogs$behnames, byTotal);
 		write.csv(transProbsByGroup[[group]], file = paste(outfilePrefix, group, "transitionalprobabilities_datadump.csv", sep = "_"));
 		groupPMsAndCounts = list(probMats = groupPMs, counts = lapply(groupwiseLogs$groupData[[group]], function(d) {table(d$behavior)}));
-		write.csv(.combineProbabilityMatrices(groupPMsAndCounts, groupwiseLogs$behnames, byTotal)$probMat,
-				  file = paste(outfilePrefix, group, "transitionalprobabilities_average.csv", sep = "_"));
+		probMat = .combineProbabilityMatrices(groupPMsAndCounts, groupwiseLogs$behnames, byTotal)$probMat;
+		# if ((byTotal && sum(probMat) != 1) || (!byTotal && sum(apply(probMat,1,sum) != 1) > 0)) {
+			# print(probMat);
+			# print(sum(probMat));
+			# print(apply(probMat, 1, sum));
+			# warning("Something is wrong about this probability matrix - the probabilities don't add up to 1. See Katrina for help.");
+		# } TODO TODO FIX THISSSSS
+		write.csv(probMat, file = paste(outfilePrefix, group, "transitionalprobabilities_average.csv", sep = "_"));
 	}
 	return(.runStats(dataByGroup = transProbsByGroup, outfilePrefix = paste(outfilePrefix, "transitionalprobabilities", sep = "_"),
 			tests = tests, minNumLogsForComparison = minNumLogs, skipNA = !byTotal)); #BUG (maybe?) average and stddev are ALL NA when byTotal = FALSE  #TODO twoGroups
