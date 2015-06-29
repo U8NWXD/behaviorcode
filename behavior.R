@@ -413,7 +413,7 @@ sortByGSI = function(data, suppData) {
 
 # OPTIONS:
 # startTime, endTime - only get behavior from times [startTime, endTime]
-# subject - only consider this subject's behavior
+# subjects - only consider these subjects' behavior
 # startOnly - if TRUE, only consider starts of behaviors (ignore ends). If a character vector,
 #   ignore ends only for the behaviors named in the character vector.
 # boutInterval - interval to separate bouts, in seconds. Default is null (no bout separation)
@@ -429,14 +429,14 @@ sortByGSI = function(data, suppData) {
 #   of <zeroBeh>. If <zeroBeh> never occurs, the whole log is in negative time. Runs AFTER
 #   startTime/endTime!
 # TODO pretty sloooooow on renameStartStop, esp. w/ a lot of logs. Try to optimize a bit.
-.filterData = function(data, startTime = NA, endTime = NA, subject = NULL, startOnly = NULL,
+.filterData = function(data, startTime = NA, endTime = NA, subjects = NULL, startOnly = NULL,
 					   boutInterval = NULL, stateBehaviors = NULL, minNumBehaviors = NULL, toExclude = NULL,
 					   renameStartStop = FALSE, zeroBeh = NULL, zeroBehN = 1) {
 	if (!is.na(startTime)) {data <- data[data$time >= startTime,];}
 	if (!is.na(endTime)) {data <- data[data$time <= endTime,];}
-	if (!is.null(subject)) {
-		data <- data[data$subject == subject,]
-		if(length(data$behavior) == 0) {stop(paste("Error: Incorrect Subject Name:", subject))}
+	if (!is.null(subjects)) {
+		data <- data[data$subject %in% subjects,]
+		if(length(data$behavior) == 0) {stop(paste("Error: Incorrect Subject Name:", subjects))}
 	}
 	if (!is.null(startOnly)) {
 		if (is.logical(startOnly) && startOnly) {
@@ -1757,7 +1757,8 @@ sortByGSI = function(data, suppData) {
 }
 
 #TODO no error checking on durationalBehs. Will probably crash if you put a non-durational beh in there.
-.makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, wiggle = .2, defaultDur = 1, durationalBehs = NA, ...) {
+.makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, wiggle = .2, defaultDur = 1,
+									  durationalBehs = NA, staggerSubjects = F, ...) {
 	if (!is.null(filename)) jpeg(filename = filename, width = 12, height = 12, units = "in", quality = 100, res = 300, type = "quartz");
 	
 	subjects = names(data);
@@ -1785,8 +1786,19 @@ sortByGSI = function(data, suppData) {
 			beh = temp_behcolors[i,1];
 			# print(beh);
 			times = dataFrame$time[dataFrame$behavior == beh];
+			ybottom = n - 0.5;
+			ytop = n + 0.5;
+			if (staggerSubjects && dataFrame$subject[dataFrame$behavior == beh][1] %in% c("male", "female")) {
+				if (dataFrame$subject[dataFrame$behavior == beh][1] == "male") {
+					ybottom = n;
+					ytop = n + .45;
+				} else {
+					ytop = n;
+					ybottom = n - .45;
+				}
+			}
 			rect(xleft = times, xright = times + defaultDur,
-				 ybottom = n - 0.5, ytop =  n + 0.5,
+				 ybottom = ybottom, ytop = ytop,
 				 col = temp_behcolors[i,2], border = NA);
 
 			par(new = TRUE);
