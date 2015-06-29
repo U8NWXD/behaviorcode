@@ -626,6 +626,20 @@ sortByGSI = function(data, suppData) {
 	return(bs);
 }
 
+# need to library(survival)
+# needs assayLength in arglist
+.coxphWrapper = function(argList) {
+	x = argList$x;
+	y = argList$y;
+	data = c(x,y);
+	in.group1 = 1:length(data) <= length(x);
+	censored = is.na(data);
+	data[censored] <- argList$assayLength;
+	survObj = Surv(data, !censored);
+	testout <- coxph(survObj ~ in.group1);
+	return(list(p.value = as.data.frame(coef(summary(testout)))$Pr));
+}
+
 # Calculates the average and standard deviation of <dataByGroup> (and optionally statistical tests in <tests>) and
 #   outputs the results to a .csv starting with <outfilePrefix>. If <skipNA>, the average and standard deviation
 #   are calculated ignoring NAs. ie, average = (sum of not-NA data) / (number of subjects with not-NA data)
