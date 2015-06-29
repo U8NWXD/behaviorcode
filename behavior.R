@@ -1662,27 +1662,60 @@ sortByGSI = function(data, suppData) {
 	return(ssBehs);
 }
 
-.makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, wiggle = .2, defaultDur = 1, ...) {
-	# if (is.null(.checkInputDataVecOK(data))) {
-		# return(NULL);
-	# } 
+.makeMulticolorRasterPlots = function (data, outfilePrefix, behaviorsToPlotAndColors = NULL, durationalBehs = NA, ...) {
+	# sort and/or rezero if desired here
+	
+	groupwiseLogs = .sepGroups(data);
+	
+	if (!is.null(behaviorsToPlotAndColors)) {
+		.validateColorKey(behaviorsToPlotAndColors, groupwiseLogs$behnames);
+	} else {
+		cat("No color key provided to .makeMulticolorRasterPlots. Follow the prompts to create a key, or press ESC at any time to exit.\n")
+		behaviorsToPlotAndColors = .buildColorKey(groupwiseLogs$behnames);
+	}
+	
+	startStopBehs = NULL;
+	for (dataset in groupwiseLogs$groupData) {
+		startStopBehs = c(startStopBehs, .startStopBehs(dataset));
+	}
+	
+	if (is.na(durationalBehs)) {
+		durationalBehs = names(table(startStopBehs));
+	} else {
+		if (sum(!(durationalBehs %in% names(table(startStopBehs)))) > 0) {
+			stop(paste('Behavior "', durationalBehs[which(!(durationalBehs %in% names(table(startStopBehs))))][1], 
+						'" in durationalBehs was not scored as a durational behavior.', sep = ""));
+		}
+	}
+	
+	print(durationalBehs);
+	
+	for (i in 1:length(groupwiseLogs$groupNames)) {
+		.makeMulticolorRasterPlot(groupwiseLogs$groupData[[i]], behaviorsToPlotAndColors,
+									filename = paste(outfilePrefix, "rasterplot", groupwiseLogs$groupNames[i], sep = '_'),
+									durationalBehs = durationalBehs, ...)
+	}
+}
+
+#TODO no error checking on durationalBehs. Will probably crash if you put a non-durational beh in there.
+.makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, wiggle = .2, defaultDur = 1, durationalBehs = NA, ...) {
 	if (!is.null(filename)) jpeg(filename = filename, width = 12, height = 12, units = "in", quality = 100, res = 300, type = "quartz");
+	
 	subjects = names(data);
 	num_subj = length(subjects); # TODO change
 	maxtime = max(unlist(lapply(data, function(d){max(d$time)})));
 	mintime = min(c(0, unlist(lapply(data, function(d){min(d$time)}))));
-	ssBehs = .startStopBehs(data);
+	ssBehs = if(is.na(durationalBehs)) .startStopBehs(data) else durationalBehs;
 	
-	# TODO validate key
+	print(ssBehs);
+	
 	.validateColorKey(behaviorsToPlotAndColors);
-	# behaviorsToPlotAndColors = behaviorsToPlotAndColors[behaviorsToPlotAndColors[,1] %in% dataFrame$behavior,];
-	singleBehsAndColors = behaviorsToPlotAndColors[!(behaviorsToPlotAndColors[,1] %in% ssBehs),];
-	ssBehsAndColors = behaviorsToPlotAndColors[behaviorsToPlotAndColors[,1] %in% ssBehs,];
+	singleBehsAndColors = rbind(NULL, behaviorsToPlotAndColors[!(behaviorsToPlotAndColors[,1] %in% ssBehs),]);
+	ssBehsAndColors = rbind(NULL, behaviorsToPlotAndColors[behaviorsToPlotAndColors[,1] %in% ssBehs,]);
 	# print(singleBehsAndColors);
 	# print(ssBehsAndColors);
 	# TODO robustness what if a ssBeh IS NOT ss in all logs! Add code to catch this case, draw a line, throw a warning.
 	
-	# par(mfrow=c(2, 1));
 	par(oma=c(0,5,0,0));
 	plot(0, 0, frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(mintime, maxtime), ylim = c(0, num_subj + 1), col = "white");
 
@@ -1708,7 +1741,7 @@ sortByGSI = function(data, suppData) {
 	
 	nSsBehs = length(ssBehs);
 	durBehBounds = data.frame(bottomBound = ((0:(nSsBehs - 1)) * 2 * wiggle / nSsBehs) - wiggle, topBound = ((1:nSsBehs) * 2 * wiggle / nSsBehs) - wiggle);
-	print(durBehBounds);
+	# print(durBehBounds);
 	dimnames(durBehBounds)[[1]] <- ssBehsAndColors[,1];
 	for (n in 1:num_subj) { 
 		abline(h=n, col='black');
@@ -1719,7 +1752,7 @@ sortByGSI = function(data, suppData) {
 			beh = temp_behcolors[i,1];
 			# print(beh);
 			occurrences = data.frame(start = dataFrame$time[dataFrame$behavior == beh & dataFrame$type == "start"],
-									 duration = as.numeric(dataFrame$duration[dataFrame$behavior == beh & dataFrame$type == "start"])); #TODO handle orphan start?? maybe scorevideo does this.
+									 duration = as.numeric(dataFrame$duration[dataFrame$behavior == beh & dataFrame$type == "start"]));
 			rect(xleft = occurrences$start, xright = occurrences$start + occurrences$duration,
 				 ybottom = n + durBehBounds[beh,]$bottomBound, ytop =  n + durBehBounds[beh,]$topBound,
 				 col = temp_behcolors[i,2], border = NA);
