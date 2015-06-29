@@ -350,20 +350,16 @@ sortByGSI = function(data, suppData) {
 # Renames the behaviors in <toSeparate>, which occur in two or more subjects, so that the behavior
 # description indicates which subject it is.
 .sepSubject = function(data, toSeparate) {
-	for (i in 1:length(data$behavior)) {
-		if (data$behavior[i] %in% toSeparate)
-			data$behavior[i] <- paste(as.character(data$subject[i]), data$behavior[i]);
-	}
+	toSep = data$behavior %in% toSeparate;
+	data$behavior[toSep] <- paste(as.character(data$subject[toSep]), data$behavior[toSep]);
 	return(data);
 }
 
 # Renames behaviors to differentiate between starts and stops. If the behavior has already been renamed,
 # this function does nothing.
-# TODO can this be rewritten without a for loop? that might be why its slow
 .renameStartStop = function(data) {
-	for (i in 1:dim(data)[1]) {
-		if (!is.na(data$type[i]) && !grepl(" st[oa][rp]t?$", data$behavior[i])) data$behavior[i] <- paste(data$behavior[i], " ", data$type[i], sep = "");  
-	}
+	toReplace = !is.na(data$type) & !grepl(" st[oa][rp]t?$", data$behavior);
+	data$behavior[toReplace] <- paste(data$behavior[toReplace], data$type[toReplace]);
 	return(data);
 }
 
@@ -496,9 +492,7 @@ sortByGSI = function(data, suppData) {
 # frame data. An example use of this function would be to replace "Male in pot" with
 # "Male In Pot"
 .replaceBeh = function(data, toReplace, replacement) {
-	for (i in 1:length(data$behavior)) {
-		if (data$behavior[i] == toReplace) data$behavior[i] <- replacement;
-	}
+	data$behavior[data$behavior == toReplace] <- replacement;
 	return(data);
 }
 
