@@ -324,7 +324,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # TODO error checking
 .sortByAttribute = function(data, attribute, ...) {
 	if (is.character(attribute)) attribute = as.factor(attribute);
-	print(attribute[order(attribute, ...)]);
+	# print(attribute[order(attribute, ...)]);
 	return(data[order(attribute, ...)]);
 }
 
@@ -1603,6 +1603,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	}
 }
 
+# Source: something from Austin
+# Makes a raster plot for a single fish with each behavior on a row by itself. A little bit jenky
+# in terms of how the tick marks are drawn. Also makes boxplots that are presumably meaningful
+# in some way, and returns something.
 .makeRasterPlot = function (dataFrame, plots=T, ...) {
 	data = dataFrame$behavior;
 	# if (is.null(.checkInputDataVecOK(data))) {
@@ -1648,7 +1652,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			);
 }
 
-# Returns a vector of the names of behaviors that are durational
+# Returns a vector of the names of behaviors that are durational in <data>, a list of logs.
 .startStopBehs = function(data) {
 	behaviors <- names(.findDupBehaviors(data));
 	ssBehs = character();
@@ -1658,13 +1662,25 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(ssBehs);
 }
 
+# Separates the logs in <data> by group and makes a multicolor raster plot of each one. The plots for
+# each group are saved to files starting with <outfilePrefix>. Parameters in the ... are passed on to
+# .makeMulticolorRasterPlot().
+#
+# <behaviorsToPlotAndColors> and <durationalBehs> work the same as in .makeMulticolorRasterPlot(). If no
+# <behaviorsToPlotAndColors> is provided, the user is prompted to create a color key.
+#
+# The user can optionally provide a <sortAttribute> to order logs by an attribute (for example, GSI,
+# time spent in pot, number of spawns, latency to quiver 5 times, etc.) If this is provided, the parameters
+# sort.na.last and sort.decreasing are passed through to the call to order(). Additionally, the value
+# will be displayed on the y-axis along with sort.name, which should be something like "GSI", "Time in pot",
+# "Spawning count", "Quiver latency", etc.
 .makeMulticolorRasterPlots = function (data, outfilePrefix, behaviorsToPlotAndColors = NULL, durationalBehs = NA,
 										sortAttribute = NULL, sort.na.last = T, sort.decreasing = F, sort.name = "", ...) {
 	if (!is.null(sortAttribute)) {
 		names(data) <- paste(names(data), "                               ", sort.name, ":", as.character(sortAttribute));
 		data <- .sortByAttribute(data, sortAttribute, na.last = sort.na.last, decreasing = sort.decreasing);
 	}
-	# rezero if desired here
+	# rezero if desired here TODO
 	
 	groupwiseLogs = .sepGroups(data);
 	
@@ -1689,7 +1705,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		}
 	}
 	
-	print(durationalBehs);
+	# print(durationalBehs);
 	
 	for (i in 1:length(groupwiseLogs$groupNames)) {
 		.makeMulticolorRasterPlot(groupwiseLogs$groupData[[i]], behaviorsToPlotAndColors,
@@ -1698,7 +1714,30 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	}
 }
 
-#TODO no error checking on durationalBehs. Will probably crash if you put a non-durational beh in there.
+
+# Makes a raster plot using color key <behaviorsToPlotAndColors> with one row for each log
+# in <data>. If <filename> is not null, the result is saved as a jpg named <filename> that
+# has size <widthInInches> x <heightInInches>. Only behaviors in the color key are plotted - 
+# to suppress plotting of a given behavior, just exclude it from the color key.
+#
+# If <durationalBehs> is provided, the behaviors in <durationalBehs> are plotted as bars
+# from start to stop instead of ticks. Durational behaviors not in that list but in
+# <behaviorsToPlotAndColors> will get a tick for start and a tick for stop. If not provided,
+# all behaviors that are durational in the logs will be plotted as bars.
+#
+# If <staggerSubjects> is set to TRUE, male behaviors are plotted above the line and female
+# behaviors below it. This could be rewritten to make it possible to plot an arbitrary list
+# of behaviors above/below the line, but right now it is hard-coded in as "male" and "female".
+#
+# <wiggle> controls the amount of space the durational bars are allowed to take up. It
+# should always be a value between 0 and 0.5. The default .2 gives the durational bars 40%
+# of the height of the ticks. <defaultDur> is the width, in seconds, of the ticks. If some
+# ticks are very light or invisible, try increasing <defaultDur>.
+#
+# TODO no error checking on durationalBehs. Will probably crash if you put a non-durational beh in
+#   there. Also w/ ssBehs, what if it is ss in some-but-not-all logs? Add code to catch this case,
+#   draw a line, throw a warning.
+# TODO test with 1 durational beh, 1 non-durational beh, 0 of each.
 .makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, wiggle = .2, defaultDur = 1,
 									  durationalBehs = NA, staggerSubjects = F, widthInInches = 12, heightInInches = 12) {
 	if (!is.null(filename)) jpeg(filename = filename, width = widthInInches, height = heightInInches, units = "in", quality = 100, res = 300, type = "quartz");
@@ -1709,14 +1748,13 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	mintime = min(c(0, unlist(lapply(data, function(d){min(d$time)}))));
 	ssBehs = if(is.na(durationalBehs[1])) .startStopBehs(data) else durationalBehs;
 	
-	print(ssBehs);
+	# print(ssBehs);
 	
 	.validateColorKey(behaviorsToPlotAndColors);
 	singleBehsAndColors = rbind(NULL, behaviorsToPlotAndColors[!(behaviorsToPlotAndColors[,1] %in% ssBehs),]);
 	ssBehsAndColors = rbind(NULL, behaviorsToPlotAndColors[behaviorsToPlotAndColors[,1] %in% ssBehs,]);
 	# print(singleBehsAndColors);
 	# print(ssBehsAndColors);
-	# TODO robustness what if a ssBeh IS NOT ss in all logs! Add code to catch this case, draw a line, throw a warning.
 	
 	par(oma=c(0,5,0,0));
 	plot(0, 0, frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(mintime, maxtime), ylim = c(0, num_subj + 1), col = "white");
