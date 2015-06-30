@@ -28,7 +28,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # heatmap(cor(t(probma)), symm = TRUE)
 
 
-# TODO output to excel the trans prob mats. MAKE THIS PART OF MAIN DATA PIPELINE. in .compareProbMats?
 
 # TODO add option for all compare fxns verbose = false
 
@@ -539,7 +538,6 @@ sortByGSI = function(data, suppData) {
 # zeroBeh - Changes time=0 in all logs from being the start of the assay to being the first
 #   of <zeroBeh>. If <zeroBeh> never occurs, the whole log is in negative time. Runs AFTER
 #   startTime/endTime!
-# TODO pretty sloooooow on renameStartStop, esp. w/ a lot of logs. Try to optimize a bit.
 .filterData = function(data, startTime = NA, endTime = NA, subjects = NULL, startOnly = NULL,
 					   boutInterval = NULL, stateBehaviors = NULL, minNumBehaviors = NULL, toExclude = NULL,
 					   renameStartStop = FALSE, zeroBeh = NULL, zeroBehN = 1) {
@@ -606,6 +604,7 @@ sortByGSI = function(data, suppData) {
 	data$behavior[data$behavior == toReplace] <- replacement;
 	return(data);
 }
+
 
 # Calls .replaceBeh on every data frame of a data list.
 .replaceBehAll = function(data, toReplace, replacement) {
@@ -766,7 +765,7 @@ sortByGSI = function(data, suppData) {
 		write.csv(dataByGroup[[group]]$total, file = paste(outfilePrefix, group, "data.csv", sep = "_"));
 	}
 	return(.runStats(dataByGroup = lapply(dataByGroup, function(d){d$total}), outfilePrefix = paste(outfilePrefix, "basicstats", sep = "_"),
-			tests = tests, minNumLogsForComparison = minNumLogs));  #TODO twoGroups
+			tests = tests, minNumLogsForComparison = minNumLogs));
 }
 
 # A wrapper function for bootstrap2independent that makes it play well with .runStats
@@ -827,7 +826,7 @@ sortByGSI = function(data, suppData) {
 	df = data.frame(average = average, stddev = stddev);
 	offset = dim(df)[2];
 	
-	if (length(dataByGroup) >= 2 && length(tests) > 0) { # potentially tests cannot b empty TODO test thaaaaat
+	if (length(dataByGroup) >= 2 && length(tests) > 0) {
 		if (length(dataByGroup) > 2) warning(paste("It looks like you have more than two experimental groups. ",
 												   "Contact Katrina if you want code to deal with that.\nFor now, I'll run tests on the first two groups (\"",
 												   names(dataByGroup)[1], "\" and \"", names(dataByGroup)[2], "\")", sep = ""), immediate. = TRUE)
@@ -855,7 +854,7 @@ sortByGSI = function(data, suppData) {
 					} else {
 						functionList = tests[[j]];
 						df[i, j + offset] <- functionList[[1]](c(functionList[-1], list(x = group1dat, y = group2dat, row = row,
-															   outfilePrefix = outfilePrefix, groupNames = names(dataByGroup)[1:2])))$p.value #TODO change 1:2
+															   outfilePrefix = outfilePrefix, groupNames = names(dataByGroup)[1:2])))$p.value
 					}
 				}
 			} else {
@@ -1004,7 +1003,7 @@ sortByGSI = function(data, suppData) {
 		write.csv(probMat, file = paste(outfilePrefix, group, "transitionalprobabilities_average.csv", sep = "_"));
 	}
 	return(.runStats(dataByGroup = transProbsByGroup, outfilePrefix = paste(outfilePrefix, "transitionalprobabilities", sep = "_"),
-			tests = tests, minNumLogsForComparison = minNumLogs, skipNA = !byTotal)); #BUG (maybe?) average and stddev are ALL NA when byTotal = FALSE  #TODO twoGroups
+			tests = tests, minNumLogsForComparison = minNumLogs, skipNA = !byTotal)); #BUG (maybe?) average and stddev are ALL NA when byTotal = FALSE
 }
 
 
@@ -1132,7 +1131,7 @@ sortByGSI = function(data, suppData) {
 		write.csv(entropiesByGroup[[group]], file = paste(outfilePrefix, group, "entropydata.csv", sep = "_"));
 	}
 	return(.runStats(dataByGroup = entropiesByGroup, outfilePrefix = paste(outfilePrefix, "entropy", sep = "_"),
-					 tests = tests, minNumLogsForComparison = minNumLogs, skipNA = T));  #TODO twoGroups
+					 tests = tests, minNumLogsForComparison = minNumLogs, skipNA = T));
 }
 
 
@@ -1400,8 +1399,6 @@ sortByGSI = function(data, suppData) {
 		stop(paste('Behavior in behaviorsToPlotAndColors: "', behcolors[!(behcolors[,1] %in% validBehNames), 1], '" not found in any score log\n', sep = ""));
 	}
 }
-
-# TODO make plottttt
 
 # Plots a color key to make it human-readable
 .plotColorLegend = function(colorkey) {
@@ -1860,7 +1857,7 @@ sortByGSI = function(data, suppData) {
 		startStopBehs = c(startStopBehs, .startStopBehs(dataset));
 	}
 	
-	if (is.na(durationalBehs)) {
+	if (is.na(durationalBehs[1])) {
 		durationalBehs = names(table(startStopBehs));
 	} else {
 		if (sum(!(durationalBehs %in% names(table(startStopBehs)))) > 0) {
@@ -1884,10 +1881,10 @@ sortByGSI = function(data, suppData) {
 	if (!is.null(filename)) jpeg(filename = filename, width = widthInInches, height = heightInInches, units = "in", quality = 100, res = 300, type = "quartz");
 	
 	subjects = names(data);
-	num_subj = length(subjects); # TODO change
+	num_subj = length(subjects); # TODO change <---- why does this need changing? UNCLEAR.
 	maxtime = max(unlist(lapply(data, function(d){max(d$time)})));
 	mintime = min(c(0, unlist(lapply(data, function(d){min(d$time)}))));
-	ssBehs = if(is.na(durationalBehs)) .startStopBehs(data) else durationalBehs;
+	ssBehs = if(is.na(durationalBehs[1])) .startStopBehs(data) else durationalBehs;
 	
 	print(ssBehs);
 	
