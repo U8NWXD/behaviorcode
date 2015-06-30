@@ -738,11 +738,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 .bootstrapWrapper = function(argList) {
 	# print(argList);
 	if(!("trials" %in% names(argList))) argList$trials <- 10000;
-	bs = bootstrap2independent(x = argList$x, y = argList$y, dataDescriptor = argList$row,
+	bs = bootstrap2independent(argList$x, argList$y, dataDescriptor = argList$row,
 	       						 outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"),
-	       						 groupNames = argList$groupNames, trials = argList$trials, verbose = F);
+	       						 groupNames = argList$groupNames, trials = argList$trials, printResults = FALSE, verbose = FALSE);
 	# print(list(p = bs$p.value, dat = bs$data));
-	return(bs);
+	return(list(p.value = bs$p));
 }
 
 # need to library(survival) TODO
@@ -967,7 +967,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		write.csv(probMat, file = paste(outfilePrefix, group, "transitionalprobabilities_average.csv", sep = "_"));
 	}
 	return(.runStats(dataByGroup = transProbsByGroup, outfilePrefix = paste(outfilePrefix, "transitionalprobabilities", sep = "_"),
-			tests = tests, minNumLogsForComparison = minNumLogs, skipNA = !byTotal)); #BUG (maybe?) average and stddev are ALL NA when byTotal = FALSE
+			tests = tests, minNumLogsForComparison = minNumLogs, skipNA = !byTotal));
 }
 
 
@@ -1709,7 +1709,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	
 	for (i in 1:length(groupwiseLogs$groupNames)) {
 		.makeMulticolorRasterPlot(groupwiseLogs$groupData[[i]], behaviorsToPlotAndColors,
-									filename = paste(outfilePrefix, "rasterplot", groupwiseLogs$groupNames[i], sep = '_'),
+									filename = paste(outfilePrefix, "_rasterplot_", groupwiseLogs$groupNames[i], ".jpeg", sep = ''),
 									durationalBehs = durationalBehs, ...)
 	}
 }

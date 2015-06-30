@@ -1,0 +1,8 @@
+x <- .getDataBatch("PGF2a injections/", groups = T, assayStart = c("Assay Start", "female introduced", "Female Introduced"))
+q
+no
+yes
+1800
+
+
+practice_data <- .cleanUpPGF2a(x)
