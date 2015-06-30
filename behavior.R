@@ -321,6 +321,64 @@ sortByGSI = function(data, suppData) {
 	return(data[order(gsis, na.last = NA)]);
 }
 
+# Helper function for .getAttributeFromSupplementalData(). Checks that colName is
+# either a valid column index for <object> (a data frame or matrix) or a valid
+# column name for <object>.
+.checkColumnOK = function(colName, object) {
+	return((is.numeric(colName) && colName %% 1 == 0 && colName > 0 && colName <= dim(object)[2]) ||
+		   (is.character(colName) && colName %in% dimnames(object)[[2]]))
+}
+
+# Extracts an attribute vector to use in sorting from a matrix or data frame of
+# supplemental data (<suppData>). <data> should be the list of score logs. You must
+# also provide <attributeCol> which is either the column index or the column name of
+# suppData that contains the data of interest (for example GSI), and either <nameCol>
+# (the name or index of a column in suppData with the names of the score logs) or
+# <indexCol> (the name or index of a column in suppData with the index in <data> of
+# each row's associated score log).
+.getAttributeFromSupplementalData = function(suppData, data, attributeCol, nameCol = NA, indexCol = NA) {
+	if (!.checkColumnOK(attributeCol, suppData)) stop("Invalid attributeCol.");
+	if (is.na(indexCol)) {
+		if (is.na(nameCol)) stop("You must provide either nameCol or indexCol.");
+		if (!.checkColumnOK(nameCol, suppData)) stop("Invalid nameCol.");
+		suppData = as.data.frame(suppData);
+		for (i in 1:length(suppData[,nameCol])) {
+			subj = suppData[i, nameCol];
+			logs = grepl(subj, names(data));
+			if (sum(logs) == 0) suppData$index.tmp[i] <- NA
+			else if (sum(logs) == 1) suppData$index.tmp[i] <- which(logs)
+			else warning(paste("More than one log matches assay name", subj), immediate. = TRUE)
+			indexCol = which(names(suppData) == "index.tmp");
+		}
+	} else {
+		if (!.checkColumnOK(indexCol, suppData)) stop("Invalid indexCol.")
+		suppData[,indexCol] <- as.numeric(suppData[,indexCol]);
+	}
+	
+	attribute = NULL;
+	for (i in 1:length(data)) {
+		ai = suppData[,attributeCol][which(suppData[,indexCol] == i)];
+		if (length(ai) != 1) {
+			warning("No row found in suppData for log", names(data)[i], immediate.=TRUE);
+			ai = NA;
+		}
+		attribute = c(attribute, ai);
+	}
+	return(attribute);
+}
+
+# Returns <data> sorted in order of increasing <attribute>. <attribute> should be a vector
+# of numbers, strings, or logical values, the same length as <data> with value attribute[i]
+# corresponding to log data[[i]].
+# Arguments can be passed through the ... to order(), including (notably) decreasing=T which
+# sorts in order of decreasing <attribute> and na.last = NA which removes NAs from the data.
+# Or na.last = T to put NAs last, or na.last = F to put them first.
+.sortByAttribute = function(data, attribute, ...) {
+	if (is.character(attribute)) attribute = as.factor(attribute);
+	print(attribute[order(attribute, ...)]);
+	return(data[order(attribute, ...)]);
+}
+
 .cleanUpPGF2a = function(my_data) {
 	my_data <- .filterDataList(my_data, toExclude=c("approach", "APPROACH", "BITE", "flee", "QUIVER"))
 	my_data <- .filterDataList(my_data, startOnly=c("chase", "female FOLLOW", "FLEE", "FOLLOW", "lead", "male CHASE", "male LEAD", "male QUIVER", "quiver"))
