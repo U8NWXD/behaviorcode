@@ -359,13 +359,26 @@ sortByGSI = function(data, suppData) {
 	for (i in 1:length(data)) {
 		ai = suppData[,attributeCol][which(suppData[,indexCol] == i)];
 		if (length(ai) != 1) {
-			warning("No row found in suppData for log", names(data)[i], immediate.=TRUE);
+			warning("No row found in suppData for log ", names(data)[i], immediate.=TRUE);
 			ai = NA;
 		}
 		attribute = c(attribute, ai);
 	}
 	return(attribute);
 }
+
+.getLatencyAttribute = function(behavior, data, n = 1) {
+	latencies = rep(NA, length(data));
+	for (i in 1:length(data)) {
+		behOccurances = data[[i]]$time[data[[i]]$behavior == behavior];
+		if (length(behOccurances) >= n) latencies[i] <- behOccurances[n];
+	}
+	numNotNAs = sum(!is.na(latencies));
+	if (numNotNAs == 0) stop("No occurances of \"", behavior, "\" found.")
+	else if (numNotNAs < length(data) / 2) warning("Behavior \"", behavior, "\" only found in ", numNotNAs, " out of ", length(data), " logs.", immediate.=TRUE);
+	return(latencies);
+}
+
 
 # Returns <data> sorted in order of increasing <attribute>. <attribute> should be a vector
 # of numbers, strings, or logical values, the same length as <data> with value attribute[i]
@@ -1821,8 +1834,8 @@ sortByGSI = function(data, suppData) {
 
 #TODO no error checking on durationalBehs. Will probably crash if you put a non-durational beh in there.
 .makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, wiggle = .2, defaultDur = 1,
-									  durationalBehs = NA, staggerSubjects = F, ...) {
-	if (!is.null(filename)) jpeg(filename = filename, width = 12, height = 12, units = "in", quality = 100, res = 300, type = "quartz");
+									  durationalBehs = NA, staggerSubjects = F, widthInInches = 12, heightInInches = 12) {
+	if (!is.null(filename)) jpeg(filename = filename, width = widthInInches, height = heightInInches, units = "in", quality = 100, res = 300, type = "quartz");
 	
 	subjects = names(data);
 	num_subj = length(subjects); # TODO change
