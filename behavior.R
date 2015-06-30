@@ -367,6 +367,20 @@ sortByGSI = function(data, suppData) {
 	return(attribute);
 }
 
+# The next four functions return behavior count, latency, total duration, and average duration
+# as a vector to use in sorting logs.
+
+.getCountAttribute = function(behavior, data, warn = T) {
+	counts = rep(NA, length(data));
+	for (i in 1:length(data)) {
+		counts[i] = sum(data[[i]]$behavior == behavior);
+	}
+	numNot0s = sum(counts != 0);
+	if (numNot0s == 0) stop("No occurances of \"", behavior, "\" found.")
+	else if (numNot0s < length(data) / 2 && warn) warning("Behavior \"", behavior, "\" only found in ", numNot0s, " out of ", length(data), " logs.", immediate.=TRUE);
+	return(counts);
+}
+
 .getLatencyAttribute = function(behavior, data, n = 1) {
 	latencies = rep(NA, length(data));
 	for (i in 1:length(data)) {
@@ -378,6 +392,32 @@ sortByGSI = function(data, suppData) {
 	else if (numNotNAs < length(data) / 2) warning("Behavior \"", behavior, "\" only found in ", numNotNAs, " out of ", length(data), " logs.", immediate.=TRUE);
 	return(latencies);
 }
+
+.getTotalDurAttribute = function(behavior, data) {
+	durations = rep(0, length(data));
+	for (i in 1:length(data)) {
+		behOccurances = data[[i]][data[[i]]$behavior == behavior,];
+		if (length(behOccurances$duration) > 0) {
+			if (sum(is.na(behOccurances$type)) > 0) stop("Behavior \"", behavior, "\" is not durational.");
+			durations[i] = sum(behOccurances$duration[which(behOccurances$type == "start")]);
+		}
+	}
+	numNot0s = sum(durations != 0);
+	if (numNot0s == 0) stop("No occurances of \"", behavior, "\" found.")
+	else if (numNot0s < length(data) / 2) warning("Behavior \"", behavior, "\" only found in ", numNot0s, " out of ", length(data), " logs.", immediate.=TRUE);
+	return(durations);
+}
+
+.getAverageDurAttribute = function(behavior, data) {
+	totalDurations = .getTotalDurAttribute(behavior, data);
+	counts = .getCountAttribute(behavior, data, warn = F);
+	zeroCounts = which(counts == 0);
+	if (sum(totalDurations[zeroCounts]) != 0) stop("NONZERO DURATION WITH ZERO COUNT. This is a bug.");
+	counts[zeroCounts] <- 1; # to avoid div-by-0
+	return(totalDurations / counts);
+}
+
+
 
 
 # Returns <data> sorted in order of increasing <attribute>. <attribute> should be a vector
