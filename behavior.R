@@ -309,6 +309,24 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(df);
 }
 
+#####################################################################################################
+## FILTERING, SORTING, AND EDITING DATA                                                            ##
+#####################################################################################################
+
+######################################### SORTING ###################################################
+
+# Returns <data> sorted in order of increasing <attribute>. <attribute> should be a vector
+# of numbers, strings, or logical values, the same length as <data> with value attribute[i]
+# corresponding to log data[[i]].
+# Arguments can be passed through the ... to order(), including (notably) decreasing=T which
+# sorts in order of decreasing <attribute> and na.last = NA which removes NAs from the data.
+# Or na.last = T to put NAs last, or na.last = F to put them first.
+# TODO error checking
+.sortByAttribute = function(data, attribute, ...) {
+	if (is.character(attribute)) attribute = as.factor(attribute);
+	print(attribute[order(attribute, ...)]);
+	return(data[order(attribute, ...)]);
+}
 
 # Extracts an attribute vector to use in sorting from a matrix or data frame of
 # supplemental data (<suppData>). <data> should be the list of score logs. You must
@@ -400,108 +418,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 }
 
 
-# Returns <data> sorted in order of increasing <attribute>. <attribute> should be a vector
-# of numbers, strings, or logical values, the same length as <data> with value attribute[i]
-# corresponding to log data[[i]].
-# Arguments can be passed through the ... to order(), including (notably) decreasing=T which
-# sorts in order of decreasing <attribute> and na.last = NA which removes NAs from the data.
-# Or na.last = T to put NAs last, or na.last = F to put them first.
-# TODO error checking
-.sortByAttribute = function(data, attribute, ...) {
-	if (is.character(attribute)) attribute = as.factor(attribute);
-	print(attribute[order(attribute, ...)]);
-	return(data[order(attribute, ...)]);
-}
-
-# Cleans up Scott's pgf2a data.
-.cleanUpPGF2a = function(my_data) {
-	my_data <- .filterDataList(my_data, toExclude=c("approach", "APPROACH", "BITE", "flee", "QUIVER"))
-	my_data <- .filterDataList(my_data, startOnly=c("chase", "female FOLLOW", "FLEE", "FOLLOW", "lead", "male CHASE", "male LEAD", "male QUIVER", "quiver"))
-	.cleanFxn = function(dat) {
-		clean <- .replaceBehAll(dat, "female FOLLOW", "female follow");
-		clean <- .replaceBehAll(clean, "female IN POT", "female in pot");
-		clean <- .replaceBehAll(clean, "FLEE", "female flee");
-		clean <- .replaceBehAll(clean, "FOLLOW", "female follow");
-		clean <- .replaceBehAll(clean, "inside pot", "male in pot");
-		clean <- .replaceBehAll(clean, "inside POT", "female in pot");
-		clean <- .replaceBehAll(clean, "male BITES", "bite");
-		clean <- .replaceBehAll(clean, "male CHASE", "chase");
-		clean <- .replaceBehAll(clean, "male IN POT", "male in pot");
-		clean <- .replaceBehAll(clean, "male LEAD", "lead");
-		clean <- .replaceBehAll(clean, "male QUIVER", "quiver");
-		return(clean);
-	}
-	my_data <- .cleanFxn(my_data);
-	return(my_data);
-}
-
-#####################################################################################################
-## FILTERING AND EDITING DATA                                                                      ##
-#####################################################################################################
-
-# Renames the behaviors in <toSeparate>, which occur in two or more subjects, so that the behavior
-# description indicates which subject it is.
-.sepSubject = function(data, toSeparate) {
-	toSep = data$behavior %in% toSeparate;
-	data$behavior[toSep] <- paste(as.character(data$subject[toSep]), data$behavior[toSep]);
-	return(data);
-}
-
-# Renames behaviors to differentiate between starts and stops. If the behavior has already been renamed,
-# this function does nothing.
-.renameStartStop = function(data) {
-	toReplace = !is.na(data$type) & !grepl(" st[oa][rp]t?$", data$behavior);
-	data$behavior[toReplace] <- paste(data$behavior[toReplace], data$type[toReplace]);
-	return(data);
-}
-
-# Finds the nth occurance of <behavior> in the log <data> and sets data's <time> column to the offset
-# relative to that behavior.
-.setZeroToNthOfBehavior = function(data, behavior, n = 1) {
-	data = rbind(data, list(time = 0, behavior = "assay start", subject = NA, type = NA, pair_time = NA, duration = NA)); # TODO make this line better
-	targetBehIndices = which(data$behavior == behavior);
-	newStartTime = 0;
-	if (length(targetBehIndices) >= n) {
-		newStartTime = data$time[targetBehIndices[n]];
-	} else {
-		newStartTime = max(data$time) + 1;
-	}
-	data$time <- data$time - newStartTime; # TODO change attribute
-	return(data);
-}
-
-
-# Whenever there are <intervalToSeparate> seconds between adjacent behaviors, inserts a "STOP" after the
-# behavior before the pause and a "START" before the behavior after the pause. Also inserts a "START" at the
-# beginning of the log and a "STOP" at the end.
-# TODO use type, pair_time, duration to pair "START"s with "STOP"s.
-.separateBouts = function (data, intervalToSeparate, stateBehaviors = NULL) {
-	# 	names(df) = c('time', 'behavior', 'subject', 'type', 'pair_time', 'duration');
-	data$type[!is.na(data$type) & data$type == "start" & data$behavior %in% stateBehaviors] <- "sTaRt";
-	data$type[!is.na(data$type) & data$type == "stop" & data$behavior %in% stateBehaviors] <- "sToP";
-	
-	newData = data.frame(time = data$time[1], behavior = "START", subject = NA, type = NA, pair_time = NA, duration = NA); 
-	newData = rbind(newData, data[1,]);
-	# print(data[1:20,]);
-	for (i in 2:length(data[,1])) {
-	#	print(paste(sum(data$type[!is.na(data$type)][1:(i-1)] == "start"), sum(data$type[!is.na(data$type)][1:(i-1)] == "stop"), sum(data$type[!is.na(data$type)][1:(i-1)] == "start") == sum(data$type[!is.na(data$type)][1:(i-1)] == "stop")));
-		if (as.numeric(data$time[i]) - as.numeric(data$time[i-1]) >= intervalToSeparate &&
-		    sum(data$type[1:(i-1)][!is.na(data$type)[1:(i-1)]] == "start") == sum(data$type[1:(i-1)][!is.na(data$type)[1:(i-1)]] == "stop")) {
-			stopRow = data.frame(time = data$time[i-1], behavior = "STOP", subject = NA, type = NA, pair_time = NA, duration = NA);
-			newData = rbind(newData, stopRow);
-			startRow = data.frame(time = data$time[i], behavior = "START", subject = NA, type = NA, pair_time = NA, duration = NA);
-			newData = rbind(newData, startRow);
-		}
-		newData = rbind(newData, data[i,]);
-	}
-	stopRow = data.frame(time = data$time[length(data$time)], behavior = "STOP", subject = NA, type = NA, pair_time = NA, duration = NA);
-	newData = rbind(newData, stopRow);
-	dimnames(newData)[[1]] <- 1:length(dimnames(newData)[[1]])
-	
-	newData$type[!is.na(newData$type) & newData$type == "sTaRt"] <- "start";
-	newData$type[!is.na(newData$type) & newData$type == "sToP"] <- "stop";
-	return(newData);
-}
+######################################## FILTERING ##################################################
 
 # OPTIONS:
 # startTime, endTime - only get behavior from times [startTime, endTime]
@@ -588,6 +505,74 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # }
 
 
+# Renames the behaviors in <toSeparate>, which occur in two or more subjects, so that the behavior
+# description indicates which subject it is.
+.sepSubject = function(data, toSeparate) {
+	toSep = data$behavior %in% toSeparate;
+	data$behavior[toSep] <- paste(as.character(data$subject[toSep]), data$behavior[toSep]);
+	return(data);
+}
+
+# Renames behaviors to differentiate between starts and stops. If the behavior has already been renamed,
+# this function does nothing.
+.renameStartStop = function(data) {
+	toReplace = !is.na(data$type) & !grepl(" st[oa][rp]t?$", data$behavior);
+	data$behavior[toReplace] <- paste(data$behavior[toReplace], data$type[toReplace]);
+	return(data);
+}
+
+# Finds the nth occurance of <behavior> in the log <data> and sets data's <time> column to the offset
+# relative to that behavior.
+.setZeroToNthOfBehavior = function(data, behavior, n = 1) {
+	data = rbind(data, list(time = 0, behavior = "assay start", subject = NA, type = NA, pair_time = NA, duration = NA)); # TODO make this line better
+	targetBehIndices = which(data$behavior == behavior);
+	newStartTime = 0;
+	if (length(targetBehIndices) >= n) {
+		newStartTime = data$time[targetBehIndices[n]];
+	} else {
+		newStartTime = max(data$time) + 1;
+	}
+	data$time <- data$time - newStartTime; # TODO change attribute
+	return(data);
+}
+
+
+# Whenever there are <intervalToSeparate> seconds between adjacent behaviors, inserts a "STOP" after the
+# behavior before the pause and a "START" before the behavior after the pause. Also inserts a "START" at the
+# beginning of the log and a "STOP" at the end.
+# TODO use type, pair_time, duration to pair "START"s with "STOP"s.
+.separateBouts = function (data, intervalToSeparate, stateBehaviors = NULL) {
+	# 	names(df) = c('time', 'behavior', 'subject', 'type', 'pair_time', 'duration');
+	data$type[!is.na(data$type) & data$type == "start" & data$behavior %in% stateBehaviors] <- "sTaRt";
+	data$type[!is.na(data$type) & data$type == "stop" & data$behavior %in% stateBehaviors] <- "sToP";
+	
+	newData = data.frame(time = data$time[1], behavior = "START", subject = NA, type = NA, pair_time = NA, duration = NA); 
+	newData = rbind(newData, data[1,]);
+	# print(data[1:20,]);
+	for (i in 2:length(data[,1])) {
+	#	print(paste(sum(data$type[!is.na(data$type)][1:(i-1)] == "start"), sum(data$type[!is.na(data$type)][1:(i-1)] == "stop"), sum(data$type[!is.na(data$type)][1:(i-1)] == "start") == sum(data$type[!is.na(data$type)][1:(i-1)] == "stop")));
+		if (as.numeric(data$time[i]) - as.numeric(data$time[i-1]) >= intervalToSeparate &&
+		    sum(data$type[1:(i-1)][!is.na(data$type)[1:(i-1)]] == "start") == sum(data$type[1:(i-1)][!is.na(data$type)[1:(i-1)]] == "stop")) {
+			stopRow = data.frame(time = data$time[i-1], behavior = "STOP", subject = NA, type = NA, pair_time = NA, duration = NA);
+			newData = rbind(newData, stopRow);
+			startRow = data.frame(time = data$time[i], behavior = "START", subject = NA, type = NA, pair_time = NA, duration = NA);
+			newData = rbind(newData, startRow);
+		}
+		newData = rbind(newData, data[i,]);
+	}
+	stopRow = data.frame(time = data$time[length(data$time)], behavior = "STOP", subject = NA, type = NA, pair_time = NA, duration = NA);
+	newData = rbind(newData, stopRow);
+	dimnames(newData)[[1]] <- 1:length(dimnames(newData)[[1]])
+	
+	newData$type[!is.na(newData$type) & newData$type == "sTaRt"] <- "start";
+	newData$type[!is.na(newData$type) & newData$type == "sToP"] <- "stop";
+	return(newData);
+}
+
+
+
+
+######################################### EDITING ###################################################
 
 # Replaces behavior description <toReplace> with description <replacement> in data
 # frame data. An example use of this function would be to replace "Male in pot" with
@@ -596,7 +581,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	data$behavior[data$behavior == toReplace] <- replacement;
 	return(data);
 }
-
 
 # Calls .replaceBeh on every data frame of a data list.
 .replaceBehAll = function(data, toReplace, replacement) {
@@ -611,7 +595,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 .findDupBehaviors = function(data) {
 	return(table(unlist(lapply(data, function(f) {names(table(f$behavior))}))));
 }
-
 
 
 # This is an example of how to use .replaceBehAll to clean up data such that all logs
@@ -636,23 +619,27 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(mariana_clean);
 }
 
-# This is another example of using .replaceBehAll. This was for lab meeting, though, and some
-# behaviors may have been trashed/combined unjustly.
-.cleanUpPGF2A = function(dat) {
-	clean <- .replaceBehAll(dat, "approach", "APPROACH");
-	clean <- .replaceBehAll(clean, "bite", "BITE");
-	clean <- .replaceBehAll(clean, "male CHASE", "CHASE");
-	clean <- .replaceBehAll(clean, "chase", "CHASE");
-	clean <- .replaceBehAll(clean, "flee", "FLEE");
-	clean <- .replaceBehAll(clean, "female FOLLOW", "FOLLOW");
-	clean <- .replaceBehAll(clean, "inside pot", "inside POT");
-	clean <- .replaceBehAll(clean, "lead", "LEAD");
-	clean <- .replaceBehAll(clean, "male LEAD", "LEAD");
-	clean <- .replaceBehAll(clean, "male BITES", "BITE");
-	clean <- .replaceBehAll(clean, "male QUIVER", "QUIVER");
-	clean <- .replaceBehAll(clean, "quiver", "QUIVER");
-	clean <- .replaceBehAll(clean, "spawning", "SPAWNING");
-	return(clean);
+
+# Cleans up Scott's pgf2a data.
+.cleanUpPGF2a = function(my_data) {
+	my_data <- .filterDataList(my_data, toExclude=c("approach", "APPROACH", "BITE", "flee", "QUIVER"))
+	my_data <- .filterDataList(my_data, startOnly=c("chase", "female FOLLOW", "FLEE", "FOLLOW", "lead", "male CHASE", "male LEAD", "male QUIVER", "quiver"))
+	.cleanFxn = function(dat) {
+		clean <- .replaceBehAll(dat, "female FOLLOW", "female follow");
+		clean <- .replaceBehAll(clean, "female IN POT", "female in pot");
+		clean <- .replaceBehAll(clean, "FLEE", "female flee");
+		clean <- .replaceBehAll(clean, "FOLLOW", "female follow");
+		clean <- .replaceBehAll(clean, "inside pot", "male in pot");
+		clean <- .replaceBehAll(clean, "inside POT", "female in pot");
+		clean <- .replaceBehAll(clean, "male BITES", "bite");
+		clean <- .replaceBehAll(clean, "male CHASE", "chase");
+		clean <- .replaceBehAll(clean, "male IN POT", "male in pot");
+		clean <- .replaceBehAll(clean, "male LEAD", "lead");
+		clean <- .replaceBehAll(clean, "male QUIVER", "quiver");
+		return(clean);
+	}
+	my_data <- .cleanFxn(my_data);
+	return(my_data);
 }
 
 
@@ -1300,71 +1287,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 
 #####################################################################################################
-## BEHAVIORAL DENSITY PLOTS                                                                        ##
+## COLOR KEYS                                                                                      ##
 #####################################################################################################
-
-# Returns a vector giving the distances between occurances of <centerBeh> and <varBeh> in data frame <data>.
-# If <noRepCenterBeh> is false, the vector has length count(centerBeh)*count(varBeh), and it has distances between every occurance of each behavior.
-# If <noRepCenterBeh> is true, the vector has length roughly 2*count(varBeh), as it only measures distances between a varBeh and its two neighboring centerBehs.
-# Optionally you can provide a buffer, specifying not to count centerBehs that occur too close to the beginning or end of data. This buffer
-# can be given in time (seconds) or behavior counts.
-# This function returns a list containing:
-#     1. <timeDists>, a vector of the distances in times
-#     2. <behDists>, a vector of the distances in behaviors
-#     3. <centerCount>, the number of occurances of behavior centerBeh
-#     4. <varCount>, the number of occurances of behavior varBeh
-.getAllIntervals = function (data, centerBeh, varBeh, startBuffer = 0, endBuffer = 0, bufferInTimes = TRUE, noRepCenterBeh = TRUE) {
-	varBehLocs = which(data$behavior == varBeh);
-	varBehTimes = data$time[varBehLocs];
-	centerBehLocs = which(data$behavior == centerBeh);
-	if (bufferInTimes) {
-		max_time = max(data$time);
-		centerBehTimes = data$time[centerBehLocs];
-		centerBehLocs = centerBehLocs[centerBehTimes > startBuffer & centerBehTimes <= max_time - endBuffer];
-	} else {
-		centerBehLocs = centerBehLocs[as.numeric(centerBehLocs) > startBuffer & as.numeric(centerBehLocs) <= length(data$behavior - endBuffer)];
-	}
-	centerBehTimes = data$time[centerBehLocs];
-	
-	
-	behDists = numeric();
-	timeDists = numeric();
-	
-	for (i in 1:length(centerBehLocs)) {
-		if (noRepCenterBeh) {
-			if (i == 1) {
-				behDists = c(behDists, varBehLocs[varBehLocs <= centerBehLocs[i+1]] - centerBehLocs[i]);
-				timeDists = c(timeDists, varBehTimes[varBehTimes <= centerBehTimes[i+1]] - centerBehTimes[i]);				
-			} else if (i == length(centerBehLocs)) {
-				behDists = c(behDists, varBehLocs[varBehLocs >= centerBehLocs[i-1]] - centerBehLocs[i]);
-				timeDists = c(timeDists, varBehTimes[varBehTimes >= centerBehTimes[i-1]] - centerBehTimes[i]);				
-			} else {
-				behDists = c(behDists, varBehLocs[varBehLocs >= centerBehLocs[i-1] & varBehLocs <= centerBehLocs[i+1]] - centerBehLocs[i]);
-				timeDists = c(timeDists, varBehTimes[varBehTimes >= centerBehTimes[i-1] & varBehTimes <= centerBehTimes[i+1]] - centerBehTimes[i]);
-			}
-		} else {
-			behDists = c(behDists, varBehLocs - centerBehLocs[i]);
-			timeDists = c(timeDists, varBehTimes - centerBehTimes[i]);
-		}
-	}
-	
-	return(list(behDists=behDists, timeDists=timeDists, centerCount = length(centerBehLocs), varCount = length(varBehLocs)));
-}
-
-# Calls .getAllIntervals on every data frame in the list <data>, and combines the results into one
-# list. behDists and timeDists contain all the distances from all the fish, and varCount and centerCount
-# contain the total counts across all fish.
-.getIntervalsAcrossFish = function (data, ...) {
-	alldata <- list(behDists = numeric(), timeDists = numeric(), centerCount = 0, varCount = 0);
-	for (i in 1:length(data)) {
-		tmp <- .getAllIntervals(data[[i]], ...);
-		alldata$behDists <- c(alldata$behDists, tmp$behDists);
-		alldata$timeDists <- c(alldata$timeDists, tmp$timeDists);
-		alldata$centerCount <- alldata$centerCount + tmp$centerCount;
-		alldata$varCount <- alldata$varCount + tmp$varCount;
-	}
-	return(alldata);
-}
 
 # Validates the behaviorsToPlotAndColors provided to .behavioralDensityGraph() or .behavioralDensityGraphs()
 .validateColorKey = function(behcolors, validBehNames = NULL) {
@@ -1508,6 +1432,75 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 	return(colorkey);
 }
+
+
+#####################################################################################################
+## BEHAVIORAL DENSITY PLOTS                                                                        ##
+#####################################################################################################
+
+# Returns a vector giving the distances between occurances of <centerBeh> and <varBeh> in data frame <data>.
+# If <noRepCenterBeh> is false, the vector has length count(centerBeh)*count(varBeh), and it has distances between every occurance of each behavior.
+# If <noRepCenterBeh> is true, the vector has length roughly 2*count(varBeh), as it only measures distances between a varBeh and its two neighboring centerBehs.
+# Optionally you can provide a buffer, specifying not to count centerBehs that occur too close to the beginning or end of data. This buffer
+# can be given in time (seconds) or behavior counts.
+# This function returns a list containing:
+#     1. <timeDists>, a vector of the distances in times
+#     2. <behDists>, a vector of the distances in behaviors
+#     3. <centerCount>, the number of occurances of behavior centerBeh
+#     4. <varCount>, the number of occurances of behavior varBeh
+.getAllIntervals = function (data, centerBeh, varBeh, startBuffer = 0, endBuffer = 0, bufferInTimes = TRUE, noRepCenterBeh = TRUE) {
+	varBehLocs = which(data$behavior == varBeh);
+	varBehTimes = data$time[varBehLocs];
+	centerBehLocs = which(data$behavior == centerBeh);
+	if (bufferInTimes) {
+		max_time = max(data$time);
+		centerBehTimes = data$time[centerBehLocs];
+		centerBehLocs = centerBehLocs[centerBehTimes > startBuffer & centerBehTimes <= max_time - endBuffer];
+	} else {
+		centerBehLocs = centerBehLocs[as.numeric(centerBehLocs) > startBuffer & as.numeric(centerBehLocs) <= length(data$behavior - endBuffer)];
+	}
+	centerBehTimes = data$time[centerBehLocs];
+	
+	
+	behDists = numeric();
+	timeDists = numeric();
+	
+	for (i in 1:length(centerBehLocs)) {
+		if (noRepCenterBeh) {
+			if (i == 1) {
+				behDists = c(behDists, varBehLocs[varBehLocs <= centerBehLocs[i+1]] - centerBehLocs[i]);
+				timeDists = c(timeDists, varBehTimes[varBehTimes <= centerBehTimes[i+1]] - centerBehTimes[i]);				
+			} else if (i == length(centerBehLocs)) {
+				behDists = c(behDists, varBehLocs[varBehLocs >= centerBehLocs[i-1]] - centerBehLocs[i]);
+				timeDists = c(timeDists, varBehTimes[varBehTimes >= centerBehTimes[i-1]] - centerBehTimes[i]);				
+			} else {
+				behDists = c(behDists, varBehLocs[varBehLocs >= centerBehLocs[i-1] & varBehLocs <= centerBehLocs[i+1]] - centerBehLocs[i]);
+				timeDists = c(timeDists, varBehTimes[varBehTimes >= centerBehTimes[i-1] & varBehTimes <= centerBehTimes[i+1]] - centerBehTimes[i]);
+			}
+		} else {
+			behDists = c(behDists, varBehLocs - centerBehLocs[i]);
+			timeDists = c(timeDists, varBehTimes - centerBehTimes[i]);
+		}
+	}
+	
+	return(list(behDists=behDists, timeDists=timeDists, centerCount = length(centerBehLocs), varCount = length(varBehLocs)));
+}
+
+# Calls .getAllIntervals on every data frame in the list <data>, and combines the results into one
+# list. behDists and timeDists contain all the distances from all the fish, and varCount and centerCount
+# contain the total counts across all fish.
+.getIntervalsAcrossFish = function (data, ...) {
+	alldata <- list(behDists = numeric(), timeDists = numeric(), centerCount = 0, varCount = 0);
+	for (i in 1:length(data)) {
+		tmp <- .getAllIntervals(data[[i]], ...);
+		alldata$behDists <- c(alldata$behDists, tmp$behDists);
+		alldata$timeDists <- c(alldata$timeDists, tmp$timeDists);
+		alldata$centerCount <- alldata$centerCount + tmp$centerCount;
+		alldata$varCount <- alldata$varCount + tmp$varCount;
+	}
+	return(alldata);
+}
+
 
 # Makes a behavioral density plot of the behaviors around <centerBeh> for either a single fish (multifish = FALSE) or every fish in
 # a list (multifish = TRUE). Each behavior to be plotted must have a row in <behaviorsToPlotAndColors>: its name in column 1, and the color
