@@ -426,6 +426,7 @@ sortByGSI = function(data, suppData) {
 # Arguments can be passed through the ... to order(), including (notably) decreasing=T which
 # sorts in order of decreasing <attribute> and na.last = NA which removes NAs from the data.
 # Or na.last = T to put NAs last, or na.last = F to put them first.
+# TODO error checking
 .sortByAttribute = function(data, attribute, ...) {
 	if (is.character(attribute)) attribute = as.factor(attribute);
 	print(attribute[order(attribute, ...)]);
@@ -1837,8 +1838,13 @@ sortByGSI = function(data, suppData) {
 	return(ssBehs);
 }
 
-.makeMulticolorRasterPlots = function (data, outfilePrefix, behaviorsToPlotAndColors = NULL, durationalBehs = NA, ...) {
-	# sort and/or rezero if desired here
+.makeMulticolorRasterPlots = function (data, outfilePrefix, behaviorsToPlotAndColors = NULL, durationalBehs = NA,
+										sortAttribute = NULL, sort.na.last = T, sort.decreasing = F, sort.name = "", ...) {
+	if (!is.null(sortAttribute)) {
+		names(data) <- paste(names(data), "                               ", sort.name, ":", as.character(sortAttribute));
+		data <- .sortByAttribute(data, sortAttribute, na.last = sort.na.last, decreasing = sort.decreasing);
+	}
+	# rezero if desired here
 	
 	groupwiseLogs = .sepGroups(data);
 	
