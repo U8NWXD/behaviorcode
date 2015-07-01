@@ -327,7 +327,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(df);
 }
 
-.stitchLogsTogether = function(data) {
+.stitchLogsTogether = function(data, logOutPref = NULL) {
 	cat("Log names:\n");
 	print(names(data));
 	
@@ -344,7 +344,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 				cat("  Logs that belong to subject ", regex, ":\n", sep = '"');
 				print(names(data)[matchingNames]);
 				if (.getYesOrNo("  Is this correct? ")) {
-					# TODO check nonoverlapping times (WARNING, not stop)
+					# TODO check nonoverlapping times (WARNING, and y/n to "Proceed anyway? ", but NOT stop)
 					newSubDat = data[[matchingNames[1]]];
 					if (length(matchingNames) > 1) {
 						for (i in 2:length(matchingNames)) newSubDat = rbind(newSubDat, data[[matchingNames[i]]]);
@@ -361,8 +361,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		}
 		regex = readline(prompt);
 	}
-	.getYesOrNo("Save stitched logs? ");
-	# TODO actually save or don't
+	
+	if (!is.null(logOutPref)) {
+		for (i in 1:length(data)) {
+			write.table(data[[i]], file = paste(logOutPref, names(data)[i], sep = ""), sep = "\t");
+		}
+	}
 	return(data);
 }
 
