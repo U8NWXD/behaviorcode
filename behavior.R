@@ -45,6 +45,13 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		   (is.character(colName) && colName %in% dimnames(object)[[2]]))
 }
 
+# Sorts df by column time and returns the result.
+.sortByTime = function(df) {
+	df = df[order(as.numeric(df$time)),];
+	dimnames(df)[[1]] <- 1:(length(df$time));
+	return(df);
+}
+
 # Converts a time in the format "MINUTES:SECONDS" to a numver of seconds.
 # Fractional seconds are ok (e.g. "3:14.15")
 .timeToSeconds = function(clockTime) {
@@ -318,6 +325,45 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		}
 	}
 	return(df);
+}
+
+.stitchLogsTogether = function(data) {
+	cat("Log names:\n");
+	print(names(data));
+	
+	prompt = "  Please enter a subject name (regex), or \"l\" to print the current list of logs or \"q\" to quit logStitcher.\n  > ";
+	regex = readline(prompt);
+	
+	while (regex != "q") {
+		if (regex == "l") {
+			cat("Log names:\n")
+			print(names(data));
+		} else {
+			matchingNames = which(grepl(regex, names(data)));
+			if (length(matchingNames) > 0) {
+				cat("  Logs that belong to subject ", regex, ":\n", sep = '"');
+				print(names(data)[matchingNames]);
+				if (.getYesOrNo("  Is this correct? ")) {
+					# TODO check nonoverlapping times (WARNING, not stop)
+					newSubDat = data[[matchingNames[1]]];
+					if (length(matchingNames) > 1) {
+						for (i in 2:length(matchingNames)) newSubDat = rbind(newSubDat, data[[matchingNames[i]]]);
+					}
+					
+					newSubDat = .sortByTime(newSubDat);
+					data = data[-matchingNames];
+					data[[length(data) + 1]] <- newSubDat;
+					names(data)[length(data)] <- regex;
+				}
+			} else {
+				cat("  No logs belong to subject ", regex, ".\n", sep = '"');
+			}
+		}
+		regex = readline(prompt);
+	}
+	.getYesOrNo("Save stitched logs? ");
+	# TODO actually save or don't
+	return(data);
 }
 
 #####################################################################################################
