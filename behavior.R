@@ -831,19 +831,24 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		}
 	}
 	
-	durTMat = matrix(nrow = length(names(tables)), ncol = length(durBehNames), dimnames = list(names(tables), paste(durBehNames, ": Duration Total")));
-	durAMat = matrix(nrow = length(names(tables)), ncol = length(durBehNames), dimnames = list(names(tables), paste(durBehNames, ": Duration Average")));
-	for (i in 1:length(names(tables))) {
-		for (j in 1:length(durBehNames)) {
-			behData = data[[i]][data[[i]]$behavior == durBehNames[j] & data[[i]]$type == "start",];
-			durTMat[i,j] = sum(as.numeric(behData$duration));
-			durAMat[i,j] = if(length(behData$behavior) == 0) NA else durTMat[i,j] / length(behData$behavior);
+	durTMat = durAMat = NULL;
+	if (!is.null(durBehNames)) {
+		durTMat = matrix(nrow = length(names(tables)), ncol = length(durBehNames), dimnames = list(names(tables), paste(durBehNames, ": Duration Total")));
+		durAMat = matrix(nrow = length(names(tables)), ncol = length(durBehNames), dimnames = list(names(tables), paste(durBehNames, ": Duration Average")));
+		for (i in 1:length(names(tables))) {
+			for (j in 1:length(durBehNames)) {
+				behData = data[[i]][data[[i]]$behavior == durBehNames[j] & data[[i]]$type == "start",];
+				durTMat[i,j] = sum(as.numeric(behData$duration));
+				durAMat[i,j] = if(length(behData$behavior) == 0) NA else durTMat[i,j] / length(behData$behavior);
+			}
 		}
+		durTMat = t(durTMat);
+		durAMat = t(durAMat);
 	}
-	comboMat = rbind(t(countsMat), t(latMat), t(durTMat), t(durAMat));
+	comboMat = rbind(t(countsMat), t(latMat), durTMat, durAMat);
 	comboMat = comboMat[order(dimnames(comboMat)[[1]]),];
 	
-	return(list(counts = t(countsMat), latencies = t(latMat), durations = t(durTMat), total = comboMat));
+	return(list(counts = t(countsMat), latencies = t(latMat), durations = durTMat, total = comboMat));
 }
 
 
@@ -875,6 +880,15 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	# print(argList);
 	if(!("trials" %in% names(argList))) argList$trials <- 10000;
 	bs = bootstrap2independent(argList$x, argList$y, dataDescriptor = argList$row,
+	       						 outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"),
+	       						 groupNames = argList$groupNames, trials = argList$trials, printResults = FALSE, verbose = FALSE);
+	# print(list(p = bs$p.value, dat = bs$data));
+	return(list(p.value = bs$p));
+}
+
+.bootstrapPairedWrapper = function(argList) {
+	if(!("trials" %in% names(argList))) argList$trials <- 10000;
+	bs = bootstrap2paired(argList$x, argList$y, dataDescriptor = argList$row,
 	       						 outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"),
 	       						 groupNames = argList$groupNames, trials = argList$trials, printResults = FALSE, verbose = FALSE);
 	# print(list(p = bs$p.value, dat = bs$data));
