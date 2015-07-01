@@ -93,6 +93,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		assayStart = datOut[[2]];
 		names(data)[f] = gsub(folderPath, "", filenames[f]);
 	}
+	
+	# .printFindDupBehaviors(data);
+	data <- .removeNALogs(data); # TODO is this what should be done about this?
+	# print(lapply(data, function(f) {names(table(f$behavior))}));
+	
 	cat("Behaviors found:\n");
 	.printFindDupBehaviors(data);
 	cat('There may be some behaviors in the list above that should be combined (for example, "Female Follows" and "female follows").\n');
@@ -134,10 +139,15 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	startTime = asout$time;
 	
 	df = .parseFullLog(data0, desc_table, framesPerSecond);
+	if (!is.data.frame(df)) {
+		warning("EMPTY SCORE LOG.", immediate. = TRUE);
+		return(if(single) df else list(df, asout$assayStart));
+	} else if (length(df$behavior) < 10) {
+		warning("Fewer than 10 behaviors in log.", immediate.=T)
+	}
 	
 	
-	df = df[order(as.numeric(df$time)),];
-	dimnames(df)[[1]] <- 1:(dim(df)[1]);
+	df = .sortByTime(df);
 	
 	if (df$time[1] < startTime) warning("Some behavior(s) were scored before the assay start.", immediate. = TRUE);
 	df$time <- df$time - startTime;
@@ -269,6 +279,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 .parseFullLog = function (data0, desc_table, framesPerSecond) {
 	start_full = which(data0=='FULL LOG') + 4;
 	end_full = which(data0=='NOTES') - 2;
+	if (start_full > end_full) return(NA);
 
 	full = strsplit(data0[start_full:end_full, ], '    ');
 	full = lapply(full, function(f) gsub('^ *','', gsub(' *$','', f)));
@@ -494,6 +505,13 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		data = lapply(data, function(d) {.sepSubject(d, problemBehs)});
 	}
 	return(lapply(data, function(d) {.filterData(d, ...)}));
+}
+
+# Removes empty score logs from <data>. BE CAREFUL WITH THIS - it might mess up all kinds
+# of things by changing the number and order of logs.
+.removeNALogs = function(data) {
+	emptyLogs = which(unlist(lapply(data, function(d){!is.data.frame(d)})))
+	return(data[-emptyLogs]);
 }
 
 # Might someday become a handy interface for .filterDataList(). Or nah. TODO complete or trash
