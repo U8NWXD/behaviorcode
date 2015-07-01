@@ -327,6 +327,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(df);
 }
 
+# Provides an interactive interface to stitch logs together that come from the same
+# subject. Uses regexes to identify subject - the regex used becomes the name of the
+# log. This allows conservation of folder structure!
+# If logOutPref is provided, the stitched-together logs are written out as tables.
 .stitchLogsTogether = function(data, logOutPref = NULL) {
 	cat("Log names:\n");
 	print(names(data));
@@ -338,22 +342,23 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		if (regex == "l") {
 			cat("Log names:\n")
 			print(names(data));
-		} else {
+		} else if (regex != "") {
 			matchingNames = which(grepl(regex, names(data)));
 			if (length(matchingNames) > 0) {
 				cat("  Logs that belong to subject ", regex, ":\n", sep = '"');
 				print(names(data)[matchingNames]);
 				if (.getYesOrNo("  Is this correct? ")) {
-					# TODO check nonoverlapping times (WARNING, and y/n to "Proceed anyway? ", but NOT stop)
-					newSubDat = data[[matchingNames[1]]];
-					if (length(matchingNames) > 1) {
-						for (i in 2:length(matchingNames)) newSubDat = rbind(newSubDat, data[[matchingNames[i]]]);
+					if (!.logsOverlap(data[matchingNames]) || .getYesOrNo("Proceed anyway? ")) {
+						newSubDat = data[[matchingNames[1]]];
+						if (length(matchingNames) > 1) {
+							for (i in 2:length(matchingNames)) newSubDat = rbind(newSubDat, data[[matchingNames[i]]]);
+						}
+						
+						newSubDat = .sortByTime(newSubDat);
+						data = data[-matchingNames];
+						data[[length(data) + 1]] <- newSubDat;
+						names(data)[length(data)] <- regex;
 					}
-					
-					newSubDat = .sortByTime(newSubDat);
-					data = data[-matchingNames];
-					data[[length(data) + 1]] <- newSubDat;
-					names(data)[length(data)] <- regex;
 				}
 			} else {
 				cat("  No logs belong to subject ", regex, ".\n", sep = '"');
@@ -369,6 +374,26 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	}
 	return(data);
 }
+
+# Helper function for .stitchLogsTogether
+# Returns FALSE if no logs in <logs> have overlapping times, and TRUE if they do.
+# Additionally throws a warning for each set of overlapping logs found.
+.logsOverlap = function(logs) {
+	if (length(logs) < 2) return(FALSE);
+	logMins = unlist(lapply(logs, function(d){min(d$time)}));
+	logMaxes = unlist(lapply(logs, function(d){max(d$time)}));
+	overlapFound = FALSE;
+	for (i in 1:(length(logs) - 1)) {
+		for (j in (i+1):length(logs)) {
+			if (logMaxes[i] > logMins[j] && logMins[i] < logMaxes[j]) {
+				warning('Logs "', names(logs)[i], '" and "', names(logs)[j], '" overlap.', immediate. = TRUE)
+				overlapFound = TRUE;
+			}
+		}
+	}
+	return(overlapFound);
+}
+
 
 #####################################################################################################
 ## FILTERING, SORTING, AND EDITING DATA                                                            ##
