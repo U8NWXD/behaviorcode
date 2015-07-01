@@ -309,6 +309,7 @@ bootstrap2paired = function(condition1, condition2,
 						  		 cex.lab = 1.2, cex.axis = 1.2,
 						  		 printResults = T,
 						  		 verbose = T,
+						  		 outfile = NULL,
 						  		 ...
 						  		 )
 {
@@ -416,6 +417,7 @@ bootstrap2paired = function(condition1, condition2,
 	
 	if (plots)
 	{
+		if (!is.null(outfile)) jpeg(filename = outfile, width = 12, height = 5, units = "in", quality = 100, res = 150, type = "quartz");
 		# check for dataDescriptor 
 		if (!is.null(dataDescriptor) & is.character(dataDescriptor))
 		{
@@ -508,7 +510,7 @@ bootstrap2paired = function(condition1, condition2,
 		{
 			segments(1, data[row, 1], 2, data[row, 2], col = border);
 		}
-		
+		if (!is.null(outfile)) dev.off();		
 	}
 	
 	# build output list
