@@ -395,6 +395,48 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 }
 
 
+.pairLogs = function(data) {
+	groupwiseData = .sepGroups(data);
+	groupNames = groupwiseData$groupNames;
+	groupData = groupwiseData$groupData;
+	if (length(groupNames) != 2) stop("This code is written to deal with two groups. Please see Katrina.");
+#    $groupNames, the names of the groups;
+#    $groupData, a list of lists of data frames. groupData[[1]] is a list of the data frames of all the
+#      subjects in group 1, groupData[[2]] has the data for the subjects in group 2, etc.
+#    $behnames, the behaviors that occur in any log.
+
+	key = .makePairKey(names(groupData[[1]]), names(groupData[[2]]), groupNames);
+	return(data[as.vector(key)]);
+}
+
+.makePairKey = function(group1Names, group2Names, groupNames) {
+	key = matrix(ncol = 2, nrow = length(group1Names));
+	dimnames(key)[[2]] <- groupNames;
+	key[,1] <- group1Names;
+	group1Names = gsub(paste("^", groupNames[1], "/", sep = ""), "", group1Names);
+	# print(key);
+	for (i in 1:length(group1Names)) {
+		subLen = 5;
+		uniqueMatches = NULL;
+		while (is.null(uniqueMatches)) {
+			for (j in 1:(nchar(group1Names[i]) - subLen)) {
+				searchstring = substr(group1Names[i], j, j + subLen);
+				matches = grepl(paste("^", groupNames[2], "/.*", searchstring, ".*$", sep = ""), group2Names);
+				if(sum(matches) == 1) {
+					uniqueMatches = c(uniqueMatches, group2Names[matches]);
+					uniqueMatches = names(table(uniqueMatches));
+				}
+			}
+			if (!is.null(uniqueMatches) && length(uniqueMatches) > 1) uniqueMatches = NULL;
+			subLen = subLen + 1;
+		}
+		
+		key[i,2] <- uniqueMatches;
+	}
+	return(key);
+}
+
+
 #####################################################################################################
 ## FILTERING, SORTING, AND EDITING DATA                                                            ##
 #####################################################################################################
@@ -746,6 +788,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #    $groupNames, the names of the groups;
 #    $groupData, a list of lists of data frames. groupData[[1]] is a list of the data frames of all the
 #      subjects in group 1, groupData[[2]] has the data for the subjects in group 2, etc.
+#    $behnames, the behaviors that occur in any log.
 # In this implementation, score logs that did not come from a folder (either from grouped datasets
 #    or ungrouped datasets) are placed in "Default Group".
 .sepGroups = function(data) {
