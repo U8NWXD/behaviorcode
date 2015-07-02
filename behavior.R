@@ -705,6 +705,35 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(newData);
 }
 
+
+
+
+
+
+######################################### EDITING ###################################################
+
+# Replaces behavior description <toReplace> with description <replacement> in data
+# frame data. An example use of this function would be to replace "Male in pot" with
+# "Male In Pot"
+.replaceBeh = function(data, toReplace, replacement) {
+	data$behavior[data$behavior == toReplace] <- replacement;
+	return(data);
+}
+
+# Calls .replaceBeh on every data frame of a data list.
+.replaceBehAll = function(data, toReplace, replacement) {
+	for (i in 1:length(data)) {
+		data[[i]] <- .replaceBeh(data[[i]], toReplace, replacement);
+	}
+	return(data);
+}
+
+# Returns a table with names of all the behaviors in the logs in <data>, and counts of
+# how many logs each behavior appears in.
+.findDupBehaviors = function(data) {
+	return(table(unlist(lapply(data, function(f) {names(table(f$behavior))}))));
+}
+
 # Makes <leader> into a durational behavior with stops at each occurance of <follower> in the log <data>.
 # If <rename>, follower occurances are renamed to <leader>. (recommended)
 .makeDurationalBehavior = function (data, leader, follower, rename = T) {
@@ -752,31 +781,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(data);
 }
 
-
-
-
-######################################### EDITING ###################################################
-
-# Replaces behavior description <toReplace> with description <replacement> in data
-# frame data. An example use of this function would be to replace "Male in pot" with
-# "Male In Pot"
-.replaceBeh = function(data, toReplace, replacement) {
-	data$behavior[data$behavior == toReplace] <- replacement;
-	return(data);
-}
-
-# Calls .replaceBeh on every data frame of a data list.
-.replaceBehAll = function(data, toReplace, replacement) {
-	for (i in 1:length(data)) {
-		data[[i]] <- .replaceBeh(data[[i]], toReplace, replacement);
-	}
-	return(data);
-}
-
-# Returns a table with names of all the behaviors in the logs in <data>, and counts of
-# how many logs each behavior appears in.
-.findDupBehaviors = function(data) {
-	return(table(unlist(lapply(data, function(f) {names(table(f$behavior))}))));
+.makeDurationalBehaviorAll = function(data, leader, follower, rename = T) {
+	indexList = 1:length(data);
+	names(indexList) <- names(data);
+	return(lapply(indexList, function(i){print(names(data)[i]); return(.makeDurationalBehavior(data[[i]], leader, follower, rename))}));
 }
 
 
