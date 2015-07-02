@@ -1282,12 +1282,16 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #    4. $h_norm, a vector of the normalized entropy for each behavioral code
 #    5. $h_max, a value representing the maximum possible entropy (which was used to normalize
 #        the entropy values)
-.computeEntropyProbMatrix = function (probMat) {
-	hMat = probMat;
+# possibleBehs is the list of possible followers - this corrects for the situation where (for example)
+#   a log that only has 2 out of 10 behaviors has artificially high entropy. It has NO ERROR CHECKING.
+#   Be careful!
+.computeEntropyProbMatrix = function (probMat, possibleBehs = NULL) {
+	if (is.null(possibleBehs)) possibleBehs = dimnames(probMat)[[2]];
+	hMat = matrix(nrow = length(probMat[,1]), ncol = length(possibleBehs), dimnames = list(dimnames(probMat)[[1]], possibleBehs));
 	for (row in 1:nrow(probMat)) {
-		hMat[row, ] = .computeEntropyOneState(probMat[row, ]);
+		hMat[row, ] = .computeEntropyOneState(probMat[row, ], possibleBehs);
 	}
-	num_states = ncol(probMat);
+	num_states = ncol(hMat);
 	h_max = num_states * ( (-1/num_states)*log2(1/num_states) );
 	h = apply(hMat, 1, sum);
 	h_norm = h / h_max;
@@ -1296,17 +1300,22 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 # Source: ethograms_from_scorevideo.R
 # Helper function for .computeEntropyProbMatrix
-.computeEntropyOneState = function (probVec) {
+.computeEntropyOneState = function (probVec, possibleBehs) {
 	h = c();
-	for (follower in 1:length(probVec)) {
-		prob = probVec[follower];
-		if (prob == 0) {
-			h = c(h, 0);
+	# print(probVec);
+	for (follower in 1:length(possibleBehs)) {
+		if (possibleBehs[follower] %in% names(probVec)) {
+			prob = probVec[possibleBehs[follower]];
+			if (prob == 0) {
+				h = c(h, 0);
+			} else {
+				h = c(h, (-prob)*log2(prob));
+			}
 		} else {
-			h = c(h, (-prob)*log2(prob));
-		}
+			h = c(h,0);
+		}		
 	}
-	names(h) = names(probVec);
+	names(h) = possibleBehs;
 	return(h);
 }
 
@@ -1322,7 +1331,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	entropyMatsByGroup = list();
 	for (group in groupwiseLogs$groupNames) {
 		probMats = lapply(groupwiseLogs$groupData[[group]], function(d) {.getProbabilityMatrix(d$behavior, byTotal=FALSE)});
-		entropyVecs = lapply(probMats, function(d) {.computeEntropyProbMatrix(d)$h_norm});
+		entropyVecs = lapply(probMats, function(d) {.computeEntropyProbMatrix(d, groupwiseLogs$behnames)$h_norm});
 		entropyMatsByGroup[[group]] <- .combineEntropyVecs(entropyVecs, groupwiseLogs$behnames);
 	}
 	return(entropyMatsByGroup);
@@ -1364,7 +1373,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	entropiesByGroup = list();
 	for (group in groupwiseLogs$groupNames) {
 		probMats = lapply(groupwiseLogs$groupData[[group]], function(d) {.getProbabilityMatrix(d$behavior, byTotal=FALSE)});
-		entropyVecs = lapply(probMats, function(d) {.computeEntropyProbMatrix(d)$h_norm});
+		entropyVecs = lapply(probMats, function(d) {.computeEntropyProbMatrix(d, groupwiseLogs$behnames)$h_norm});
 		# groupEMsAndCounts = list(probMats = lapply(entropyLists, function(l) {return(l$hMat)}),
 								 # counts = lapply(groupwiseLogs$groupData[[group]], function(d) {table(d$behavior)}));
 		entropiesByGroup[[group]] <- .makeEntropyVecMatrix(entropyVecs, groupwiseLogs$behnames);
