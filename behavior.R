@@ -57,6 +57,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 .timeToSeconds = function(clockTime) {
 	nMinutes = as.numeric(gsub(":.*$", "", clockTime));
 	nSeconds = as.numeric(gsub("^.*:", "", clockTime));
+	if (grepl("^-", clockTime)) nSeconds = - nSeconds;
 	return(60 * nMinutes + nSeconds);
 }
 
@@ -628,7 +629,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # of things by changing the number and order of logs.
 .removeNALogs = function(data) {
 	emptyLogs = which(unlist(lapply(data, function(d){!is.data.frame(d)})))
-	return(data[-emptyLogs]);
+	return(if (length(emptyLogs) == 0) data else data[-emptyLogs]);
 }
 
 # Might someday become a handy interface for .filterDataList(). Or nah. TODO complete or trash
@@ -1959,29 +1960,34 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	plot(0, 0, frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(mintime, maxtime), ylim = c(0, num_subj + 1), col = "white");
 
 	for (n in 1:num_subj) {
+	#	print(subjects[n])
 		dataFrame = data[[n]];
-		temp_behcolors = singleBehsAndColors[singleBehsAndColors[,1] %in% dataFrame$behavior,];
-		for (i in 1:length(temp_behcolors[,1])) {
-			beh = temp_behcolors[i,1];
-			# print(beh);
-			times = dataFrame$time[dataFrame$behavior == beh];
-			ybottom = n - 0.5;
-			ytop = n + 0.5;
-			if (staggerSubjects && dataFrame$subject[dataFrame$behavior == beh][1] %in% c("male", "female")) {
-				if (dataFrame$subject[dataFrame$behavior == beh][1] == "male") {
-					ybottom = n;
-					ytop = n + .45;
-				} else {
-					ytop = n;
-					ybottom = n - .45;
+		temp_behcolors = matrix(singleBehsAndColors[singleBehsAndColors[,1] %in% dataFrame$behavior,], ncol = 2);
+	#	print(temp_behcolors);
+		if (dim(temp_behcolors)[1] > 0) {
+			for (i in 1:length(temp_behcolors[,1])) {
+				beh = temp_behcolors[i,1];
+				# print(beh);
+				times = dataFrame$time[dataFrame$behavior == beh];
+				ybottom = n - 0.5;
+				ytop = n + 0.5;
+				if (staggerSubjects && dataFrame$subject[dataFrame$behavior == beh][1] %in% c("male", "female")) {
+					if (dataFrame$subject[dataFrame$behavior == beh][1] == "male") {
+						ybottom = n;
+						ytop = n + .45;
+					} else {
+						ytop = n;
+						ybottom = n - .45;
+					}
 				}
+				rect(xleft = times, xright = times + defaultDur,
+					 ybottom = ybottom, ytop = ytop,
+					 col = temp_behcolors[i,2], border = NA);
+	
+				par(new = TRUE);
 			}
-			rect(xleft = times, xright = times + defaultDur,
-				 ybottom = ybottom, ytop = ytop,
-				 col = temp_behcolors[i,2], border = NA);
-
-			par(new = TRUE);
 		}
+		abline(h=n, col='black');
 	}
 	par(new = FALSE); 
 
@@ -1990,22 +1996,25 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	axis(1, yaxp=c(mintime, maxtime, 10), col='white', col.ticks='black');
 	
 	nSsBehs = length(ssBehs);
-	durBehBounds = data.frame(bottomBound = ((0:(nSsBehs - 1)) * 2 * wiggle / nSsBehs) - wiggle, topBound = ((1:nSsBehs) * 2 * wiggle / nSsBehs) - wiggle);
-	# print(durBehBounds);
-	dimnames(durBehBounds)[[1]] <- ssBehsAndColors[,1];
-	for (n in 1:num_subj) { 
-		abline(h=n, col='black');
-		dataFrame = data[[n]];
-		temp_behcolors = data.frame(behs = ssBehsAndColors[ssBehsAndColors[,1] %in% dataFrame$behavior,1], colors = ssBehsAndColors[ssBehsAndColors[,1] %in% dataFrame$behavior,2]);
-#		print(temp_behcolors);
-		for (i in 1:length(temp_behcolors[,1])) {
-			beh = temp_behcolors[i,1];
-			# print(beh);
-			occurrences = data.frame(start = dataFrame$time[dataFrame$behavior == beh & dataFrame$type == "start"],
-									 duration = as.numeric(dataFrame$duration[dataFrame$behavior == beh & dataFrame$type == "start"]));
-			rect(xleft = occurrences$start, xright = occurrences$start + occurrences$duration,
-				 ybottom = n + durBehBounds[beh,]$bottomBound, ytop =  n + durBehBounds[beh,]$topBound,
-				 col = temp_behcolors[i,2], border = NA);
+	if (nSsBehs > 0) {
+		durBehBounds = data.frame(bottomBound = ((0:(nSsBehs - 1)) * 2 * wiggle / nSsBehs) - wiggle, topBound = ((1:nSsBehs) * 2 * wiggle / nSsBehs) - wiggle);
+		# print(durBehBounds);
+		dimnames(durBehBounds)[[1]] <- ssBehsAndColors[,1];
+	
+		for (n in 1:num_subj) { 
+			dataFrame = data[[n]];
+			temp_behcolors = data.frame(behs = ssBehsAndColors[ssBehsAndColors[,1] %in% dataFrame$behavior,1], colors = ssBehsAndColors[ssBehsAndColors[,1] %in% dataFrame$behavior,2]);
+	#		print(temp_behcolors);
+	# TODO TODO if (temp_behcolors NOT EMPTY)
+			for (i in 1:length(temp_behcolors[,1])) {
+				beh = temp_behcolors[i,1];
+				# print(beh);
+				occurrences = data.frame(start = dataFrame$time[dataFrame$behavior == beh & dataFrame$type == "start"],
+										 duration = as.numeric(dataFrame$duration[dataFrame$behavior == beh & dataFrame$type == "start"]));
+				rect(xleft = occurrences$start, xright = occurrences$start + occurrences$duration,
+					 ybottom = n + durBehBounds[beh,]$bottomBound, ytop =  n + durBehBounds[beh,]$topBound,
+					 col = temp_behcolors[i,2], border = NA);
+			}
 		}
 	}
 	abline(v = 0, col='black');
