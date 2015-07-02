@@ -678,10 +678,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 }
 
 # Finds the nth occurance of <behavior> in the log <data> and sets data's <time> column to the offset
-# relative to that behavior.
+# relative to that behavior. <behavior> can also be a vector of behaviors - for example, all behaviors
+# to rezero to the first behavior, or all aggressive behaviors to rezero to the first aggressive behavior.
 .setZeroToNthOfBehavior = function(data, behavior, n = 1) {
 	data = rbind(data, list(time = 0, behavior = "assay start", subject = NA, type = NA, pair_time = NA, duration = NA)); # TODO make this line better
-	targetBehIndices = which(data$behavior == behavior);
+	targetBehIndices = which(data$behavior %in% behavior);
 	newStartTime = 0;
 	if (length(targetBehIndices) >= n) {
 		newStartTime = data$time[targetBehIndices[n]];
