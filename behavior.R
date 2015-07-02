@@ -69,6 +69,26 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(response == 'y');
 }
 
+# Removes quotes.
+# TODO USE this!!!!
+.getInputFromList = function(prompt, choices, caseSensitive = FALSE) {
+	menu = c(choices, "l");
+	reprompt = paste("Invalid input.", prompt);
+	
+	userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
+	userInput = .autocomplete(userInput, menu, caseSensitive);
+	while (!(userInput %in% choices)) {
+		if (userInput == "l") {
+			print(choices);
+			userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
+		} else {
+			userInput = gsub('^["\']','', gsub('["\']$','', readline(reprompt)));
+		}
+	    userInput = .autocomplete(userInput, menu);		
+	}
+	return(userInput);
+}
+
 # "Autocompletes" <input> to be one of the strings in <choices> by looking to see if there
 # is exactly one string in <choices> that has <input> as a prefix.
 # If case sensitivity is turned off (default), <input> will be modified to match the case
@@ -833,6 +853,18 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(my_data);
 }
 
+.cleanUpAllie = function(my_data) {
+	dat <- .replaceBehAll(my_data, "approach", "Approach");
+	dat <- .replaceBehAll(dat, "build", "Build");
+	dat <- .replaceBehAll(dat, "chase", "Chase");
+	dat <- .replaceBehAll(dat, "display", "Display");
+	dat <- .replaceBehAll(dat, "free swim", "Free Swim");
+	dat <- .replaceBehAll(dat, "lead", "Lead");
+	dat <- .replaceBehAll(dat, "sand manipulation", "Sand Manipulation");
+	dat <- .replaceBehAll(dat, "flare", "Flare");
+	return(dat);
+}
+
 
 #####################################################################################################
 ## GETTING STATS                                                                                   ##
@@ -854,7 +886,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	behnames = names(table(unlist(lapply(data, function(f) {names(table(f$behavior))}))));
 	groupData = list();
 	for (i in 1:length(groupNames)) {
-		groupData[[i]] = data[grepl(paste("^", groupNames[i], sep = ""), names(data))];
+		groupData[[i]] = data[grepl(paste("^", groupNames[i], "/", sep = ""), names(data))];
 		names(groupData)[i] <- groupNames[i];
 	}
 	if (ungrouped) {
@@ -985,6 +1017,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #		return(myFunction(group1 = arglist$x, group2 = arglist$y, arg1Name = arglist$arg1Name, outpref = arglist$outfilePrefix))
 #   }
 .runStats = function(dataByGroup, outfilePrefix, tests, minNumLogsForComparison = 3, skipNA = F) {
+	if (length(dataByGroup) == 4) dataByGroup = .getChange(dataByGroup);
+			# TODO OUTPUT THOSE MATS.
 	average = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){mean(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, mean);
 	stddev = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){sd(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, sd);
 	if (skipNA) {
@@ -1039,7 +1073,41 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(df);
 }
 
+.getChange = function(dataByGroup) {
+	groupNames = names(dataByGroup);
+	orderedGroups <- as.list(rep(NA, 4));
+	# 1 before 3; 2 before 4.
+	cat("Group names found:\n  \"");
+	cat(groupNames, sep = '" "');
+	cat('"\n');
+	orderedGroups <- .fillWithGroupPair(orderedGroups, groupNames, dataByGroup, 1, 3);
+	groupNames = groupNames[!(groupNames %in% names(orderedGroups))];
+	orderedGroups <- .fillWithGroupPair(orderedGroups, groupNames, dataByGroup, 2, 4);
+	
+	if (sum(dim(orderedGroups[[1]]) != dim(orderedGroups[[3]])) != 0) stop("Matrices to subtract have different dimensions.");
+	if (sum(dim(orderedGroups[[2]]) != dim(orderedGroups[[4]])) != 0) stop("Matrices to subtract have different dimensions.");
+		
+	orderedGroups[[3]] <- orderedGroups[[3]] - orderedGroups[[1]];
+	orderedGroups[[4]] <- orderedGroups[[4]] - orderedGroups[[2]];
+	return(orderedGroups[3:4]);
+}
 
+.fillWithGroupPair = function(orderedGroups, groupNames, dataByGroup, baseIndex, expIndex) {
+	redo = T;
+	while (redo) {
+		baselineName <- .getInputFromList("Please enter the name of a baseline group, or \"l\" to list groups again.\n  > ", groupNames);
+		orderedGroups[[baseIndex]] <- dataByGroup[[baselineName]];
+		names(orderedGroups)[baseIndex] <- baselineName;
+		promptForPair <- paste("  Which group is the experimental pair of baseline group \"", baselineName, '"? (q to cancel)\n  > ', sep = '');
+		expName <- .getInputFromList(promptForPair, groupNames[groupNames != baselineName]);
+		if (expName != "q") {
+			redo = F;
+			orderedGroups[[expIndex]] <- dataByGroup[[expName]];
+			names(orderedGroups)[expIndex] <- expName;
+		}
+	}
+	return(orderedGroups);
+}
 
 
 #####################################################################################################
