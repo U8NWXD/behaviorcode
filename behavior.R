@@ -704,6 +704,53 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(newData);
 }
 
+# Makes <leader> into a durational behavior with stops at each occurance of <follower> in the log <data>.
+# If <rename>, follower occurances are renamed to <leader>. (recommended)
+.makeDurationalBehavior = function (data, leader, follower, rename = T) {
+	if (leader == follower) stop("Leader cannot be the same as follower.");
+	leaderIndices = which(data$behavior == leader);
+	followerIndices = which(data$behavior == follower);
+	
+	data$type[leaderIndices] <- "start";
+	data$type[followerIndices] <- "stop";
+	if (rename) data$behavior[followerIndices] <- leader;
+	
+	if (length(leaderIndices) == 0) {
+		if (length(followerIndices) > 0) {
+			warning("Follower occurs but leader doesn't.", immediate. = T)
+		}
+		return(data);
+	}
+	
+	if (length(followerIndices) >= 1 && followerIndices[1] < leaderIndices[1]) {
+		if (sum(followerIndices < leaderIndices[1]) == 1) {
+			warning("Follower at the beginning of log without a leader.", immediate. = T);
+		} else {
+			stop("Two occurances of follower before first occurance of leader.");
+		}
+	}
+	for (i in 1:length(leaderIndices)) {
+		thisLeader = leaderIndices[i];
+		nextLeader = if (i == length(leaderIndices)) length(data$behavior) + 1 else leaderIndices[i+1];
+		followers = followerIndices[followerIndices > thisLeader & followerIndices < nextLeader];
+		if (length(followers) < 1) {
+			if (i == length(leaderIndices)) {
+				warning("Leader at the end of log without a follower.", immediate. = T);
+			} else {
+				stop("Two occurances of leader in a row (indices ", thisLeader, " and ", nextLeader, ")");
+			}
+		} else if (length(followers) > 1) {
+			stop("Two occurances of follower in a row (indices ", followers[1], " and ", followers[2], ")");
+		} else {
+			data$pair_time[thisLeader] <- data$time[followers];
+			data$pair_time[followers] <- data$time[thisLeader];
+			data$duration[c(thisLeader, followers)] <- data$time[followers] - data$time[thisLeader];
+		}
+	}
+
+	return(data);
+}
+
 
 
 
