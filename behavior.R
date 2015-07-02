@@ -888,9 +888,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 .bootstrapPairedWrapper = function(argList) {
 	if(!("trials" %in% names(argList))) argList$trials <- 10000;
+	sumVec = argList$x - argList$y; # TODO BUG this should be addition (+). need to ask austin abt case (1,2,0) (1,2,0) first tho. pot exit --> flee from female
+	if (sum(sumVec[!is.na(sumVec)]) == 0) return(list(p.value = NA));
 	bs = bootstrap2paired(argList$x, argList$y, dataDescriptor = argList$row,
 	       						 outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"),
-	       						 groupNames = argList$groupNames, trials = argList$trials, printResults = FALSE, verbose = FALSE);
+	       						 conditionNames = argList$groupNames, trials = argList$trials, printResults = FALSE, verbose = FALSE);
 	# print(list(p = bs$p.value, dat = bs$data));
 	return(list(p.value = bs$p));
 }
