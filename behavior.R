@@ -69,7 +69,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(response == 'y');
 }
 
-# Removes quotes.
+# Prompts the user with <prompt> to enter an option from <choices>. Entering "l"
+# causes the choices to be listed. Uses .autocomplete() and removes quotes.
 # TODO USE this!!!!
 .getInputFromList = function(prompt, choices, caseSensitive = FALSE) {
 	menu = c(choices, "l");
@@ -84,7 +85,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		} else {
 			userInput = gsub('^["\']','', gsub('["\']$','', readline(reprompt)));
 		}
-	    userInput = .autocomplete(userInput, menu);		
+	    userInput = .autocomplete(userInput, menu, caseSensitive);		
 	}
 	return(userInput);
 }
@@ -416,20 +417,22 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 }
 
 
+# Sorts <data> so that logs for subjects at timepoint 1 are paired with their counterparts
+# for timepoint 2. Not necessarily reliable; use caution!
+# TODO confirm w/ user that pairing is correct; if not, user can correct <key>
 .pairLogs = function(data) {
 	groupwiseData = .sepGroups(data);
 	groupNames = groupwiseData$groupNames;
 	groupData = groupwiseData$groupData;
 	if (length(groupNames) != 2) stop("This code is written to deal with two groups. Please see Katrina.");
-#    $groupNames, the names of the groups;
-#    $groupData, a list of lists of data frames. groupData[[1]] is a list of the data frames of all the
-#      subjects in group 1, groupData[[2]] has the data for the subjects in group 2, etc.
-#    $behnames, the behaviors that occur in any log.
 
 	key = .makePairKey(names(groupData[[1]]), names(groupData[[2]]), groupNames);
 	return(data[as.vector(key)]);
 }
 
+# Helper function for .pairLogs(). Pairs logs whose longest common substring is longer
+# than either log's longest common substring with any other log.
+# Might loop infinitely if there is a tie. TODO fix that.
 .makePairKey = function(group1Names, group2Names, groupNames) {
 	key = matrix(ncol = 2, nrow = length(group1Names));
 	dimnames(key)[[2]] <- groupNames;
@@ -565,7 +568,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	counts[zeroCounts] <- 1; # to avoid div-by-0
 	return(totalDurations / counts);
 }
-
 
 ######################################## FILTERING ##################################################
 
@@ -757,14 +759,14 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 # Makes <leader> into a durational behavior with stops at each occurance of <follower> in the log <data>.
 # If <rename>, follower occurances are renamed to <leader>. (recommended)
-.makeDurationalBehavior = function (data, leader, follower, rename = T) {
+.makeDurationalBehavior = function (data, leader, follower) {
 	if (leader == follower) stop("Leader cannot be the same as follower.");
 	leaderIndices = which(data$behavior == leader);
 	followerIndices = which(data$behavior == follower);
 	
 	data$type[leaderIndices] <- "start";
 	data$type[followerIndices] <- "stop";
-	if (rename) data$behavior[followerIndices] <- leader;
+	data$behavior[followerIndices] <- leader;
 	
 	if (length(leaderIndices) == 0) {
 		if (length(followerIndices) > 0) {
@@ -802,10 +804,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(data);
 }
 
-.makeDurationalBehaviorAll = function(data, leader, follower, rename = T) {
+# Calls .makeDurationalBehavior on every log in <data>.
+.makeDurationalBehaviorAll = function(data, leader, follower) {
 	indexList = 1:length(data);
 	names(indexList) <- names(data);
-	return(lapply(indexList, function(i){print(names(data)[i]); return(.makeDurationalBehavior(data[[i]], leader, follower, rename))}));
+	return(lapply(indexList, function(i){print(names(data)[i]); return(.makeDurationalBehavior(data[[i]], leader, follower))}));
 }
 
 
@@ -975,6 +978,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(list(p.value = bs$p));
 }
 
+# A wrapper function for bootstrap2paired that makes it play well with .runStats
+# argList must contain x, y, row, outfilePrefix, groupNames, and can optionally contain <trials> (the number of trials).
+# The function must be passed in in a list.
 .bootstrapPairedWrapper = function(argList) {
 	if(!("trials" %in% names(argList))) argList$trials <- 10000;
 	sumVec = argList$x - argList$y; # TODO BUG this should be addition (+). need to ask austin abt case (1,2,0) (1,2,0) first tho. pot exit --> flee from female
@@ -982,13 +988,15 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	bs = bootstrap2paired(argList$x, argList$y, dataDescriptor = argList$row,
 	       						 outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"),
 	       						 conditionNames = argList$groupNames, trials = argList$trials, printResults = FALSE, verbose = FALSE);
-	# print(list(p = bs$p.value, dat = bs$data));
 	return(list(p.value = bs$p));
 }
 
-# need to library(survival) TODO
-# needs assayLength in arglist
+# A wrapper function for bootstrap2paired that makes it play well with .runStats
+# argList must contain assayLength (the length of assays), x, y, row, outfilePrefix,
+#   groupNames, and can optionally contain <trials> (the number of trials).
+# The function must be passed in in a list.
 .coxphWrapper = function(argList) {
+	library(survival);
 	x = argList$x;
 	y = argList$y;
 	data = c(x,y);

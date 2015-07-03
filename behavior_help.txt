@@ -1,10 +1,9 @@
 0. All code is in ~/Desktop/Katrina/behavior_code/behavior.R. So source() that in.
 	> source("~/Desktop/Katrina/behavior_code/behavior.R")
    Make sure before doing this that the stringr library is installed and that
-   bootstrap_tests_June2013_STABLE.R is available. For now, you must additionally
-   get the bootstrap2independent() function from bootstrap_rewrite; this is a temporary
-   state of affairs, so see Katrina to have her set this up for you until this is
-   remedied.
+   bootstrap_tests_June2013_STABLE.R is available. Additionally, if you plan to
+   run the coxph test on latencies, make sure that the survival library is
+   installed.
    For development, you can source("~/startup.R") instead to get a nice dataset to use.
 
 1. Start with .getDataBatch().
