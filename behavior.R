@@ -473,10 +473,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # Arguments can be passed through the ... to order(), including (notably) decreasing=T which
 # sorts in order of decreasing <attribute> and na.last = NA which removes NAs from the data.
 # Or na.last = T to put NAs last, or na.last = F to put them first.
-# TODO error checking
 .sortByAttribute = function(data, attribute, ...) {
+	if (length(data) != length(attribute)) stop("Bad sort attribute. Not the same length as data.");
 	if (is.character(attribute)) attribute = as.factor(attribute);
-	# print(attribute[order(attribute, ...)]);
 	return(data[order(attribute, ...)]);
 }
 

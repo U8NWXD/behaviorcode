@@ -16,11 +16,19 @@ Good backup system. Also handy for tracking work.
 Good todo list system.
 Helpfile Fridays.
 Lots of small bug fixes from pre-Madrid.
-
 Assay start time is read in with logs.
 Generalized runStats; can theoretically plug in any stats test now. Side effect: better output from .compareEntropy and .compareTransitionalProbabilities
 Started to implement UI with color key and assay starts.
 Multicolor Rasters (*) highlight of week
+
+
+July 3 2015
+
+WEEK TWO ACHIEVEMENTS
+Lots of data analysis for other people in lab. Several functions specific-ish to Austin's data.
+Paired data works!
+Major improvements to .makeMulticolorRasterPlots(); sorting and aligning.
+GitHub!
 
 
 
