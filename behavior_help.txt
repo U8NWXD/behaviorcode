@@ -19,32 +19,43 @@
    a default will result in all logs with that mark using it as an assay start. You can
    have more than one default at a time.
 
-2. Make sure you have the same behavior descriptions in all the score logs. For example,
-   some logs may have "Female Follows" and some may have "Female follows". To do this,
-   call
-	> .findDupBehaviors(my_data)
-   and manually inspect the result.
+   The prompts will then direct you to check and see if you have duplicated behaviors. If
+   you already have a cleaning function, skip this step (see step 3 for more information).
 
-   If you have behaviors you would like to combine, call .replaceBehAll(). For example, to
-   change "Female follows" to "Female Follows", we would call
+   Finally, you can enter your assay length to exclude behaviors that occur past the end
+   of the assay. For example, for a 30-minute assay you could enter 1800.
+
+2. If you have more than one log belonging to the same assay (for example, if you have a
+   long video that got split up into chunks), call
+	> my_data <- .stitchLogsTogether(my_data)
+   and follow the prompts to combine all the logs for each assay.
+
+3. Edit your data if desired. To pair up two start-only behaviors into a single durational
+   behavior (for example "pot entry" and "pot exit", call
+	> my_data <- .makeDurationalBehaviorAll(my_data, "pot entry", "pot exit").
+   This function will also rename the "end" behavior (ie, "pot exit") to match the start
+   behavior.
+
+   If you have behaviors you would like to rename or combine, call .replaceBehAll(). For
+   example, to change "Female follows" to "Female Follows", we would call
 	> my_data = .replaceBehAll(my_data, "Female follows", "Female Follows")
-   You can also write a function specifically for a given batch of data to clean it up. For
-   examples of this, see .cleanUpMariana() and .cleanUpPGF2A().
-
-   If you do this, call
+   If you do this manually instead of in step 1, call
 	> my_data = .filterDataList(my_data, renameSubjects = TRUE)
    to make sure you did not introduce any ambiguity in which subject a particular behavior
    belongs to.
 
-3. Filter data (if desired) using .filterDataList(). This function has a LOT of options - 
-   see documentation in behavior.R for a complete list. Here are some examples of what you
-   might want to use it for:
+   You can also filter your data using .filterDataList(). This function has a LOT of
+   options - see documentation in behavior.R for a complete list. Here are some examples
+   of what you might want to use it for:
 	Ignore approaches.
 		> my_data_NoApproach <- .filterDataList(my_data, toExclude = c("Approach male", "Approach female"))
 	Change "Lead" and "Quiver" from durational behaviors into start-only behaviors.
 		> my_data <- .filterDataList(my_data, startOnly = c("Lead", "Quiver"));
    Obviously there are other uses, but there are too many combinations to include them
    all :)
+   
+   You can also write a function specifically for a given batch of data to clean it up. For
+   examples of this, see .cleanUpMariana() and .cleanUpPGF2a().
 
 4. Run .calcBasicStats() on your data. This function outputs several .csv files that can be
    opened in Excel:
@@ -119,11 +130,48 @@
    when you're done. (in development - will eventually save automatically to a file,
    and the function call will be more intuitive).
 
-8. Make raster plots. This functionality is still under development. Example function calls:
-	> .makeMulticolorRasterPlot(data=my_data, behaviorsToPlotAndColors=my_color_key)
-	> .makeMulticolorRasterPlot(data=.filterDataList(pgf2a_byGSI[grep("^PG", names(pgf2a_byGSI))], endTime = 1800), behaviorsToPlotAndColors=colorkey_nostops, filename = "__June/junkruns/433_PGF2a_byGSI_2", defaultDur = 2)
-	> .makeMulticolorRasterPlot(data=.filterDataList(pgf2a_byGSI, endTime = 1800, zeroBeh = "quiver", zeroBehN = 5), behaviorsToPlotAndColors=rbind(colorkey_nostops, c("assay start", "black")), defaultDur = 2)
-	> .makeMulticolorRasterPlot(data=.filterDataList(pgf2a_byGSI[grep("^Sal", names(pgf2a_byGSI))], endTime = 1800, zeroBeh = "spawning"), behaviorsToPlotAndColors=colorkey_nostops, defaultDur = 2, filename = "__June/junkruns/0238_Saline_byGSI_spawningCentered")
+8. Make raster plots. To do this, call
+        > .makeMulticolorRasterPlots(my_data, "~/Desktop/myExperiment", my_color_key)
+   This makes a separate raster plot for each experimental group. There are a ton of
+   options for this function:
+    (a) Graphics options.
+	<wiggle> controls how much height the durational behavior bars are allowed to
+	take up. It should always be between 0 and 0.5 (default 0.2)
+	<defaultDur> is the width (in seconds) of the tick marks (default 1)
+	<durationalBehs> is a vector of behaviors that should be plotted as bars instead
+	of tick marks. Default is all behaviors scored as durational.
+	<staggerSubjects> if TRUE causes male behaviors to be plotted above the line
+	for a subject and female behaviors to be plotted below the line. (default FALSE)
+	<widthInInches> and <heightInInches> control the dimensions of the output plot.
+    (b) Align at the nth occurance of a behavior. For example, the first spawn:
+	> .makeMulticolorRasterPlots(.filterDataList(my_data, zeroBeh = "spawning"), "~/Desktop/myExperiment", my_color_key)
+	The fifth quiver:
+	> .makeMulticolorRasterPlots(.filterDataList(my_data, zeroBeh = "quiver", zeroBehN = 5), "~/Desktop/myExperiment", my_color_key)
+	The first aggressive behavior:
+	> .makeMulticolorRasterPlots(.filterDataList(my_data, zeroBeh = c("bite", "chase", "display")), "~/Desktop/myExperiment", my_color_key)
+	With these, you may also want to have the assay start marked; to do this, instead of my_color_key give the function
+          rbind(my_color_key, c("assay start", "black"));
+    (c) Sort by something. To do this, you need a sortAttribute. For example, to sort by
+	number of quivers, you could do
+	> my_sortAttribute = .getCountAttribute("quiver", my_data)
+	There are also functions .getLatencyAttribute(), .getTotalDurAttribute(), and
+	.getAverageDurAttribute().
+	
+	Alternatively, you can sort by outside data, such as GSI or hormone levels. To do
+	this, you will need to call
+	> supplementalData <- read.csv("~/Desktop/my_data_file.csv");
+	Then check the contents of supplemental data to make sure there are no weird extra
+	rows, and you have the columns you thought you had. You should have one column with
+	subject names (say "Assay.name") and one with your data of interest (say "GSI"). Then
+	call
+	> my_sortAttribute = .getAttributeFromSupplementalData(supplementalData, my_data, "GSI", nameCol = "Assay.name");
+
+	Once you have your sortAttribute, call
+	> .makeMulticolorRasterPlots(my_data, "~/Desktop/myExperiment", my_color_key, sortAttribute = my_sortAttribute, sort.name = "GSI");
+	<sort.name> should obviously be whichever attribute you sorted by; it could just as
+	easily be "Number of quivers". Additionally, you can add sort.decreasing = T to
+	sort in decreasing order, and/or sort.na.last = F to put NAs first or
+	sort.na.last = NA to exclude NA values of your attribute.
 
 9. Make Behavioral Density plots. The best way to do this with .behavioralDensityGraphs(),
    which makes one graph for each group for each behavior in my_color_key.
