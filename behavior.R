@@ -1776,6 +1776,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		}
 	}
 	
+	if (centerBeh == varBeh) {
+		behDists <- behDists[behDists != 0];
+		timeDists <- timeDists[timeDists != 0];
+	}
 	return(list(behDists=behDists, timeDists=timeDists, centerCount = length(centerBehLocs), varCount = length(varBehLocs)));
 }
 
