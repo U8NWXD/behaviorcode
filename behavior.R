@@ -1807,7 +1807,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # weightingStyle refers to the way the y axis is supposed to be normalized. If it is "singlebeh", the y-values represent the fraction of
 # the total occurrances of the plotted behavior that occur in a given time bin. If it is "allbeh". the y-values represent the fraction of
 # all behaviors that are (1) the plotted behavior and (2) in the given time bin. If it is "rawcounts", the y-value is just the count of
-# the plotted behavior that occurs in that timebin. # TODO normalize by centering beh
+# the plotted behavior that occurs in that timebin. If it is "centerbeh", the y-value is (# target beh) / (# center beh). 
 # Note that if you call this function directly, there is no check on the names of behaviors in behaviorsToPlotAndColors. This enables
 # you to do things like give the same color key for each group even if a behavior in it is never performed in a given group, but it
 # also enables you to make errors. Be careful!
@@ -1819,25 +1819,26 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 .behavioralDensityGraph = function(data, behaviorsToPlotAndColors, centerBeh, filename = NULL, lim = 15, noRepCenterBeh = TRUE, multifish = FALSE,
 								   timesPerBin = 0.5, ymax = 1, weightingStyle = "singlebeh") {
 	.validateColorKey(behaviorsToPlotAndColors);
-	data <- if (multifish) .filterDataList(data, renameStartStop = TRUE) else .renameStartStop(data);
+	data <- .filterDataList(data, renameStartStop = TRUE);
 	if (!is.null(filename)) jpeg(filename = filename, width = 15, height = 5, units = "in", quality = 100, res = 150, type = "quartz");
 	histBreaks = ((-ceiling(lim/timesPerBin) - 1):(ceiling(lim/timesPerBin)) + 0.5) * timesPerBin;
 	for (i in 1:(dim(behaviorsToPlotAndColors)[1])) {
-		x <- if (multifish) {.getIntervalsAcrossFish(data, centerBeh = centerBeh, varBeh = behaviorsToPlotAndColors[i, 1], noRepCenterBeh = noRepCenterBeh);}
-			 else {.getAllIntervals(data, centerBeh, behaviorsToPlotAndColors[i, 1], noRepCenterBeh = noRepCenterBeh);}
+		x <- .getIntervalsAcrossFish(data, centerBeh = centerBeh, varBeh = behaviorsToPlotAndColors[i, 1], noRepCenterBeh = noRepCenterBeh);
 		h <- hist(x$timeDists[x$timeDists > -lim & x$timeDists < lim], breaks = histBreaks, plot = FALSE);
+		yNorm = NA;
 		if (weightingStyle == "singlebeh") {
-			count <- x$varCount;
-			plot(x = h$mids, y = h$counts / count, type = "l", col = behaviorsToPlotAndColors[i, 2], xlim = c(-lim, lim), ylim = c(0, ymax), xlab = "", ylab = "");
+			yNorm <- x$varCount;
 		} else if (weightingStyle == "allbeh") {
-			count <- if (multifish) {sum(unlist(lapply(data, function (d) {length(d$behavior)})));}
-			         else {length(d$behavior);}
-			plot(x = h$mids, y = h$counts / count, type = "l", col = behaviorsToPlotAndColors[i, 2], xlim = c(-lim, lim), ylim = c(0, ymax), xlab = "", ylab = "");
+			yNorm <- sum(unlist(lapply(data, function (d) {length(d$behavior)})));
 		} else if (weightingStyle == "rawcounts") {
-			plot(x = h$mids, y = h$counts, type = "l", col = behaviorsToPlotAndColors[i, 2], xlim = c(-lim, lim), ylim = c(0, ymax), xlab = "", ylab = "");
+			yNorm <- 1;
+		} else if (weightingStyle == "centerbeh") {
+			yNorm <- sum(unlist(lapply(data, function (d) {sum(d$behavior == centerBeh)})));
 		} else {
 			stop("ERROR IN .behavioralDensityGraph(): Invalid weightingStyle.");
 		}
+		plot(x = h$mids, y = h$counts / yNorm, type = "l", col = behaviorsToPlotAndColors[i, 2], xlim = c(-lim, lim), ylim = c(0, ymax), xlab = "", ylab = "")
+		
 		#print(paste("mids length =", length(h$mids), ", counts length =", length(h$counts), ", count =", count, ",extra length =", length(h$counts / count)))
 		par(new = TRUE);
 	}
@@ -1845,6 +1846,33 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			ylab = if(weightingStyle=="singlebeh") "Fraction of individual behavior" else if(weightingStyle=="allbeh") "Fraction of all behaviors" else "Count");
 	par(new = FALSE);
 	dev.off();
+}
+
+.getBehDensityHist = function(data, centerBeh, varBeh, noRepCenterBeh, histBreaks, lim, weightingStyle) {
+	mat = matrix(nrow = length(data), ncol = length(histBreaks) - 1, dimnames = list(names(data), NULL));
+	for (fish in 1:length(data)) {
+		x <- .getAllIntervals(data[[fish]], centerBeh, varBeh, noRepCenterBeh = noRepCenterBeh);
+		h <- hist(x$timeDists[x$timeDists > -lim & x$timeDists < lim], breaks = histBreaks, plot = FALSE);
+		yNorm = NA;
+		if (weightingStyle == "singlebeh") {
+			yNorm <- x$varCount;
+		} else if (weightingStyle == "allbeh") {
+			yNorm <- length(data[[fish]]$behavior);
+		} else if (weightingStyle == "rawcounts") {
+			yNorm <- 1;
+		} else if (weightingStyle == "centerbeh") {
+			yNorm <- sum(data[[fish]]$behavior == centerBeh);
+		} else {
+			stop("ERROR IN .behavioralDensityGraph(): Invalid weightingStyle.");
+		}
+		mat[fish,] <- h$counts / yNorm;
+		if (is.null(dimnames(mat)[[2]])) {
+			dimnames(mat)[[2]] <- h$mids;
+		} else if (sum(h$mids != dimnames(mat)[[2]]) > 0) {
+			stop("Hist breaks do not match!")
+		}
+	}
+	return(list(x = as.numeric(dimnames(mat)[[2]]), y=apply(mat, 2, mean), matrix = mat));
 }
 
 # Draws behavioral density graphs for each experimental group in <data>. If no targetBehs are provided, a behavioral density plot is made
