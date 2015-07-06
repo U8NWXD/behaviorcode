@@ -1757,12 +1757,17 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	
 	behDists = numeric();
 	timeDists = numeric();
-	
+
 	for (i in 1:length(centerBehLocs)) {
 		if (noRepCenterBeh) {
 			if (i == 1) {
-				behDists = c(behDists, varBehLocs[varBehLocs <= centerBehLocs[i+1]] - centerBehLocs[i]);
-				timeDists = c(timeDists, varBehTimes[varBehTimes <= centerBehTimes[i+1]] - centerBehTimes[i]);				
+				if (i == length(centerBehLocs)) { # there is only one centerBehLoc - cannot try to get centerBehLocs[i+1]
+					behDists = c(behDists, varBehLocs - centerBehLocs[i]);
+					timeDists = c(timeDists, varBehTimes - centerBehTimes[i]);
+				} else {
+					behDists = c(behDists, varBehLocs[varBehLocs <= centerBehLocs[i+1]] - centerBehLocs[i]);
+					timeDists = c(timeDists, varBehTimes[varBehTimes <= centerBehTimes[i+1]] - centerBehTimes[i]);
+				}			
 			} else if (i == length(centerBehLocs)) {
 				behDists = c(behDists, varBehLocs[varBehLocs >= centerBehLocs[i-1]] - centerBehLocs[i]);
 				timeDists = c(timeDists, varBehTimes[varBehTimes >= centerBehTimes[i-1]] - centerBehTimes[i]);				
@@ -1774,6 +1779,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			behDists = c(behDists, varBehLocs - centerBehLocs[i]);
 			timeDists = c(timeDists, varBehTimes - centerBehTimes[i]);
 		}
+	}
+	
+	if (length(centerBehLocs) == 0) {
+		behDists = timeDists = numeric();
 	}
 	
 	if (centerBeh == varBeh) {
