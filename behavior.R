@@ -1783,20 +1783,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(list(behDists=behDists, timeDists=timeDists, centerCount = length(centerBehLocs), varCount = length(varBehLocs)));
 }
 
-# Calls .getAllIntervals on every data frame in the list <data>, and combines the results into one
-# list. behDists and timeDists contain all the distances from all the fish, and varCount and centerCount
-# contain the total counts across all fish.
-.getIntervalsAcrossFish = function (data, ...) {
-	alldata <- list(behDists = numeric(), timeDists = numeric(), centerCount = 0, varCount = 0);
-	for (i in 1:length(data)) {
-		tmp <- .getAllIntervals(data[[i]], ...);
-		alldata$behDists <- c(alldata$behDists, tmp$behDists);
-		alldata$timeDists <- c(alldata$timeDists, tmp$timeDists);
-		alldata$centerCount <- alldata$centerCount + tmp$centerCount;
-		alldata$varCount <- alldata$varCount + tmp$varCount;
-	}
-	return(alldata);
-}
+
 
 
 # Makes a behavioral density plot of the behaviors around <centerBeh> for either a single fish (multifish = FALSE) or every fish in
@@ -1825,14 +1812,26 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	data <- .filterDataList(data, renameStartStop = TRUE);
 	if (!is.null(filename)) jpeg(filename = filename, width = 15, height = 5, units = "in", quality = 100, res = 150, type = "quartz");
 	histBreaks = ((-ceiling(lim/timesPerBin) - 1):(ceiling(lim/timesPerBin)) + 0.5) * timesPerBin;
+	behHistograms = list();
 	for (i in 1:(dim(behaviorsToPlotAndColors)[1])) {
-		behHistogram <- .getBehDensityHist(data, centerBeh, behaviorsToPlotAndColors[i, 1], noRepCenterBeh, histBreaks, weightingStyle);
 		# print(behHistogram$y)
-		plot(x = behHistogram$x, y = behHistogram$y, type = "l", col = behaviorsToPlotAndColors[i, 2], xlim = c(-lim, lim), ylim = c(0, ymax), xlab = "", ylab = "")
+		behHistograms[[i]] <- .getBehDensityHist(data, centerBeh, behaviorsToPlotAndColors[i, 1], noRepCenterBeh, histBreaks, weightingStyle);
+	}
+	# cat("Center beh: ", centerBeh, "   Max: ", max(unlist(lapply(behHistograms, function(behhist){behhist$y}))), "\n");
+	ymax = max(unlist(lapply(behHistograms, function(behhist){behhist$y}))) * 1.1;
+	
+	plot(x = 0, y = 0, col = "white", xlim = c(-lim, lim), ylim = c(0, ymax), main = centerBeh, xlab = paste("Time after", centerBeh, "(seconds)"),
+			ylab = if(weightingStyle=="singlebeh") "Fraction of individual behavior" else if(weightingStyle=="allbeh") "Fraction of all behaviors" else "Count");
+	centerLineColor = if (centerBeh %in% behaviorsToPlotAndColors[,1]) behaviorsToPlotAndColors[which(behaviorsToPlotAndColors[,1] == centerBeh), 2] else "black";
+	abline(v = 0, col = centerLineColor, lty = "dashed");
+	par(new = TRUE);
+	
+	for (i in 1:(dim(behaviorsToPlotAndColors)[1])) {
+		plot(x = behHistograms[[i]]$x, y = behHistograms[[i]]$y, type = "l", col = behaviorsToPlotAndColors[i, 2], xlim = c(-lim, lim), ylim = c(0, ymax), xlab = "", ylab = "")
 		par(new = TRUE);
 	}
-	title(main = centerBeh, xlab = paste("Time after", centerBeh, "(seconds)"),
-			ylab = if(weightingStyle=="singlebeh") "Fraction of individual behavior" else if(weightingStyle=="allbeh") "Fraction of all behaviors" else "Count");
+	# title(main = centerBeh, xlab = paste("Time after", centerBeh, "(seconds)"),
+			# ylab = if(weightingStyle=="singlebeh") "Fraction of individual behavior" else if(weightingStyle=="allbeh") "Fraction of all behaviors" else "Count");
 	par(new = FALSE);
 	if (!is.null(filename)) dev.off();
 }
@@ -2256,6 +2255,20 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(list(average_times=avgF, average_behaviors = avgB, count_with = count, count_without=countWithout, count_end=countEnd));
 }
 
+# Calls .getAllIntervals on every data frame in the list <data>, and combines the results into one
+# list. behDists and timeDists contain all the distances from all the fish, and varCount and centerCount
+# contain the total counts across all fish.
+.getIntervalsAcrossFish = function (data, ...) {
+	alldata <- list(behDists = numeric(), timeDists = numeric(), centerCount = 0, varCount = 0);
+	for (i in 1:length(data)) {
+		tmp <- .getAllIntervals(data[[i]], ...);
+		alldata$behDists <- c(alldata$behDists, tmp$behDists);
+		alldata$timeDists <- c(alldata$timeDists, tmp$timeDists);
+		alldata$centerCount <- alldata$centerCount + tmp$centerCount;
+		alldata$varCount <- alldata$varCount + tmp$varCount;
+	}
+	return(alldata);
+}
 
 # TODO figure out how to preserve time numbers, etc in 3D data structure. list beh=current, time=, subj=, type=, .......
 # TODO sort. Try do.call() stdlib function.
