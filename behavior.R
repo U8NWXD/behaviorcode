@@ -1807,7 +1807,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # TODO write a function that automatically generates a nice color key given <behaviorsToPlotAndColors>
 # TODO get the data out in a nice way (aka not a chart)
 .behavioralDensityGraph = function(data, behaviorsToPlotAndColors, centerBeh, filename = NULL, lim = 15, noRepCenterBeh = TRUE, multifish = FALSE,
-								   timesPerBin = 0.5, ymax = 1, weightingStyle = "singlebeh") {
+								   timesPerBin = 0.5, ymax = 1, weightingStyle = "singlebeh", lineWidth = 2, lineType = "solid") {
 	.validateColorKey(behaviorsToPlotAndColors);
 	data <- .filterDataList(data, renameStartStop = TRUE);
 	if (!is.null(filename)) jpeg(filename = filename, width = 15, height = 5, units = "in", quality = 100, res = 150, type = "quartz");
@@ -1823,11 +1823,14 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	plot(x = 0, y = 0, col = "white", xlim = c(-lim, lim), ylim = c(0, ymax), main = centerBeh, xlab = paste("Time after", centerBeh, "(seconds)"),
 			ylab = if(weightingStyle=="singlebeh") "Fraction of individual behavior" else if(weightingStyle=="allbeh") "Fraction of all behaviors" else "Count");
 	centerLineColor = if (centerBeh %in% behaviorsToPlotAndColors[,1]) behaviorsToPlotAndColors[which(behaviorsToPlotAndColors[,1] == centerBeh), 2] else "black";
-	abline(v = 0, col = centerLineColor, lty = "dashed");
+	abline(v = 0, col = centerLineColor, lwd = lineWidth, lty = "dashed");
 	par(new = TRUE);
 	
 	for (i in 1:(dim(behaviorsToPlotAndColors)[1])) {
-		plot(x = behHistograms[[i]]$x, y = behHistograms[[i]]$y, type = "l", col = behaviorsToPlotAndColors[i, 2], xlim = c(-lim, lim), ylim = c(0, ymax), xlab = "", ylab = "")
+		plot(x = behHistograms[[i]]$x, y = behHistograms[[i]]$y, type = "l", col = behaviorsToPlotAndColors[i, 2],
+			 xlim = c(-lim, lim), ylim = c(0, ymax), xlab = "", ylab = "", lwd = lineWidth, lty = lineType)
+		par(new = TRUE);
+		plot(x = behHistograms[[i]]$x, y = behHistograms[[i]]$y, col = behaviorsToPlotAndColors[i, 2], xlim = c(-lim, lim), ylim = c(0, ymax), xlab = "", ylab = "", pch = 16, cex = .5) # TODO
 		par(new = TRUE);
 	}
 	# title(main = centerBeh, xlab = paste("Time after", centerBeh, "(seconds)"),
@@ -1836,6 +1839,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	if (!is.null(filename)) dev.off();
 }
 
+# Makes a behavioral density histogram for use in behavioral density plots. 
 .getBehDensityHist = function(data, centerBeh, varBeh, noRepCenterBeh, histBreaks, weightingStyle) {
 	mat = matrix(nrow = length(data), ncol = length(histBreaks) - 1, dimnames = list(names(data), NULL));
 	for (fish in 1:length(data)) {
@@ -1872,6 +1876,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # For example, calling with targetBehs = c("Lead", "Quiver") would make a graph centered at "Lead" for each group and a graph centered
 # at "Quiver" for each group.
 # For more information, look at the documentation for .behavioralDensityGraph().
+# TODO move .jpeg here? Does this allow stacking of plots for different groups??
 .behavioralDensityGraphs = function(data, behaviorsToPlotAndColors, filePref, targetBehs = NULL, ...) {
 	data = .filterDataList(data, renameStartStop = TRUE);
 	groupwiseLogs = .sepGroups(data);
