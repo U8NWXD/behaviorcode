@@ -146,6 +146,8 @@
 	<staggerSubjects> if TRUE causes male behaviors to be plotted above the line
 	for a subject and female behaviors to be plotted below the line. (default FALSE)
 	<widthInInches> and <heightInInches> control the dimensions of the output plot.
+	<horizontalLines> if TRUE causes a horizontal black line is drawn behind the
+	raster plot for each subject. (default FALSE)
     (b) Align at the nth occurance of a behavior. For example, the first spawn:
 	> .makeMulticolorRasterPlots(.filterDataList(my_data, zeroBeh = "spawning"), "~/Desktop/myExperiment", my_color_key)
 	The fifth quiver:

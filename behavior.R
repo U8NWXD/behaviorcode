@@ -2190,14 +2190,14 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # <wiggle> controls the amount of space the durational bars are allowed to take up. It
 # should always be a value between 0 and 0.5. The default .2 gives the durational bars 40%
 # of the height of the ticks. <defaultDur> is the width, in seconds, of the ticks. If some
-# ticks are very light or invisible, try increasing <defaultDur>.
+# ticks are very light or invisible, try increasing <defaultDur>. If <horizontalLines> is set
+# to true, a horizontal black line is drawn behind the raster plot for each subject.
 #
 # TODO no error checking on durationalBehs. Will probably crash if you put a non-durational beh in
 #   there. Also w/ ssBehs, what if it is ss in some-but-not-all logs? Add code to catch this case,
 #   draw a line, throw a warning.
-# TODO test with 1 durational beh, 1 non-durational beh, 0 of each.
 .makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, wiggle = .2, defaultDur = 1,
-									  durationalBehs = NA, staggerSubjects = F, widthInInches = 12, heightInInches = 12) {
+									  durationalBehs = NA, staggerSubjects = F, widthInInches = 12, heightInInches = 12, horizontalLines = F) {
 	if (!is.null(filename)) jpeg(filename = filename, width = widthInInches, height = heightInInches, units = "in", quality = 100, res = 300, type = "quartz");
 	
 	subjects = names(data);
@@ -2245,7 +2245,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 				par(new = TRUE);
 			}
 		}
-		abline(h=n, col='black');
+		if(horizontalLines) abline(h=n, col='black');
 	}
 	par(new = FALSE); 
 
