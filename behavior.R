@@ -1252,7 +1252,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		write.csv(transProbsByGroup[[group]], file = paste(outfilePrefix, group, "transitionalprobabilities_datadump.csv", sep = "_"));
 		groupPMsAndCounts = list(probMats = groupPMs, counts = lapply(groupwiseLogs$groupData[[group]], function(d) {table(d$behavior)}));
 		probMat = .combineProbabilityMatrices(groupPMsAndCounts, groupwiseLogs$behnames, byTotal)$probMat;
-		# if ((byTotal && sum(probMat) != 1) || (!byTotal && sum(apply(probMat,1,sum) != 1) > 0)) {
 			# print(probMat);
 			# print(sum(probMat));
 			# print(apply(probMat, 1, sum));

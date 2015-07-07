@@ -85,7 +85,7 @@
    about passing arguments to these passed-in functions, see the documentation for .runStats.
 
 5. Compare entropies and transitional probabilities. The function calls should be:
-	> .compareTransitionalProbabilities(my_data, byTotal=F, outfilePrefix = "~/Desktop/myExperiment")
+	> .compareTransitionalProbabilities(my_data, outfilePrefix = "~/Desktop/myExperiment")
    and
 	> .compareEntropy(my_data, "~/Desktop/myExperiment")
    These functions have mostly the same options as .calcBasicStats. It's also
