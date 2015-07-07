@@ -1870,18 +1870,21 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # TODO test!
 .compareBehavioralDensity = function(data, outfilePrefix, ...) {
 	behnames = .sepGroups(data)$behnames;
-	for (beh in behnames) {
+	# for (beh in behnames) { TODO change back
+	for (beh in "lead") {
 		.compareBehavioralDensityOneBeh(data, outfilePrefix, beh, ...); # TODO and save output
 	}
 }
 
-.compareBehavioralDensityOneBeh = function(data, outfilePrefix, centerBeh, tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), minNumLogs = 3) {
+.compareBehavioralDensityOneBeh = function(data, outfilePrefix, centerBeh,
+											tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)),
+											minNumLogs = 3, ...) {
 	data = .filterDataList(data, renameStartStop = TRUE);
 	groupwiseLogs = .sepGroups(data);
 	
 	behDensityByGroup = list();
 	for (group in groupwiseLogs$groupNames) {
-		behDensityByGroup[[group]] <- .makeDensityMatrix(groupwiseLogs$groupData[[group]], centerBeh, groupwiseLogs$behnames); # TODO add ... here
+		behDensityByGroup[[group]] <- .makeDensityMatrix(groupwiseLogs$groupData[[group]], centerBeh, groupwiseLogs$behnames, ...); 
 		write.csv(behDensityByGroup[[group]], file = paste(outfilePrefix, group, "density", centerBeh, "datadump.csv", sep = "_"));
 	}
 	
@@ -1891,7 +1894,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 .makeDensityMatrix = function(data, centerBeh, behnames, noRepCenterBeh = T, lim = 30, ...) {
 	masterMat = NULL;
-	for (varBeh in behnames) {
+#	for (varBeh in behnames) { TODO change back
+	for (varBeh in "female follow") {
 		miniMat <- t(.getBehDensityHist(data, centerBeh, varBeh, noRepCenterBeh, lim, ...)$mat);
 		# print(dimnames(miniMat)[[1]])
 		dimnames(miniMat)[[1]] <- paste(varBeh, dimnames(miniMat)[[1]], sep = "_");
@@ -1958,11 +1962,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	
 	timeMatsByGroup = list();
 	for (group in groupwiseLogs$groupNames) {
-		timeMatsByGroup[[group]] <- .makeTimeWindowMat(groupwiseLogs$groupData[[group]], groupwiseLogs$behnames, windowStart, windowEnd);
+		timeMatsByGroup[[group]] <- .makeTimeWindowMat(groupwiseLogs$groupData[[group]], c("lead", "female follow"), windowStart, windowEnd);
+		# timeMatsByGroup[[group]] <- .makeTimeWindowMat(groupwiseLogs$groupData[[group]], groupwiseLogs$behnames, windowStart, windowEnd); TODO change back
 		write.csv(timeMatsByGroup[[group]], file = paste(outfilePrefix, group, "timeMats_datadump.csv", sep = "_"));
 	}
 	
-	return(timeMatsByGroup);}
 	return(.runStats(dataByGroup = timeMatsByGroup, outfilePrefix = paste(outfilePrefix, "timeMats", sep = "_"),
 			tests = tests, minNumLogsForComparison = minNumLogs));
 }
