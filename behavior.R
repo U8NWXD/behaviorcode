@@ -182,6 +182,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	df$time <- df$time - startTime;
 	df$pair_time <- df$pair_time - startTime;
 	attr(df, 'assay.start') <- list(mark = asout$name, time = startTime);
+	attr(df, 'frames.per.second') <- framesPerSecond;
+	
+	df$subject[is.na(df$subject)] <- "none";
 	
 	if (nrow(df)<1) {
 		warning(paste('No data in ', filename, sep=''));
@@ -699,29 +702,35 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # behavior before the pause and a "START" before the behavior after the pause. Also inserts a "START" at the
 # beginning of the log and a "STOP" at the end.
 # TODO use type, pair_time, duration to pair "START"s with "STOP"s.
+# TODO try to get rid of loop it's slowwwwwww
 .separateBouts = function (data, intervalToSeparate, stateBehaviors = NULL) {
 	# 	names(df) = c('time', 'behavior', 'subject', 'type', 'pair_time', 'duration');
 	data$type[!is.na(data$type) & data$type == "start" & data$behavior %in% stateBehaviors] <- "sTaRt";
 	data$type[!is.na(data$type) & data$type == "stop" & data$behavior %in% stateBehaviors] <- "sToP";
 	
-	newData = data.frame(time = data$time[1], behavior = "START", subject = NA, type = NA, pair_time = NA, duration = NA); 
+	newData = data.frame(time = data$time[1], behavior = "START", subject = "none", type = "start", pair_time = NA, duration = NA); 
 	newData = rbind(newData, data[1,]);
+	lastStart = 1;
 	# print(data[1:20,]);
-	for (i in 2:length(data[,1])) {
-	#	print(paste(sum(data$type[!is.na(data$type)][1:(i-1)] == "start"), sum(data$type[!is.na(data$type)][1:(i-1)] == "stop"), sum(data$type[!is.na(data$type)][1:(i-1)] == "start") == sum(data$type[!is.na(data$type)][1:(i-1)] == "stop")));
-		if (as.numeric(data$time[i]) - as.numeric(data$time[i-1]) >= intervalToSeparate &&
-		    sum(data$type[1:(i-1)][!is.na(data$type)[1:(i-1)]] == "start") == sum(data$type[1:(i-1)][!is.na(data$type)[1:(i-1)]] == "stop")) {
-			stopRow = data.frame(time = data$time[i-1], behavior = "STOP", subject = NA, type = NA, pair_time = NA, duration = NA);
+	for (i in 2:(length(data$time + 1))) {
+		if (i > length(data$time) || (as.numeric(data$time[i]) - as.numeric(data$time[i-1]) >= intervalToSeparate &&
+		    sum(data$type[1:(i-1)][!is.na(data$type)[1:(i-1)]] == "start") == sum(data$type[1:(i-1)][!is.na(data$type)[1:(i-1)]] == "stop"))) {
+		    dur = data$time[i-1] - newData$time[lastStart];
+			stopRow = data.frame(time = data$time[i-1], behavior = "STOP", subject = "none", type = "stop", pair_time = newData$time[lastStart], duration = dur);
+			newData$pair_time[lastStart] <- stopRow$time;
+			newData$duration[lastStart] <- dur;
 			newData = rbind(newData, stopRow);
-			startRow = data.frame(time = data$time[i], behavior = "START", subject = NA, type = NA, pair_time = NA, duration = NA);
-			newData = rbind(newData, startRow);
+			
+			if (i <= length(data$time)) {
+				startRow = data.frame(time = data$time[i], behavior = "START", subject = "none", type = "start", pair_time = NA, duration = NA);
+				newData = rbind(newData, startRow);
+				lastStart = length(newData$behavior);
+			}
 		}
 		newData = rbind(newData, data[i,]);
 	}
-	stopRow = data.frame(time = data$time[length(data$time)], behavior = "STOP", subject = NA, type = NA, pair_time = NA, duration = NA);
-	newData = rbind(newData, stopRow);
-	dimnames(newData)[[1]] <- 1:length(dimnames(newData)[[1]])
 	
+	dimnames(newData)[[1]] <- 1:length(dimnames(newData)[[1]])	
 	newData$type[!is.na(newData$type) & newData$type == "sTaRt"] <- "start";
 	newData$type[!is.na(newData$type) & newData$type == "sToP"] <- "stop";
 	return(newData);
@@ -1127,8 +1136,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #  probability for each pair of behaviors.
 # Usage: .getProbabilityMatrix(.renameStartStop(dataFrame)$behavior)      to include behavior starts and ends
 .getProbabilityMatrix = function (data, removeZeroCol=F, ...) {
-	beh = names(table(data[-length(data)]));
-	probMat = matrix(nrow=length(beh), ncol=length(beh), dimnames=list(beh, beh));
+	behL = names(table(data[-length(data)]));
+	behF = names(table(data));
+	probMat = matrix(nrow=length(behL), ncol=length(behF), dimnames=list(behL, behF));
 	for (leader in rownames(probMat)) {
 		for (follower in colnames(probMat)) {
 			tmp = .computeTransitionProbability(data=data, leader=leader, follower=follower, ...);
@@ -1230,7 +1240,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # > apply(probMatsByGroup$nameOfAGroup$probMat,1,sum)
 # or
 # > sum(probMatsByGroup$nameOfAGroup$probMat) (byTotal true)
-.compareTransitionalProbabilities = function(data, byTotal = FALSE, outfilePrefix,
+.compareTransitionalProbabilities = function(data, outfilePrefix, byTotal = FALSE,
 											 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), minNumLogs = 3) {
 	data = .filterDataList(data, renameStartStop = TRUE);
 	groupwiseLogs = .sepGroups(data);
