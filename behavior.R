@@ -1841,8 +1841,13 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	# cat("Center beh: ", centerBeh, "   Max: ", max(unlist(lapply(behHistograms, function(behhist){behhist$y}))), "\n");
 	if(is.null(ymax)) ymax = max(unlist(lapply(behHistograms, function(behhist){behhist$y}))) * 1.1;
 	
+	ylabel = if(weightingStyle == "density") "Density"
+			 else if(weightingStyle=="singlebeh") "Fraction of individual behavior"
+			 else if(weightingStyle=="allbeh") "Fraction of all behaviors"
+			 else if(weightingStyle=="centerbeh") paste("Frequency relative to", centerBeh)
+			 else "Count";	
 	plot(x = 0, y = 0, col = "white", xlim = c(-lim, lim), ylim = c(0, ymax), main = centerBeh, xlab = paste("Time after", centerBeh, "(seconds)"),
-			ylab = "Density");
+			ylab = ylabel);
 	centerLineColor = if (centerBeh %in% behaviorsToPlotAndColors[,1]) behaviorsToPlotAndColors[which(behaviorsToPlotAndColors[,1] == centerBeh), 2] else "black";
 	abline(v = 0, col = centerLineColor, lwd = lineWidth, lty = "dashed");
 	par(new = TRUE);
@@ -2168,7 +2173,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	for (i in 1:length(groupwiseLogs$groupNames)) {
 		.makeMulticolorRasterPlot(groupwiseLogs$groupData[[i]], behaviorsToPlotAndColors,
 									filename = paste(outfilePrefix, "_rasterplot_", groupwiseLogs$groupNames[i], ".jpeg", sep = ''),
-									durationalBehs = durationalBehs, ...)
+									plotTitle = groupwiseLogs$groupNames[i], durationalBehs = durationalBehs, ...)
 	}
 }
 
@@ -2196,7 +2201,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # TODO no error checking on durationalBehs. Will probably crash if you put a non-durational beh in
 #   there. Also w/ ssBehs, what if it is ss in some-but-not-all logs? Add code to catch this case,
 #   draw a line, throw a warning.
-.makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, wiggle = .2, defaultDur = 1,
+.makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, plotTitle = NULL, wiggle = .2, defaultDur = 1,
 									  durationalBehs = NA, staggerSubjects = F, widthInInches = 12, heightInInches = 12, horizontalLines = F) {
 	if (!is.null(filename)) jpeg(filename = filename, width = widthInInches, height = heightInInches, units = "in", quality = 100, res = 300, type = "quartz");
 	
@@ -2249,7 +2254,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	}
 	par(new = FALSE); 
 
-	title(xlab = "time (seconds)");
+	title(xlab = "time (seconds)", main = plotTitle);
 	axis(2, at=1:num_subj, labels=subjects, tick=F, las=2);
 	axis(1, yaxp=c(mintime, maxtime, 10), col='white', col.ticks='black');
 	
