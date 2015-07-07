@@ -992,7 +992,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 
 # A wrapper function for bootstrap2paired that makes it play well with .runStats
 # argList must contain assayLength (the length of assays), x, y, row, outfilePrefix,
-#   groupNames, and can optionally contain <trials> (the number of trials).
+#   groupNames
 # The function must be passed in in a list.
 .coxphWrapper = function(argList) {
 	library(survival);
@@ -1262,7 +1262,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	behcombos <- character();
 	for (beh in behnames) {
 		behcombos <- c(behcombos, paste(behnames, "->", beh));
-	}
+	} # TODO use new fxn .getBehcombosNames()
 	
 	TPmat = if (!byTotal) {matrix(nrow = length(behcombos), ncol = length(groupPMs), dimnames = list(behcombos, names(groupPMs)))}
 		  else {matrix(data = 0, nrow = length(behcombos), ncol = length(groupPMs), dimnames = list(behcombos, names(groupPMs)))};
@@ -1931,6 +1931,59 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #		readline("Press ENTER when you are ready to continue:");
 	}
 }
+
+# closed interval [windowStart, windowEnd] NOT [windowStart, windowEnd)
+.getProbabilityOfBehInTimeWindow = function(data, centerBeh, varBeh, windowStart = 0, windowEnd = 1) {
+	if (windowEnd <= windowStart) stop("Bad window given.");
+	
+	centerBehTimes = data$time[data$behavior == centerBeh];
+	nBehsInWindow = numeric();
+	
+	for (t in centerBehTimes) {
+		nBehsInWindow = c(nBehsInWindow, sum(data$behavior == varBeh & data$time >= t + windowStart & data$time <= t + windowEnd));
+	}
+	
+	
+	norm = if (length(centerBehTimes) > 0) length(centerBehTimes) else 1;
+	if (length(centerBehTimes) == 0 && sum(nBehsInWindow) != 0) stop ("Divide by zero error.")
+	
+	# print(nBehsInWindow);
+	return(sum(nBehsInWindow) / norm);
+}
+
+.compareBehTimeWindow = function(data, outfilePrefix, windowStart = 0, windowEnd = 1,
+								 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), minNumLogs = 3) {
+	data = .filterDataList(data, renameStartStop = TRUE);
+	groupwiseLogs = .sepGroups(data);
+	
+	timeMatsByGroup = list();
+	for (group in groupwiseLogs$groupNames) {
+		timeMatsByGroup[[group]] <- .makeTimeWindowMat(groupwiseLogs$groupData[[group]], groupwiseLogs$behnames, windowStart, windowEnd);
+		write.csv(timeMatsByGroup[[group]], file = paste(outfilePrefix, group, "timeMats_datadump.csv", sep = "_"));
+	}
+	
+	return(timeMatsByGroup);}
+	return(.runStats(dataByGroup = timeMatsByGroup, outfilePrefix = paste(outfilePrefix, "timeMats", sep = "_"),
+			tests = tests, minNumLogsForComparison = minNumLogs));
+}
+
+
+.makeTimeWindowMat = function(data, behnames, windowStart, windowEnd) {
+	behcombos = .getBehcombosNames(behnames);
+	nbehs = length(behnames);
+	twMat = matrix(nrow = nbehs * nbehs, ncol = length(data), dimnames = list(behcombos, names(data)));
+	
+	for (behCombo in behcombos) {
+		leaderBeh = gsub(" -> .*", "", behCombo);
+		followerBeh = gsub(".* -> ", "", behCombo);
+		for (subject in names(data)) {
+			twMat[behCombo, subject] = .getProbabilityOfBehInTimeWindow(data[[subject]], leaderBeh, followerBeh, windowStart, windowEnd);
+		}
+	}
+	return(twMat);
+}
+
+
 
 #####################################################################################################
 ## RASTER PLOTS                                                                                    ##
