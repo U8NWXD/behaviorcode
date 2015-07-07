@@ -68,6 +68,10 @@
 	3. JPGs of the plots produced by the bootstrap function
    Example function call:
 	> .calcBasicStats(my_data, "~/Desktop/myExperiment");
+
+   If there are fewer than <minNumLogs> observations for a given behavior, the stats will
+   be skipped with a warning. The default for this parameter is 3, but you can raise it or
+   lower it.
    
    By default, p-values are computed with a student t-test, a wilcox rank test, and an
    independent bootstrap test (which outputs a JPG for each behavior with histograms and

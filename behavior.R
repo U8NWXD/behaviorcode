@@ -1811,18 +1811,17 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # Note that if you call this function directly, there is no check on the names of behaviors in behaviorsToPlotAndColors. This enables
 # you to do things like give the same color key for each group even if a behavior in it is never performed in a given group, but it
 # also enables you to make errors. Be careful!
-# TODO param passing w/ ... to behDensityHist
+# TODO - done param passing w/ ... to behDensityHist TODO test
 # TODO write a function that automatically generates a nice color key given <behaviorsToPlotAndColors>
-# TODO get the data out in a nice way (aka not a chart)
 .behavioralDensityGraph = function(data, behaviorsToPlotAndColors, centerBeh, filename = NULL, lim = 15, noRepCenterBeh = TRUE, multifish = FALSE,
-								   ymax = NULL, lineWidth = 2, lineType = "solid", densityBW = .5) {
+								   ymax = NULL, lineWidth = 2, lineType = "solid", ...) {
 	.validateColorKey(behaviorsToPlotAndColors);
 	data <- .filterDataList(data, renameStartStop = TRUE);
 	if (!is.null(filename)) jpeg(filename = filename, width = 15, height = 5, units = "in", quality = 100, res = 150, type = "quartz");
 	behHistograms = list();
 	for (i in 1:(dim(behaviorsToPlotAndColors)[1])) {
 		# print(behHistogram$y)
-		behHistograms[[i]] <- .getBehDensityHist(data, centerBeh, behaviorsToPlotAndColors[i, 1], noRepCenterBeh, lim, densityBW = densityBW);
+		behHistograms[[i]] <- .getBehDensityHist(data, centerBeh, behaviorsToPlotAndColors[i, 1], noRepCenterBeh, lim, ...);
 	}
 	# cat("Center beh: ", centerBeh, "   Max: ", max(unlist(lapply(behHistograms, function(behhist){behhist$y}))), "\n");
 	if(is.null(ymax)) ymax = max(unlist(lapply(behHistograms, function(behhist){behhist$y}))) * 1.1;
@@ -1850,7 +1849,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		x <- .getAllIntervals(data[[fish]], centerBeh, varBeh, noRepCenterBeh = noRepCenterBeh);
 		p = NA;
 		if (length(x$timeDists) > 0) {
-			p <- density(x$timeDists, bw = densityBW, from = -lim, to = lim, n = densityN); # TODO mess with bandwidth - make it an option!!
+			p <- density(x$timeDists, bw = densityBW, from = -lim, to = lim, n = densityN);
 		} else {
 			p <- list(x = NULL, y = rep(0, times = 512));
 		}
@@ -1867,11 +1866,80 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(list(x = as.numeric(dimnames(mat)[[2]]), y=apply(mat, 2, mean), matrix = mat));
 }
 
+# this is the old one
+# either restore as option, rename, or delete TODO
+# .behavioralDensityGraph = function(data, behaviorsToPlotAndColors, centerBeh, filename = NULL, lim = 15, noRepCenterBeh = TRUE, multifish = FALSE,
+								   # timesPerBin = 0.5, ymax = 1, weightingStyle = "singlebeh", lineWidth = 2, lineType = "solid") {
+	# .validateColorKey(behaviorsToPlotAndColors);
+	# data <- .filterDataList(data, renameStartStop = TRUE);
+	# if (!is.null(filename)) jpeg(filename = filename, width = 15, height = 5, units = "in", quality = 100, res = 150, type = "quartz");
+	# histBreaks = ((-ceiling(lim/timesPerBin) - 1):(ceiling(lim/timesPerBin)) + 0.5) * timesPerBin;
+	# behHistograms = list();
+	# for (i in 1:(dim(behaviorsToPlotAndColors)[1])) {
+		# # print(behHistogram$y)
+		# behHistograms[[i]] <- .getBehDensityRealHist(data, centerBeh, behaviorsToPlotAndColors[i, 1], noRepCenterBeh, histBreaks, weightingStyle);
+	# }
+	# # cat("Center beh: ", centerBeh, "   Max: ", max(unlist(lapply(behHistograms, function(behhist){behhist$y}))), "\n");
+	# ymax = max(unlist(lapply(behHistograms, function(behhist){behhist$y}))) * 1.1;
+	
+	# plot(x = 0, y = 0, col = "white", xlim = c(-lim, lim), ylim = c(0, ymax), main = centerBeh, xlab = paste("Time after", centerBeh, "(seconds)"),
+			# ylab = if(weightingStyle=="singlebeh") "Fraction of individual behavior" else if(weightingStyle=="allbeh") "Fraction of all behaviors" else "Count");
+	# centerLineColor = if (centerBeh %in% behaviorsToPlotAndColors[,1]) behaviorsToPlotAndColors[which(behaviorsToPlotAndColors[,1] == centerBeh), 2] else "black";
+	# abline(v = 0, col = centerLineColor, lwd = lineWidth, lty = "dashed");
+	# par(new = TRUE);
+	
+	# for (i in 1:(dim(behaviorsToPlotAndColors)[1])) {
+		# plot(x = behHistograms[[i]]$x, y = behHistograms[[i]]$y, type = "l", col = behaviorsToPlotAndColors[i, 2],
+			 # xlim = c(-lim, lim), ylim = c(0, ymax), xlab = "", ylab = "", lwd = lineWidth, lty = lineType)
+		# par(new = TRUE);
+		# plot(x = behHistograms[[i]]$x, y = behHistograms[[i]]$y, col = behaviorsToPlotAndColors[i, 2], xlim = c(-lim, lim), ylim = c(0, ymax), xlab = "", ylab = "", pch = 16, cex = .5) # TODO
+		# par(new = TRUE);
+	# }
+	# # title(main = centerBeh, xlab = paste("Time after", centerBeh, "(seconds)"),
+			# # ylab = if(weightingStyle=="singlebeh") "Fraction of individual behavior" else if(weightingStyle=="allbeh") "Fraction of all behaviors" else "Count");
+	# par(new = FALSE);
+	# if (!is.null(filename)) dev.off();
+# }
+
+# Makes a behavioral density histogram for use in behavioral density plots. 
+# this is the old one
+# TODO edit or delete
+.getBehDensityRealHist = function(data, centerBeh, varBeh, noRepCenterBeh, histBreaks, weightingStyle) {
+	mat = matrix(nrow = length(data), ncol = length(histBreaks) - 1, dimnames = list(names(data), NULL));
+	for (fish in 1:length(data)) {
+		x <- .getAllIntervals(data[[fish]], centerBeh, varBeh, noRepCenterBeh = noRepCenterBeh);
+		h <- hist(x$timeDists[x$timeDists > min(histBreaks) & x$timeDists < max(histBreaks)], breaks = histBreaks, plot = FALSE);
+		yNorm = NA;
+		if (weightingStyle == "singlebeh") {
+			yNorm <- x$varCount;
+		} else if (weightingStyle == "allbeh") {
+			yNorm <- length(data[[fish]]$behavior);
+		} else if (weightingStyle == "rawcounts") {
+			yNorm <- 1;
+		} else if (weightingStyle == "centerbeh") {
+			yNorm <- sum(data[[fish]]$behavior == centerBeh);
+		} else {
+			stop("ERROR IN .behavioralDensityGraph(): Invalid weightingStyle.");
+		}
+		if (yNorm == 0) {
+			yNorm = 1;
+			if (sum(h$counts) != 0) stop("BAD THING WITH ZEROS")
+		}
+		mat[fish,] <- h$counts / yNorm;
+		if (is.null(dimnames(mat)[[2]])) {
+			dimnames(mat)[[2]] <- h$mids;
+		} else if (sum(h$mids != dimnames(mat)[[2]]) > 0) {
+			stop("Hist breaks do not match!")
+		}
+	}
+	return(list(x = as.numeric(dimnames(mat)[[2]]), y=apply(mat, 2, mean), matrix = mat));
+}
+
 # TODO test!
 .compareBehavioralDensity = function(data, outfilePrefix, ...) {
 	behnames = .sepGroups(data)$behnames;
-	# for (beh in behnames) { TODO change back
-	for (beh in "lead") {
+	for (beh in behnames) {
+	# for (beh in "lead") {
 		.compareBehavioralDensityOneBeh(data, outfilePrefix, beh, ...); # TODO and save output
 	}
 }
@@ -1892,11 +1960,14 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			tests = tests, minNumLogsForComparison = minNumLogs, print = F)); # TODO print thing what??
 }
 
-.makeDensityMatrix = function(data, centerBeh, behnames, noRepCenterBeh = T, lim = 30, ...) {
+#.makeDensityMatrix = function(data, centerBeh, behnames, noRepCenterBeh = T, lim = 30, ...) { TODO change backkkkk
+.makeDensityMatrix = function(data, centerBeh, behnames, noRepCenterBeh = T, lim = 30, timesPerBin = 0.5, weightingStyle = "singlebeh", ...) {
 	masterMat = NULL;
-#	for (varBeh in behnames) { TODO change back
-	for (varBeh in "female follow") {
-		miniMat <- t(.getBehDensityHist(data, centerBeh, varBeh, noRepCenterBeh, lim, ...)$mat);
+	for (varBeh in behnames) { TODO change back
+#	for (varBeh in "female follow") {
+#		miniMat <- t(.getBehDensityHist(data, centerBeh, varBeh, noRepCenterBeh, lim, ...)$mat); TODO change back
+		histBreaks = ((-ceiling(lim/timesPerBin) - 1):(ceiling(lim/timesPerBin)) + 0.5) * timesPerBin;
+		miniMat <- t(.getBehDensityRealHist(data, centerBeh, varBeh, noRepCenterBeh, histBreaks, weightingStyle, ...)$mat);
 		# print(dimnames(miniMat)[[1]])
 		dimnames(miniMat)[[1]] <- paste(varBeh, dimnames(miniMat)[[1]], sep = "_");
 		masterMat = rbind(masterMat, miniMat);
