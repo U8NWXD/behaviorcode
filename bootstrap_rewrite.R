@@ -100,7 +100,7 @@ bootstrap2independent = function(x, y,
 						  		 boxLineMedian = F,
 						  		 printResults = F,
 						  		 verbose = F,
-						  		 outfile = "__June/junkruns/0148" # NULL
+						  		 outfile = NULL
 						  		 )  #save as JPG: look at fishstudies/_code/bootstrapFunctions_6-16-13.R
 {
 	validateResult <- .validateBootstrapData(x, y);
@@ -247,23 +247,8 @@ bootstrap2independent = function(x, y,
 		grp = c(rep(groupNames[1], length(group1)), rep(groupNames[2], length(group2)));
 		
 		# check if line in box should be mean or median (default)
-		if (boxLineMedian)
-		{
-			medlty = 'solid';
-		}
-		else
-		{
-			medlty = 'blank';
-		}
-		
-		if (p == 0)
-		{
-			toPaste = paste('p < 1e-5', sep = '');
-		}
-		else
-		{
-			toPaste = paste('p = ', signif(p, 2), sep = '');
-		}
+		medlty = if (boxLineMedian) 'solid' else 'blank';
+		toPaste = if (p == 0) paste('p < 1e-5', sep = '') else paste('p = ', signif(p, 2), sep = '');
 		
 		# draw boxes
 		boxplot(toPlot ~ grp,
