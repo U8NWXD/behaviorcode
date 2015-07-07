@@ -1601,7 +1601,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		stop(paste('Invalid color in behaviorsToPlotAndColors: "', behcolors[!(behcolors[,2] %in% colors()), 2], '"\n', sep = ""));
 	}
 	if (!is.null(validBehNames) && sum(!(behcolors[,1] %in% validBehNames)) != 0) {
-		stop(paste('Behavior in behaviorsToPlotAndColors: "', behcolors[!(behcolors[,1] %in% validBehNames), 1], '" not found in any score log\n', sep = ""));
+		warning(paste('Behavior in behaviorsToPlotAndColors: "', behcolors[!(behcolors[,1] %in% validBehNames), 1], '" not found in any score log\n', sep = ""));
 	}
 }
 
@@ -2157,15 +2157,14 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	
 	if (is.na(durationalBehs[1])) {
 		durationalBehs = names(table(startStopBehs));
+		if (is.null(durationalBehs)) durationalBehs <- character()
 	} else {
 		if (sum(!(durationalBehs %in% names(table(startStopBehs)))) > 0) {
 			stop(paste('Behavior "', durationalBehs[which(!(durationalBehs %in% names(table(startStopBehs))))][1], 
 						'" in durationalBehs was not scored as a durational behavior.', sep = ""));
 		}
 	}
-	
-	# print(durationalBehs);
-	
+		
 	for (i in 1:length(groupwiseLogs$groupNames)) {
 		.makeMulticolorRasterPlot(groupwiseLogs$groupData[[i]], behaviorsToPlotAndColors,
 									filename = paste(outfilePrefix, "_rasterplot_", groupwiseLogs$groupNames[i], ".jpeg", sep = ''),
