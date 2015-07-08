@@ -52,7 +52,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	return(df);
 }
 
-# Converts a time in the format "MINUTES:SECONDS" to a numver of seconds.
+# Converts a time in the format "MINUTES:SECONDS" to a number of seconds.
 # Fractional seconds are ok (e.g. "3:14.15")
 .timeToSeconds = function(clockTime) {
 	nMinutes = as.numeric(gsub(":.*$", "", clockTime));
@@ -184,7 +184,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	if (df$time[1] < startTime) warning("Some behavior(s) were scored before the assay start.", immediate. = TRUE);
 	df$time <- df$time - startTime;
 	df$pair_time <- df$pair_time - startTime;
-	attr(df, 'assay.start') <- list(mark = asout$name, time = startTime);
+	attr(df, 'assay.start') <- list(mark = asout$name, time = startTime, rezeroed = F);
 	attr(df, 'frames.per.second') <- framesPerSecond;
 	
 	df$subject[is.na(df$subject)] <- "none";
@@ -702,15 +702,19 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # relative to that behavior. <behavior> can also be a vector of behaviors - for example, all behaviors
 # to rezero to the first behavior, or all aggressive behaviors to rezero to the first aggressive behavior.
 .setZeroToNthOfBehavior = function(data, behavior, n = 1) {
-	data = rbind(data, list(time = 0, behavior = "assay start", subject = NA, type = NA, pair_time = NA, duration = NA)); # TODO make this line better
+	if (attributes(data)$assay.start$rezeroed == F) {
+		data = rbind(data, list(time = 0, behavior = "assay start", subject = "none", type = NA, pair_time = NA, duration = NA));
+		data = .sortByTime(data);
+	}
 	targetBehIndices = which(data$behavior %in% behavior);
 	newStartTime = 0;
 	if (length(targetBehIndices) >= n) {
 		newStartTime = data$time[targetBehIndices[n]];
-	} else {
+	} else { #TODO assay length
 		newStartTime = max(data$time) + 1;
 	}
 	data$time <- data$time - newStartTime; # TODO change attribute
+	attributes(data)$assay.start$rezeroed <- T;
 	return(data);
 }
 
@@ -2236,7 +2240,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # TODO no error checking on durationalBehs. Will probably crash if you put a non-durational beh in
 #   there. Also w/ ssBehs, what if it is ss in some-but-not-all logs? Add code to catch this case,
 #   draw a line, throw a warning.
-.makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, plotTitle = NULL, wiggle = .2, defaultDur = 1,
+.makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, plotTitle = NULL, wiggle = .2, defaultDur = 2,
 									  durationalBehs = NA, staggerSubjects = F, widthInInches = 12, heightInInches = 12, horizontalLines = F) {
 	if (!is.null(filename)) jpeg(filename = filename, width = widthInInches, height = heightInInches, units = "in", quality = 100, res = 300, type = "quartz");
 	
@@ -2246,7 +2250,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	mintime = min(c(0, unlist(lapply(data, function(d){min(d$time)}))));
 	ssBehs = if(is.na(durationalBehs[1])) .startStopBehs(data) else durationalBehs;
 	
-	# print(ssBehs);
+	if (attributes(data[[1]])$assay.start$rezeroed == T) {
+		behaviorsToPlotAndColors = rbind(behaviorsToPlotAndColors, c("assay start", "black"));
+	}
 	
 	.validateColorKey(behaviorsToPlotAndColors);
 	singleBehsAndColors = rbind(NULL, behaviorsToPlotAndColors[!(behaviorsToPlotAndColors[,1] %in% ssBehs),]);
