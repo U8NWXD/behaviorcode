@@ -1633,7 +1633,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 .plotColorLegend = function(colorkey) {
 	behaviors = colorkey[,1];
 	colors = colorkey[,2];
-	par(mai = c(1, 3, 1, 1))
+	par(mfrow = c(1,1), plt = c(.5, .8, .1, .8))
 	plot(c(0, 1), c(0, length(behaviors)), frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(0, 1), ylim = c(0.5, length(behaviors) + 0.5), col = "white", main = "Color Key");
 	for (i in 1:length(behaviors)) {
 		rect(xleft = 0, xright = 1, border = NA,
