@@ -2203,7 +2203,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 						'" in durationalBehs was not scored as a durational behavior.', sep = ""));
 		}
 	}
-		
+	
+	.plotColorKey(behaviorsToPlotAndColors, paste(outfilePrefix, "_rasterplot_colorkey.jpeg", sep = ''))
 	for (i in 1:length(groupwiseLogs$groupNames)) {
 		.makeMulticolorRasterPlot(groupwiseLogs$groupData[[i]], behaviorsToPlotAndColors,
 									filename = paste(outfilePrefix, "_rasterplot_", groupwiseLogs$groupNames[i], ".jpeg", sep = ''),
