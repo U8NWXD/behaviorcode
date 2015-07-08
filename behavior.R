@@ -167,6 +167,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	asout = .getAssayStart(data0, assayStart, filename);
 	startTime = asout$time;
 	
+	notes = .getNotes(data0);
+	attr(df, 'notes') <- notes;
+	
 	df = .parseFullLog(data0, desc_table, framesPerSecond);
 	if (!is.data.frame(df)) {
 		warning("EMPTY SCORE LOG.", immediate. = TRUE);
@@ -237,6 +240,20 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		markIndex = which(markNames == userInput);
 		return(list(time = .timeToSeconds(marks[[markIndex]][2]), name = markNames[markIndex], assayStart = assayStart));
 	}
+}
+
+.getNotes = function(data0) {
+	start_notes = which(data0=='NOTES') + 2;
+	end_notes = which(data0 == 'MARKS') - 2;
+	if (start_notes > end_notes) notes = character(0)
+	else notes = data0[start_notes:end_notes,];
+	
+	if (length(notes) > 0) {
+		cat("\tNotes:\n\t");
+		cat(notes, sep = "\n\t");
+	}
+	
+	return(notes);
 }
 
 # Prints out .findDupBehaviors in a more readable format, preceded by two spaces.
