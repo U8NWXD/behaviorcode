@@ -1320,6 +1320,17 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # possibleBehs is the list of possible followers - this corrects for the situation where (for example)
 #   a log that only has 2 out of 10 behaviors has artificially high entropy. It has NO ERROR CHECKING.
 #   Be careful!
+.computeEntropyBehVec = function (behvec, possibleBehs = NULL) {
+	infrequentBehs = names(table(behvec)[table(behvec) < 5]); # TODO get rid of magic number
+	if (length(infrequentBehs > 0)) {
+		warning(paste('"', infrequentBehs, '" occurs less than five times in this log. This will likely throw off your group averages.\n  ', sep = ''), immediate. = T);
+	}
+	
+	probMat = .getProbabilityMatrix(behvec, byTotal = F);
+	return(.computeEntropyProbMatrix(probMat, possibleBehs));
+}
+	
+	
 .computeEntropyProbMatrix = function (probMat, possibleBehs = NULL) {
 	if (is.null(possibleBehs)) possibleBehs = dimnames(probMat)[[2]];
 	hMat = matrix(nrow = length(probMat[,1]), ncol = length(possibleBehs), dimnames = list(dimnames(probMat)[[1]], possibleBehs));
@@ -1365,8 +1376,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	
 	entropyMatsByGroup = list();
 	for (group in groupwiseLogs$groupNames) {
-		probMats = lapply(groupwiseLogs$groupData[[group]], function(d) {.getProbabilityMatrix(d$behavior, byTotal=FALSE)});
-		entropyVecs = lapply(probMats, function(d) {.computeEntropyProbMatrix(d, groupwiseLogs$behnames)$h_norm});
+		entropyVecs = lapply(groupwiseLogs$groupData[[group]], function(d) {.computeEntropyBehVec(d$behavior, groupwiseLogs$behnames)$h_norm});
 		entropyMatsByGroup[[group]] <- .combineEntropyVecs(entropyVecs, groupwiseLogs$behnames);
 	}
 	return(entropyMatsByGroup);
@@ -1407,10 +1417,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	
 	entropiesByGroup = list();
 	for (group in groupwiseLogs$groupNames) {
-		probMats = lapply(groupwiseLogs$groupData[[group]], function(d) {.getProbabilityMatrix(d$behavior, byTotal=FALSE)});
-		entropyVecs = lapply(probMats, function(d) {.computeEntropyProbMatrix(d, groupwiseLogs$behnames)$h_norm});
-		# groupEMsAndCounts = list(probMats = lapply(entropyLists, function(l) {return(l$hMat)}),
-								 # counts = lapply(groupwiseLogs$groupData[[group]], function(d) {table(d$behavior)}));
+		entropyVecs = lapply(groupwiseLogs$groupData[[group]], function(d) {.computeEntropyBehVec(d$behavior, groupwiseLogs$behnames)$h_norm});
 		entropiesByGroup[[group]] <- .makeEntropyVecMatrix(entropyVecs, groupwiseLogs$behnames);
 		write.csv(entropiesByGroup[[group]], file = paste(outfilePrefix, group, "entropydata.csv", sep = "_"));
 	}
