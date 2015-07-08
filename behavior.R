@@ -1629,10 +1629,16 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	}
 }
 
+.plotColorLegend = function(colorkey, x, y, is.lines, ...) {
+	if (!is.lines) legend(x, y, colorkey[,1], fill = colorkey[,2], ...)
+	else legend(x, y, colorkey[,1], lty = "solid", col = colorkey[,2], ...)
+}
+
 # Plots a color key to make it human-readable
-.plotColorLegend = function(colorkey) {
+.plotColorKey = function(colorkey, outfile = NULL) {
 	behaviors = colorkey[,1];
 	colors = colorkey[,2];
+	if (!is.null(outfile)) jpeg(filename = outfile, width = 4, height = 10, units = "in", quality = 100, res = 150, type = "quartz");
 	par(mfrow = c(1,1), plt = c(.5, .8, .1, .8))
 	plot(c(0, 1), c(0, length(behaviors)), frame.plot=F, axes=F, xlab = '', ylab='', xlim = c(0, 1), ylim = c(0.5, length(behaviors) + 0.5), col = "white", main = "Color Key");
 	for (i in 1:length(behaviors)) {
@@ -1640,6 +1646,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			 col = colors[i], ybottom = length(behaviors) - i + .5, ytop = length(behaviors) - i+1.5);
 	}
 	axis(2, at=1:length(behaviors), labels=behaviors[length(behaviors):1], tick=F, las=2);
+	if(!is.null(outfile)) dev.off();
 }
 
 # Prints out the color key in a nice format to the console, with each row preceded by <whitespace>.
@@ -1649,7 +1656,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	for (i in 1:length(colorKey[,1])) {
 		cat(whitespace, '"', colorKey[i,1], '":', rep_len(' ', paddingLengths[i]), '"', colorKey[i, 2], '"\n', sep = "");
 	}
-	.plotColorLegend(colorKey);
+	.plotColorKey(colorKey);
 }
 
 # Prompts the user to enter a color for <beh> and reprompts until they enter either a valid color or "none".
@@ -1680,7 +1687,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			} else {
 				colorkey = rbind(colorkey, c(userInput, color));
 			}
-			.plotColorLegend(colorkey);
+			.plotColorKey(colorkey);
 		} else if (userInput == "p") {
 			.printColorKey(colorkey, "  ");
 		}
@@ -1869,7 +1876,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 			 else if(weightingStyle=="singlebeh") "Fraction of individual behavior"
 			 else if(weightingStyle=="allbeh") "Fraction of all behaviors"
 			 else if(weightingStyle=="centerbeh") paste("Frequency relative to", centerBeh)
-			 else "Count";	
+			 else "Average Count";	
 	plot(x = 0, y = 0, col = "white", xlim = c(-lim, lim), ylim = c(0, ymax), main = centerBeh, xlab = paste("Time after", centerBeh, "(seconds)"),
 			ylab = ylabel);
 	centerLineColor = if (centerBeh %in% behaviorsToPlotAndColors[,1]) behaviorsToPlotAndColors[which(behaviorsToPlotAndColors[,1] == centerBeh), 2] else "black";
@@ -1877,11 +1884,14 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	par(new = TRUE);
 	
 	for (i in 1:(dim(behaviorsToPlotAndColors)[1])) {
-		plot(x = behHistograms[[i]]$x, y = behHistograms[[i]]$y, type = "l", col = behaviorsToPlotAndColors[i, 2],
-			 xlim = c(-lim, lim), ylim = c(0, ymax), xlab = "", ylab = "", lwd = lineWidth, lty = lineType)
+	#	plot(x = behHistograms[[i]]$x, y = behHistograms[[i]]$y, type = "l", col = behaviorsToPlotAndColors[i, 2],
+		#	 xlim = c(-lim, lim), ylim = c(0, ymax), xlab = "", ylab = "", lwd = lineWidth, lty = lineType)
+		lines(x = behHistograms[[i]]$x, y = behHistograms[[i]]$y, col = behaviorsToPlotAndColors[i, 2],
+			 lwd = lineWidth, lty = lineType)
 		par(new = TRUE);
 	}
 	par(new = FALSE);
+	.plotColorLegend(behaviorsToPlotAndColors, -lim, ymax, is.lines = T, lwd = 3, cex = .6)
 	if (!is.null(filename)) dev.off();
 }
 
