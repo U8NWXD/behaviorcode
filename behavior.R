@@ -2177,12 +2177,15 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # "Spawning count", "Quiver latency", etc.
 # TODO subjects separation - make sure it is the same behs!!!!
 .makeMulticolorRasterPlots = function (data, outfilePrefix, behaviorsToPlotAndColors = NULL, durationalBehs = NA,
-										sortAttribute = NULL, sort.na.last = T, sort.decreasing = F, sort.name = "", ...) {
+										sortAttribute = NULL, sort.name = "", sort.na.last = T, sort.decreasing = F, 
+										zeroBeh = NULL, zeroBeh.n = 1, ...) {
 	if (!is.null(sortAttribute)) {
 		names(data) <- paste(names(data), "                               ", sort.name, ":", as.character(sortAttribute));
 		data <- .sortByAttribute(data, sortAttribute, na.last = sort.na.last, decreasing = sort.decreasing);
 	}
-	# rezero if desired here TODO
+	if (!is.null(zeroBeh)) {
+		data <- .filterDataList(data, zeroBeh = zeroBeh, zeroBehN = zeroBeh.n);
+	}
 	
 	groupwiseLogs = .sepGroups(data);
 	
