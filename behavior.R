@@ -46,7 +46,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 
 # Sorts df by column time and returns the result.
 .sortByTime = function(df) {
-	df = df[order(as.numeric(df$time)),];
+	df = df[order(as.numeric(df$time), (df$behavior != "START") + (df$behavior == "STOP")),];
 	dimnames(df)[[1]] <- 1:(length(df$time));
 	return(df);
 }
@@ -716,44 +716,40 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(data);
 }
 
+# TODO comment
+.noCurrentDurationalBehs = function(data, i) {
+	type = data$type[1:i][!is.na(data$type)[1:i]];
+	return(sum(type == "start") == sum(type == "stop"));
+}
 
 # Whenever there are <intervalToSeparate> seconds between adjacent behaviors, inserts a "STOP" after the
 # behavior before the pause and a "START" before the behavior after the pause. Also inserts a "START" at the
 # beginning of the log and a "STOP" at the end.
-# TODO try to get rid of loop it's slowwwwwww
 .separateBouts = function (data, intervalToSeparate, stateBehaviors = NULL) {
 	# 	names(df) = c('time', 'behavior', 'subject', 'type', 'pair_time', 'duration');
 	data$type[!is.na(data$type) & data$type == "start" & data$behavior %in% stateBehaviors] <- "sTaRt";
 	data$type[!is.na(data$type) & data$type == "stop" & data$behavior %in% stateBehaviors] <- "sToP";
 	
-	newData = data.frame(time = data$time[1], behavior = "START", subject = "none", type = "start", pair_time = NA, duration = NA); 
-	newData = rbind(newData, data[1,]);
-	lastStart = 1;
-	# print(data[1:20,]);
-	for (i in 2:(length(data$time + 1))) {
-		if (i > length(data$time) || (as.numeric(data$time[i]) - as.numeric(data$time[i-1]) >= intervalToSeparate &&
-		    sum(data$type[1:(i-1)][!is.na(data$type)[1:(i-1)]] == "start") == sum(data$type[1:(i-1)][!is.na(data$type)[1:(i-1)]] == "stop"))) {
-		    dur = data$time[i-1] - newData$time[lastStart];
-			stopRow = data.frame(time = data$time[i-1], behavior = "STOP", subject = "none", type = "stop", pair_time = newData$time[lastStart], duration = dur);
-			newData$pair_time[lastStart] <- stopRow$time;
-			newData$duration[lastStart] <- dur;
-			newData = rbind(newData, stopRow);
-			
-			if (i <= length(data$time)) {
-				startRow = data.frame(time = data$time[i], behavior = "START", subject = "none", type = "start", pair_time = NA, duration = NA);
-				newData = rbind(newData, startRow);
-				lastStart = length(newData$behavior);
-			}
-		}
-		newData = rbind(newData, data[i,]);
-	}
 	
-	dimnames(newData)[[1]] <- 1:length(dimnames(newData)[[1]])	
-	newData$type[!is.na(newData$type) & newData$type == "sTaRt"] <- "start";
-	newData$type[!is.na(newData$type) & newData$type == "sToP"] <- "stop";
-	return(newData);
+	timeDiffs = data$time[2:length(data$time)] - data$time[1:(length(data$time) - 1)];
+	endsOfBouts = which(timeDiffs > intervalToSeparate);
+	endsOfBouts = endsOfBouts[unlist(lapply(endsOfBouts, function(i){.noCurrentDurationalBehs(data, i)}))]
+	
+	nBouts = length(endsOfBouts) + 1;
+	startRows = data.frame(time = data$time[c(1, endsOfBouts + 1)], behavior = rep("START", nBouts),
+						   subject = rep("none", nBouts), type = rep("start", nBouts), pair_time = NA, duration = NA);
+	stopRows = data.frame(time = data$time[c(endsOfBouts, length(data$time))], behavior = rep("STOP", nBouts),
+						  subject = rep("none", nBouts), type = rep("stop", nBouts), pair_time = startRows$time, duration = NA);
+	startRows$pair_time <- stopRows$time;
+	startRows$duration <- stopRows$duration <- stopRows$time - startRows$time;
+	
+	data = rbind(data, startRows, stopRows);
+	data = .sortByTime(data);
+	
+	data$type[!is.na(data$type) & data$type == "sTaRt"] <- "start";
+	data$type[!is.na(data$type) & data$type == "sToP"] <- "stop";
+	return(data);
 }
-
 
 
 
