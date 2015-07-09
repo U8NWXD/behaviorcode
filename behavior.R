@@ -137,6 +137,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		userInput = readline("Please enter the length of your assay in seconds.\n> ");
 		while (!grepl("^[0-9]*$", userInput)) userInput = readline("Unreadable time format.\nPlease enter the length of your assay in seconds.\n> ");
 		data = .filterDataList(data, endTime = as.numeric(userInput));
+		data = lapply(data, function(log){attr(log, 'assay.length') <- as.numeric(userInput); return(log)})
+	} else {
+		data = lapply(data, function(log){attr(log, 'assay.length') <- NA; return(log)})
 	}
 	
 	# TODO common errors check
@@ -708,8 +711,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	newStartTime = 0;
 	if (length(targetBehIndices) >= n) {
 		newStartTime = data$time[targetBehIndices[n]];
-	} else { #TODO assay length
-		newStartTime = max(data$time) + 1;
+	} else {
+		newStartTime = if (is.na(attributes(data)$assay.length)) max(data$time) + 1
+					   else attributes(data)$assay.length + data$time[data$behavior == "assay start"];
 	}
 	data$time <- data$time - newStartTime;
 	attributes(data)$assay.start$rezeroed <- T;
