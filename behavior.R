@@ -1,6 +1,6 @@
-library(stringr)
-options(stringsAsFactors = FALSE)
-source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
+library(stringr);
+options(stringsAsFactors = FALSE);
+source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 #use color=blue in .dot output script to make separate sets of lines for 1st follower, 2nd, etc.
 # Find a way to represent AB -> C, ABC -> D instead of only A -> B probabilities
 # collapse statistics across animals. Arrows only allowed from subj to different subj.
@@ -10,7 +10,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 #heatmaps with k!
 # HEATMAP OF COUNTS FOR INDIVIDUAL SAMPLES. 6x6. DO THE ONES CLUSTER.
 #bouts
-# TODO paired observations instead of two groups of fish
 
 # behaviors <- names(table(sjan_data[[6]]$dat$beh))
 # behaviors <- c(behaviors[1:2], 'c', behaviors[3:length(behaviors)]) #hacky and not generally correct
@@ -124,7 +123,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	}
 	
 	# .printFindDupBehaviors(data);
-	data <- .removeNALogs(data); # TODO is this what should be done about this?
+	data <- .removeNALogs(data);
 	# print(lapply(data, function(f) {names(table(f$behavior))}));
 	
 	cat("Behaviors found:\n");
@@ -157,7 +156,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # If called with single = FALSE (should only be done from .getDataBatch), this
 #   is returned as the first element of a list whose second element is the updated
 #   assayStart (since no pass-by-reference).
-.getData = function (filename, assayStart = NULL, single = TRUE) { # TODO rewrite w/o single and with assayStart passed-by-ref in C.
+.getData = function (filename, assayStart = NULL, single = TRUE) {
 	data0 = read.table(filename, fill=T, colClasses='character', sep='\t', header=F, quote='', blank.lines.skip=T, strip.white=T);
 	desc_table = .getDescriptionTableFromRawData(data0);
 	
@@ -506,7 +505,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # (the name or index of a column in suppData with the names of the score logs) or
 # <indexCol> (the name or index of a column in suppData with the index in <data> of
 # each row's associated score log).
-# TODO NOTE: In helpfile, mention that suppData needs to be read with read.csv.
 .getAttributeFromSupplementalData = function(suppData, data, attributeCol, nameCol = NA, indexCol = NA) {
 	if (!.checkColumnOK(attributeCol, suppData)) stop("Invalid attributeCol.");
 	if (is.na(indexCol)) {
@@ -713,7 +711,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	} else { #TODO assay length
 		newStartTime = max(data$time) + 1;
 	}
-	data$time <- data$time - newStartTime; # TODO change attribute
+	data$time <- data$time - newStartTime;
 	attributes(data)$assay.start$rezeroed <- T;
 	return(data);
 }
@@ -722,7 +720,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # Whenever there are <intervalToSeparate> seconds between adjacent behaviors, inserts a "STOP" after the
 # behavior before the pause and a "START" before the behavior after the pause. Also inserts a "START" at the
 # beginning of the log and a "STOP" at the end.
-# TODO use type, pair_time, duration to pair "START"s with "STOP"s.
 # TODO try to get rid of loop it's slowwwwwww
 .separateBouts = function (data, intervalToSeparate, stateBehaviors = NULL) {
 	# 	names(df) = c('time', 'behavior', 'subject', 'type', 'pair_time', 'duration');
@@ -1256,11 +1253,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # These values are compared with three different tests: wilcox.test(), t.test(), and bootstrap2independent(). Transitional
 # probabilities are only compared for behaviors that occur in at least <minNumLogs> score logs in each group, and where at
 # least one animal had a nonzero transitional probability. Graphs output by the bootstrap function are also saved.
-#
-# TODO check rows & cols add up to 1.
-# > apply(probMatsByGroup$nameOfAGroup$probMat,1,sum)
-# or
-# > sum(probMatsByGroup$nameOfAGroup$probMat) (byTotal true)
 .compareTransitionalProbabilities = function(data, outfilePrefix, byTotal = FALSE,
 											 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), minNumLogs = 3) {
 	data = .filterDataList(data, renameStartStop = TRUE);
@@ -1412,7 +1404,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # are compared with three different tests: wilcox.test(), t.test(), and bootstrap2independent(). Entropies are
 # only compared for behaviors that occur in at least <minNumLogs> score logs in each group. Graphs output by
 # the bootstrap function are also saved.
-# TODO combine with .calcBasicStats???
 .compareEntropy = function(data, outfilePrefix, tests = list(t.test = t.test, wilcox = wilcox.test,
 						   bootstrap = list(func = .bootstrapWrapper)), minNumLogs = 3) {
 	data = .filterDataList(data, renameStartStop = TRUE);
@@ -1793,7 +1784,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	centerBehLocs = which(data$behavior == centerBeh);
 	if (bufferInTimes) {
 		max_time = max(data$time);
-		centerBehTimes = data$time[centerBehLocs]; # TODO why is this line here? it is undone below!!
+		centerBehTimes = data$time[centerBehLocs];
 		centerBehLocs = centerBehLocs[centerBehTimes > startBuffer & centerBehTimes <= max_time - endBuffer];
 	} else {
 		centerBehLocs = centerBehLocs[as.numeric(centerBehLocs) > startBuffer & as.numeric(centerBehLocs) <= length(data$behavior - endBuffer)];
@@ -1975,7 +1966,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	}
 	
 	return(.runStats(dataByGroup = behDensityByGroup, outfilePrefix = paste(outfilePrefix, "density", centerBeh, sep = "_"),
-			tests = tests, minNumLogsForComparison = minNumLogs, print = F)); # TODO print thing what??
+			tests = tests, minNumLogsForComparison = minNumLogs, print = F));
 }
 
 # TODO comment
@@ -2057,8 +2048,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	
 	timeMatsByGroup = list();
 	for (group in groupwiseLogs$groupNames) {
-		timeMatsByGroup[[group]] <- .makeTimeWindowMat(groupwiseLogs$groupData[[group]], c("lead", "female follow"), windowStart, windowEnd);
-		# timeMatsByGroup[[group]] <- .makeTimeWindowMat(groupwiseLogs$groupData[[group]], groupwiseLogs$behnames, windowStart, windowEnd); TODO change back
+		timeMatsByGroup[[group]] <- .makeTimeWindowMat(groupwiseLogs$groupData[[group]], groupwiseLogs$behnames, windowStart, windowEnd);
 		write.csv(timeMatsByGroup[[group]], file = paste(outfilePrefix, group, "timeMats_datadump.csv", sep = "_"));
 	}
 	
@@ -2175,7 +2165,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 # sort.na.last and sort.decreasing are passed through to the call to order(). Additionally, the value
 # will be displayed on the y-axis along with sort.name, which should be something like "GSI", "Time in pot",
 # "Spawning count", "Quiver latency", etc.
-# TODO subjects separation - make sure it is the same behs!!!!
+# TODO subjects separation (male/female)- make sure it is the same behs!!!!
 .makeMulticolorRasterPlots = function (data, outfilePrefix, behaviorsToPlotAndColors = NULL, durationalBehs = NA,
 										sortAttribute = NULL, sort.name = "", sort.na.last = T, sort.decreasing = F, 
 										zeroBeh = NULL, zeroBeh.n = 1, ...) {
@@ -2248,7 +2238,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 	if (!is.null(filename)) jpeg(filename = filename, width = widthInInches, height = heightInInches, units = "in", quality = 100, res = 300, type = "quartz");
 	
 	subjects = names(data);
-	num_subj = length(subjects); # TODO change <---- why does this need changing? UNCLEAR.
+	num_subj = length(subjects);
 	maxtime = max(unlist(lapply(data, function(d){max(d$time)})));
 	mintime = min(c(0, unlist(lapply(data, function(d){min(d$time)}))));
 	ssBehs = if(is.na(durationalBehs[1])) .startStopBehs(data) else durationalBehs;
@@ -2311,8 +2301,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_tests_June2013_STABLE.R")
 		for (n in 1:num_subj) { 
 			dataFrame = data[[n]];
 			temp_behcolors = data.frame(behs = ssBehsAndColors[ssBehsAndColors[,1] %in% dataFrame$behavior,1], colors = ssBehsAndColors[ssBehsAndColors[,1] %in% dataFrame$behavior,2]);
-	#		print(temp_behcolors);
-	# TODO TODO if (temp_behcolors NOT EMPTY)
 			for (i in 1:length(temp_behcolors[,1])) {
 				beh = temp_behcolors[i,1];
 				# print(beh);

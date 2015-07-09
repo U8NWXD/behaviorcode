@@ -20,9 +20,9 @@ bootstrap2independent = function(group1, group2, groupNames = c('group1', 'group
 	return(output);
 }
 
-bootstrap2paired_tmp = function(condition1, condition2, conditionNames = c('condition1', 'condition2'), dataDescriptor = NULL,
-								trials = 10000, Func = 'mean', abs.diffs = F, # may need to add cex.lab & cex.axis
-								printResults = F, verbose = F, plots = T, ...) {
+bootstrap2paired = function(condition1, condition2, conditionNames = c('condition1', 'condition2'), dataDescriptor = NULL,
+							trials = 10000, Func = 'mean', abs.diffs = F, # may need to add cex.lab & cex.axis
+							printResults = F, verbose = F, plots = T, ...) {
 	data = .validateAndCleanBootstrapData(condition1, condition2, conditionNames, paired = T);
 	
 	diffs = data[[1]] - data[[2]];
@@ -85,7 +85,7 @@ bootstrap2paired_tmp = function(condition1, condition2, conditionNames = c('cond
 	group1Length = length(data[[1]]);
 	group2Length = length(data[[2]]);
 	fxn = get(Func);
-	statsNULL = numeric(length = trials); # try making it NA to test they all get replaced TODO
+	statsNULL = numeric(length = trials);
 	for (trial in 1:trials) {
 		if (verbose && trial %% 1000 == 0) {
 			if (trials <= 20000) cat('  Run ', trial, '\n', sep = '')
@@ -110,7 +110,7 @@ bootstrap2paired_tmp = function(condition1, condition2, conditionNames = c('cond
 	
 	fxn = get(Func);
 	numDiffs = length(diffs);
-	statsNULL = numeric(length = trials); # try making it NA to test they all get replaced TODO
+	statsNULL = numeric(length = trials);
 	for (trial in 1:trials) {
 		if (verbose && trial %% 1000 == 0) {
 			if (trials <= 20000) cat('  Run ', trial, '\n', sep = '')
