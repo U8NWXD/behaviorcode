@@ -1,7 +1,8 @@
 bootstrap2independent = function(group1, group2, groupNames = c('group1', 'group2'), dataDescriptor = NULL,
 								 trials = 10000, Func = 'mean', replace = T,
 								 printResults = F, verbose = F, plots = T, ...) {
-	data = .validateAndCleanBootstrapData(group1, group2, groupNames, paired = F);	
+	data = .validateAndCleanBootstrapData(group1, group2, groupNames, paired = F);
+	if (is.null(data)) return(list(p = NA));	
 	stat = eval(call(Func, data[[1]])) - eval(call(Func, data[[2]]));
 	statsNULL = .buildNullDistributionIndependent(data, trials, Func, replace, dataDescriptor, verbose);
 	midNULL = mean(statsNULL);
@@ -24,6 +25,7 @@ bootstrap2paired = function(condition1, condition2, conditionNames = c('conditio
 							trials = 10000, Func = 'mean', abs.diffs = F, # may need to add cex.lab & cex.axis
 							printResults = F, verbose = F, plots = T, ...) {
 	data = .validateAndCleanBootstrapData(condition1, condition2, conditionNames, paired = T);
+	if (is.null(data)) return(list(p = NA));
 	
 	diffs = data[[1]] - data[[2]];
 	stat = eval(call(Func, diffs));
@@ -56,8 +58,7 @@ bootstrap2paired = function(condition1, condition2, conditionNames = c('conditio
 .validateAndCleanBootstrapData = function(group1, group2, groupNames, paired) {
 	if (!is.numeric(c(group1,group2))) stop('DATA CONTAINS NON-NUMERIC VALUES.');
 	if (paired && length(group1) != length(group2)) stop('GROUPS ARE DIFFERENT SIZES...\n   THIS DATA SHOULD BE PAIRED!!!');
-	if (sum(is.na(c(group1,group2))) > 0)
-	{
+	if (sum(is.na(c(group1,group2))) > 0) {
 		NAcheck1 = is.na(group1);
 		NAcheck2 = is.na(group2);
 		if (paired) NAcheck1 = NAcheck2 = NAcheck1 | NAcheck2
@@ -66,9 +67,28 @@ bootstrap2paired = function(condition1, condition2, conditionNames = c('conditio
 		if (paired) warning('NAs in one/both conditions, corresponding data points removed from BOTH', immediate. = T)
 		else warning('NAs removed from one or both groups, check your data', immediate. = T);
 	}
-	# TODO check if both groups are all-zero
+	
+	if (length(group1) == 0 || length(group2) == 0) {
+		warning('All data was NA in one group or the other. Aborting.', immediate. = T);
+		return(NULL);
+	} else if (sum(group1) + sum(group2) == 0) {
+		warning('All data in both groups is 0. Aborting.', immediate. = T);
+		return(NULL);
+	}
 	data = list(group1=group1, group2=group2);
-	names(data) <- groupNames; # TODO check groupNames ok
+	
+	if (!is.character(groupNames)) {
+		warning("groupNames is not a character vector. Coercing to character...", immediate.=T);
+		groupNames = as.character(groupNames);
+	}
+	if (length(groupNames) < 2) {
+		stop("groupNames must be length 2.")
+	} else if (length(groupNames) > 2) {
+		warning('groupNames has more than two elements. Using the first two names ("', groupNames[1], '" and "', groupNames[2], '")...', immediate.=T);
+		groupNames = groupNames[1:2];
+	}
+	names(data) <- groupNames;
+	
 	return(data);
 }
 
