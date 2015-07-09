@@ -1620,12 +1620,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		stop(paste('Invalid color in behaviorsToPlotAndColors: "', behcolors[!(behcolors[,2] %in% colors()), 2], '"\n', sep = ""));
 	}
 	if (!is.null(validBehNames) && sum(!(behcolors[,1] %in% validBehNames)) != 0) {
-		warning(paste('Behavior in behaviorsToPlotAndColors: "', behcolors[!(behcolors[,1] %in% validBehNames), 1], '" not found in any score log\n', sep = ""));
+		warning(paste('Behavior in behaviorsToPlotAndColors: "', behcolors[!(behcolors[,1] %in% validBehNames), 1], '" not found in any score log\n', sep = ""), immediate. = T);
 	}
 }
 
-.plotColorLegend = function(colorkey, x, y, is.lines, ...) {
-	if (!is.lines) legend(x, y, colorkey[,1], fill = colorkey[,2], ...)
+.plotColorLegend = function(colorkey, x, y, as.lines, ...) {
+	if (!as.lines) legend(x, y, colorkey[,1], fill = colorkey[,2], ...)
 	else legend(x, y, colorkey[,1], lty = "solid", col = colorkey[,2], ...)
 }
 
@@ -1886,7 +1886,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		par(new = TRUE);
 	}
 	par(new = FALSE);
-	.plotColorLegend(behaviorsToPlotAndColors, -lim, ymax, is.lines = T, lwd = 3, cex = .6)
+	.plotColorLegend(behaviorsToPlotAndColors, -lim, ymax, as.lines = T, lwd = 3, cex = .6)
 	if (!is.null(filename)) dev.off();
 }
 
@@ -2173,19 +2173,22 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		names(data) <- paste(names(data), "                               ", sort.name, ":", as.character(sortAttribute));
 		data <- .sortByAttribute(data, sortAttribute, na.last = sort.na.last, decreasing = sort.decreasing);
 	}
-	if (!is.null(zeroBeh)) {
-		data <- .filterDataList(data, zeroBeh = zeroBeh, zeroBehN = zeroBeh.n);
-	}
 	
-	groupwiseLogs = .sepGroups(data);
-	
+	behnames = names(.findDupBehaviors(data));	
 	if (!is.null(behaviorsToPlotAndColors)) {
-		.validateColorKey(behaviorsToPlotAndColors, groupwiseLogs$behnames);
+		.validateColorKey(behaviorsToPlotAndColors, behnames);
 	} else {
 		cat("No color key provided to .makeMulticolorRasterPlots. Follow the prompts to create a key, or press ESC at any time to exit.\n")
-		behaviorsToPlotAndColors = .buildColorKey(groupwiseLogs$behnames);
+		behaviorsToPlotAndColors = .buildColorKey(behnames);
 	}
 	
+	if (!is.null(zeroBeh)) {
+		data <- .filterDataList(data, zeroBeh = zeroBeh, zeroBehN = zeroBeh.n);
+		behaviorsToPlotAndColors = rbind(behaviorsToPlotAndColors, c("assay start", "black"));
+	}
+	
+	
+	groupwiseLogs = .sepGroups(data);
 	startStopBehs = NULL;
 	for (dataset in groupwiseLogs$groupData) {
 		startStopBehs = c(startStopBehs, .startStopBehs(dataset));
@@ -2242,10 +2245,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	maxtime = max(unlist(lapply(data, function(d){max(d$time)})));
 	mintime = min(c(0, unlist(lapply(data, function(d){min(d$time)}))));
 	ssBehs = if(is.na(durationalBehs[1])) .startStopBehs(data) else durationalBehs;
-	
-	if (attributes(data[[1]])$assay.start$rezeroed == T) {
-		behaviorsToPlotAndColors = rbind(behaviorsToPlotAndColors, c("assay start", "black"));
-	}
 	
 	.validateColorKey(behaviorsToPlotAndColors);
 	singleBehsAndColors = rbind(NULL, behaviorsToPlotAndColors[!(behaviorsToPlotAndColors[,1] %in% ssBehs),]);
