@@ -1112,6 +1112,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 				df[i, (offset + 1):(offset + length(tests))] <- NA;
 			}
 		}
+		potentiallySignificant = rep(F, length(df[,1]));
+		for (testName in names(tests)) potentiallySignificant = potentiallySignificant | ((!is.na(df[,testName])) & (df[,testName] < .05));
+		cat("Potentially significant results (p < .05):\n");
+		print(df[potentiallySignificant,])
 	}
 	write.csv(df, file = paste(outfilePrefix, "stats.csv", sep = "_"));
 	return(df);
@@ -1911,7 +1915,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # have height <ymax>; otherwise (recommended) this value will be computed automatically.
 #
 # <weightingStyle> controls which actual values are plotted. It must be a value in c("density", "singlebeh", "allbeh", "centerbeh", "rawcounts").
-# If it <density>, the output of built-in function density() is plotted; you can additionally specify <densityBW> (default 1) which is the
+# If it is <density>, the output of built-in function density() is plotted; you can additionally specify <densityBW> (default 1) which is the
 # bandwidth in seconds of the density calculations, and <densityN> (default 512), which is the number of points returned by the density()
 # function.
 # All the other values of this parameter yield histograms, with behaviors binned together in bins of width <secondsPerBin> (default 0.5).

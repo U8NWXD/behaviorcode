@@ -84,6 +84,11 @@
    meant and you're having trouble, find Katrina or Austin for help. For more information
    about passing arguments to these passed-in functions, see the documentation for .runStats.
 
+   If you want to run the coxph() test to test the latencies as time-censored data, call
+	> .calcBasicStats(practice_data, "__June/junkruns/1437", tests = list(coxph = list(func = .coxphWrapper, assayLength = 1800)), latencyTest = T)
+   This will work if you had 30-minute assays (1800 seconds); if you didn't, change the 1800
+   the length in seconds of your assay.
+
 5. Compare entropies and transitional probabilities. The function calls should be:
 	> .compareTransitionalProbabilities(my_data, outfilePrefix = "~/Desktop/myExperiment")
    and
@@ -95,8 +100,9 @@
    If you want to have the probability of each transition be (count transition) / (total
    num transitions), rather than the default (count transition) / (count leader), add the
    parameter byTotal=TRUE to .compareTransitionalProbabilities(). Also, you can use
-   .filterDataList() with any of the options in the next step to directly compare two
-   markov chains that show something other than just raw transitional probabilities.
+   .filterDataList() with any of the options in the next step (startOnly, subject,
+   boutInterval, etc.) to directly compare two markov chains that show something other
+   than just raw transitional probabilities.
 
 6. Make Markov chains. There are several options for this. The most common is 
    .makeGroupDotPlots(), which outputs one markov chain graph for each group. Example
@@ -129,33 +135,32 @@
 
 7. Make a color key. To do this, call
    	> my_color_key <- .buildColorKey(names(.findDupBehaviors(my_data)))
-   and follow the prompts. Screenshot the plotting window that shows your color key
-   when you're done. (in development - will eventually save automatically to a file,
-   and the function call will be more intuitive).
+   and follow the prompts. This will make a color key that is suitable for raster plots; to
+   make one suitable for behavioral density graphs, call
+	> my_color_key <- .buildColorKey(names(.findDupBehaviors(.filterDataList(my_data, renameStartStop = T))))
 
 8. Make raster plots. To do this, call
         > .makeMulticolorRasterPlots(my_data, "~/Desktop/myExperiment", my_color_key)
-   This makes a separate raster plot for each experimental group. There are a ton of
-   options for this function:
+   This makes a separate raster plot for each experimental group and outputs the color key
+   used. There are a ton of options for this function:
     (a) Graphics options.
 	<wiggle> controls how much height the durational behavior bars are allowed to
 	take up. It should always be between 0 and 0.5 (default 0.2)
-	<defaultDur> is the width (in seconds) of the tick marks (default 1)
+	<defaultDur> is the width (in seconds) of the tick marks (default 2)
 	<durationalBehs> is a vector of behaviors that should be plotted as bars instead
 	of tick marks. Default is all behaviors scored as durational.
 	<staggerSubjects> if TRUE causes male behaviors to be plotted above the line
 	for a subject and female behaviors to be plotted below the line. (default FALSE)
-	<widthInInches> and <heightInInches> control the dimensions of the output plot.
+	<widthInInches> and <rowHeightInInches> control the dimensions of the output plot.
 	<horizontalLines> if TRUE causes a horizontal black line is drawn behind the
 	raster plot for each subject. (default FALSE)
     (b) Align at the nth occurance of a behavior. For example, the first spawn:
-	> .makeMulticolorRasterPlots(.filterDataList(my_data, zeroBeh = "spawning"), "~/Desktop/myExperiment", my_color_key)
+	> .makeMulticolorRasterPlots(my_data, "~/Desktop/myExperiment", my_color_key, zeroBeh = "spawning")
 	The fifth quiver:
-	> .makeMulticolorRasterPlots(.filterDataList(my_data, zeroBeh = "quiver", zeroBehN = 5), "~/Desktop/myExperiment", my_color_key)
+	> .makeMulticolorRasterPlots(my_data, "~/Desktop/myExperiment", my_color_key, zeroBeh = "quiver", zeroBeh.n = 5)
 	The first aggressive behavior:
-	> .makeMulticolorRasterPlots(.filterDataList(my_data, zeroBeh = c("bite", "chase", "display")), "~/Desktop/myExperiment", my_color_key)
-	With these, you may also want to have the assay start marked; to do this, instead of my_color_key give the function
-          rbind(my_color_key, c("assay start", "black"));
+	> .makeMulticolorRasterPlots(my_data, "~/Desktop/myExperiment", my_color_key, zeroBeh = c("bite", "chase", "display"))
+	With these, the assay start will automatically be marked as a black tick.
     (c) Sort by something. To do this, you need a sortAttribute. For example, to sort by
 	number of quivers, you could do
 	> my_sortAttribute = .getCountAttribute("quiver", my_data)
@@ -178,34 +183,42 @@
 	sort in decreasing order, and/or sort.na.last = F to put NAs first or
 	sort.na.last = NA to exclude NA values of your attribute.
 
-9. Make Behavioral Density plots. The best way to do this with .behavioralDensityGraphs(),
-   which makes one graph for each group for each behavior in my_color_key.
-   Here's an example function call to .behavioralDensityGraphs()
-	> .behavioralDensityGraphs(my_data, my_color_key, filePref = "~/Desktop/behdensityplots/", ymax=0.4)
+9. Make Behavioral Density plots by calling .behavioralDensityGraphs(), which makes one graph
+   for each behavior in <targetBehs>, or each behavior in my_color_key if <targetBehs> is
+   unspecified.
+   Example function call:
+	> .behavioralDensityGraphs(my_data, my_color_key, filePref = "~/Desktop/myExperiment")
 
-   Important parameters:
-	targetBehs = c("Lead", "Quiver")    # only make graphs centered at Lead and centered
-          # at Quiver. Every behavior in behcolors will be plotted on these graphs.
+   <weightingStyle> controls which actual values are plotted. It must be a value in
+   c("density", "singlebeh", "allbeh", "centerbeh", "rawcounts"). If it is <density>, the output
+   of built-in function density() is plotted; you can additionally specify <densityBW> (default 1)
+   which is the bandwidth in seconds of the density calculations, and <densityN> (default 512),
+   which is the number of points returned by the density() function.
+
+   All the other values of this parameter yield histograms, with behaviors binned together in
+   bins of width <secondsPerBin> (default 0.5). The exact value of the parameter controls what
+   the counts in each bin are divided by to normalize them ("rawcounts" yields no normalization).
+   "allbeh" divides by the total number of behaviors for that subject, "singlebeh" divides by the
+   count in that subject's log of the behavior the line represents, and "centerbeh" divides by
+   the count in that subject's log of <centerBeh>.
+
+
+   Other important parameters:
 	lim = 20      # plot 20 seconds before and after the center behavior (default 15)
-	timesPerBin = 1.0   # have 1-second bins instead of the default half-second bins.
-	ymax = 0.4    # the max on the y axis is now 0.4 (obvious, I know).
-   The parameter <weightingStyle> controls how the y-axis values are weighted. It must be
-   either "singlebeh" (default), "allbeh", or "rawcounts". If it is "singlebeh", the y
-   values represent the fraction of the total occurrances of the plotted behavior that
-   occur in a given time bin. If it is "allbeh". the y-values represent the fraction of all
-   behaviors that are (1) the plotted behavior and (2) in the given time bin. If it is
-   "rawcounts", the y-value is just the count of the plotted behavior that occurs in that
-   time bin.
-
-   To skip plotting a given behavior, just remove it from my_color_key. If you are proficient
+	lineWidth = 4	# 4-pixel-thick lines
+	lineType = "dashed"	# dashed lines
+	ymax = 1	# y-axis goes to 1 for all plots, regardless of actual values.
+   
+   To skip plotting a given behavior, just remove it from my_color_key. If you are proficientish
    in R, the easiest way to do this is with something like
-   	> .behavioralDensityGraphs(my_data, my_color_key[-c(1,3,4),], filePref = "~/Desktop/behdensityplots/", ymax=0.4)
+   	> .behavioralDensityGraphs(my_data, my_color_key[-c(1,4,5),], filePref = "~/Desktop/behdensityplots/")
    If you can't make this work, just generate another color key from step 7 with this
    behavior skipped by entering "none".
 
    You can also call .behavioralDensityGraph() directly to plot a single graph centered at
-   <centerBeh> without separating by group (multifish = TRUE) or to plot a single fish
-   (multifish = FALSE).
+   <centerBeh> without separating by group.
+
+10. TODO follow up on leads! (how?)
 
 
 Get Things in R
@@ -241,6 +254,3 @@ TROUBLESHOOTING COMMON ERRORS AND ISSUES:
 Is there a weird character in a behavior name? ie '/', ':', '\', '{', '}', etc.
 Do you need to filter your data to be startOnly or renameStartStop?
 Are you giving this function a single data frame (one log) or a list?
-Did you skip step 2?
-
-TODO: Change beh density calculation as per Ryan's suggestion
