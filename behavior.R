@@ -1009,7 +1009,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # The function must be passed in in a list.
 .bootstrapPairedWrapper = function(argList) {
 	if(!("trials" %in% names(argList))) argList$trials <- 10000;
-	sumVec = argList$x - argList$y; # TODO BUG this should be addition (+). need to ask austin abt case (1,2,0) (1,2,0) first tho. pot exit --> flee from female
+	sumVec = argList$x + argList$y;
 	if (sum(sumVec[!is.na(sumVec)]) == 0) return(list(p.value = NA));
 	bs = bootstrap2paired(argList$x, argList$y, dataDescriptor = argList$row,
 	       						 outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"),
@@ -1832,25 +1832,33 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 
 
 
-# Makes a behavioral density plot of the behaviors around <centerBeh> for either a single fish (multifish = FALSE) or every fish in
-# a list (multifish = TRUE). Each behavior to be plotted must have a row in <behaviorsToPlotAndColors>: its name in column 1, and the color
-# it should be in column 2. It is the caller's responsibility to make this key and remember which color corresponds to which behavior.
+# Makes a behavioral density plot of the behaviors around <centerBeh> for every log in <data>. <data> can either be a simple
+# list of logs to get a single graph, or the output of .sepGroups() to get a graph for each group, stacked on top of each other
+# with the same y-axis.
+# <behaviorsToPlotAndColors> should be a well-formed colorkey; every behavior in the key will be plotted on the graph, so to
+# block plotting of a behavior, just don't include it in the color key.
+#
 # If a <filename> is given, the plot is saved to that file. <lim> represents the limits of the time axis in seconds; the default (15) gives
 # fifteen seconds before and after <centerBeh>. If <noRepCenterBeh> is TRUE, the plotted behaviors are only counted in each direction of a
 # <centerBeh> if another <centerBeh> has not yet been reached. If it is FALSE, the plotted behaviors are counted until the beginning and end
 # of the assay. This parameter will make no difference for behaviors that occur wide apart, but it may make a difference for behaviors
-# that are spaced closely together. <timesPerBin> controls the amount of time that is binned together (default 0.5 seconds) and ymax
-# gives the maximum value of the y-axis.
-# weightingStyle refers to the way the y axis is supposed to be normalized. If it is "singlebeh", the y-values represent the fraction of
-# the total occurrances of the plotted behavior that occur in a given time bin. If it is "allbeh". the y-values represent the fraction of
-# all behaviors that are (1) the plotted behavior and (2) in the given time bin. If it is "rawcounts", the y-value is just the count of
-# the plotted behavior that occurs in that timebin. If it is "centerbeh", the y-value is (# target beh) / (# center beh). 
+# that are spaced closely together. <lineWidth> and <lineType> control the style of lines plotted. If <ymax> is specified, the y axis will
+# have height <ymax>; otherwise (recommended) this value will be computed automatically.
+#
+# <weightingStyle> controls which actual values are plotted. It must be a value in c("density", "singlebeh", "allbeh", "centerbeh", "rawcounts").
+# If it <density>, the output of built-in function density() is plotted; you can additionally specify <densityBW> (default 1) which is the
+# bandwidth in seconds of the density calculations, and <densityN> (default 512), which is the number of points returned by the density()
+# function.
+# All the other values of this parameter yield histograms, with behaviors binned together in bins of width <secondsPerBin> (default 0.5).
+# The exact value of the parameter controls what the counts in each bin are divided by to normalize them ("rawcounts" yields no normalization).
+# "allbeh" divides by the total number of behaviors for that subject, "singlebeh" divides by the count in that subject's log of the behavior
+# the line represents, and "centerbeh" divides by the count in that subject's log of <centerBeh>.
+# 
 # Note that if you call this function directly, there is no check on the names of behaviors in behaviorsToPlotAndColors. This enables
 # you to do things like give the same color key for each group even if a behavior in it is never performed in a given group, but it
-# also enables you to make errors. Be careful!
-# TODO update comments
-.behavioralDensityGraph = function(data, behaviorsToPlotAndColors, centerBeh, filename = NULL, lim = 15, noRepCenterBeh = TRUE, multifish = FALSE,
-								   ymax = NULL, lineWidth = 2, lineType = "solid", weightingStyle = "density", secondsPerBin = .5, ...) {
+# will not catch misspellings. Be careful!
+.behavioralDensityGraph = function(data, behaviorsToPlotAndColors, centerBeh, filename = NULL, lim = 15, noRepCenterBeh = TRUE,
+								   ymax = NULL, lineWidth = 2, lineType = "solid", weightingStyle = "density", ...) {
 	.validateColorKey(behaviorsToPlotAndColors);
 	
 	notSepGroupsOutput = length(names(data[[1]])) == 6 && names(data[[1]]) == c("time", "behavior", "subject", "type", "pair_time", "duration");
@@ -1873,6 +1881,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	if (!is.null(filename)) dev.off();
 }
 
+# Helper function for .behavioralDensityGraph()
+# Repeatedly calls .getBehHist() or .getBehDensityHist() to get the data points to plot for each behavior-line.
+# Returns a list of all the histogram-objects, in the same order as the behaviors are in <behaviors>.
 .makeBehHistograms = function(data, behaviors, centerBeh, lim, weightingStyle, noRepCenterBeh = TRUE, secondsPerBin = .5, ...) {
 	data <- .filterDataList(data, renameStartStop = TRUE);
 	behHistograms = list();
@@ -1887,6 +1898,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(behHistograms);
 }
 
+# Helper function for .behavioralDensityGraph()
+# Generates the actual behavioral density plot, plotting the lines given by <behHistograms>.
 .plotBehDensityPlot = function(behHistograms, behaviorsToPlotAndColors, filename, groupName, weightingStyle, lim, ymax, centerBeh, lineWidth, lineType) {
 	ylabel = if(weightingStyle == "density") "Density"
 			 else if(weightingStyle=="singlebeh") "Fraction of individual behavior"
@@ -1910,8 +1923,14 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	.plotColorLegend(behaviorsToPlotAndColors, -lim, ymax, as.lines = T, lwd = 3, cex = .6)
 }
 
-# Makes a behavioral density histogram for use in behavioral density plots. 
-# TODO comment
+# Helper function for .behavioralDensityGraph()
+# Gets behavioral density data using the density() function for a single pair of behaviors
+# to use in behavioral density plots.
+# Returns a list of <x>, the time-values to be plotted; <y>, the density values to be plotted
+# (created by averaging together the density values at that time for each log in <data>); and
+# <matrix>, the matrix of the density values for each individual log that had its columns
+# averaged together to get <y>.
+# TODO put AFTER .getBehHist
 .getBehDensityHist = function(data, centerBeh, varBeh, noRepCenterBeh, lim, densityBW = .5, densityN = 512) {
 	predictedDensityN = ((0:(densityN - 1)) * 2 * lim / (densityN - 1)) - lim;
 	mat = matrix(nrow = length(data), ncol = densityN, dimnames = list(names(data), predictedDensityN));
@@ -1936,9 +1955,13 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(list(x = as.numeric(dimnames(mat)[[2]]), y=apply(mat, 2, mean), matrix = mat));
 }
 
-# Makes a behavioral density histogram for use in behavioral density plots. 
-# this is the old one
-# TODO comment
+# Helper function for .behavioralDensityGraph()
+# Gets behavioral density data using histograms with normalization style <weightingStyle> for a
+# single pair of behaviors to use in behavioral density plots.
+# Returns a list of <x>, the time-values to be plotted; <y>, the density values to be plotted
+# (created by averaging together the density values at that time for each log in <data>); and
+# <matrix>, the matrix of the density values for each individual log that had its columns
+# averaged together to get <y>.
 .getBehHist = function(data, centerBeh, varBeh, noRepCenterBeh, histBreaks, weightingStyle) {
 	mat = matrix(nrow = length(data), ncol = length(histBreaks) - 1, dimnames = list(names(data), NULL));
 	for (fish in 1:length(data)) {
@@ -2007,14 +2030,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 }
 
 
-# Draws behavioral density graphs for each experimental group in <data>. If no targetBehs are provided, a behavioral density plot is made
-# centered at each behavior in behaviorsToPlotAndColors; if targetBehs are provided, graphs are only made for the behaviors in it.
-# For example, calling with targetBehs = c("Lead", "Quiver") would make a graph centered at "Lead" for each group and a graph centered
-# at "Quiver" for each group.
+# Draws behavioral density graphs centered at each behavior in <targetBehs>, or each behavior in the color key if no <targetBehs>
+# are provided. <data> is separated by experimental group, and the plots for each group are drawn stacked on top of each other.
 # For more information, look at the documentation for .behavioralDensityGraph().
-# TODO move .jpeg here? Does this allow stacking of plots for different groups??
-# TODO ymax should be same across groups
-# TODO comment
 .behavioralDensityGraphs = function(data, behaviorsToPlotAndColors, filePref, targetBehs = NULL, ...) {
 	data = .filterDataList(data, renameStartStop = TRUE);
 	groupwiseLogs = .sepGroups(data);
@@ -2033,12 +2051,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		cat("Plotting behavior \"", beh, '"...\n', sep = "");
 		.behavioralDensityGraph(groupwiseLogs, behaviorsToPlotAndColors, centerBeh = beh,
 								filename = paste(filePref, "_", beh, ".jpeg", sep = ""), ...);
-
-		# par(mfrow = c(length(groupwiseLogs$groupNames), 1));
-		# for (i in 1:length(groupwiseLogs$groupNames)) {
-			# .behavioralDensityGraph(groupwiseLogs$groupData[[i]], behaviorsToPlotAndColors, centerBeh = beh,
-								    # filename = paste(filePref, "_", beh, "_", groupwiseLogs$groupNames[i], ".jpeg", sep = ""), multifish = TRUE, ...);
-		# }
 	}
 }
 

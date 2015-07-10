@@ -1,3 +1,10 @@
+# The functions in this file are heavily based on the code written by Austin in
+# "bootstrap_tests_June2013_STABLE.R". A few changes were made related to moving
+# things out of for-loops to improve efficiency, and functions were decomposed for
+# readability.
+
+
+
 # Runs a bootstrap test on two numeric data vectors (<group1> and <group2>) representing
 # independent groups (names should be given in <groupNames>). Uses <Func> (either "mean"
 # or "median") to compute the stats.
