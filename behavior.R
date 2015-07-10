@@ -2298,8 +2298,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 
 # Makes a raster plot using color key <behaviorsToPlotAndColors> with one row for each log
 # in <data>. If <filename> is not null, the result is saved as a jpg named <filename> that
-# has size <widthInInches> x <heightInInches>. Only behaviors in the color key are plotted - 
-# to suppress plotting of a given behavior, just exclude it from the color key.
+# has width <widthInInches> and row-height <rowHeightInInches>. Only behaviors in the color
+# key are plotted -  to suppress plotting of a given behavior, just exclude it from the
+# color key.
 #
 # If <durationalBehs> is provided, the behaviors in <durationalBehs> are plotted as bars
 # from start to stop instead of ticks. Durational behaviors not in that list but in
@@ -2320,8 +2321,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 #   there. Also w/ ssBehs, what if it is ss in some-but-not-all logs? Add code to catch this case,
 #   draw a line, throw a warning.
 .makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, plotTitle = NULL, wiggle = .2, defaultDur = 2,
-									  durationalBehs = NA, staggerSubjects = F, widthInInches = 12, heightInInches = 12, horizontalLines = F) {
-	if (!is.null(filename)) jpeg(filename = filename, width = widthInInches, height = heightInInches, units = "in", quality = 100, res = 300, type = "quartz");
+									  durationalBehs = NA, staggerSubjects = F, widthInInches = 12, rowHeightInInches = .3, horizontalLines = F) {
+	plotHeight = rowHeightInInches * length(data) + par("mai")[1] + par("mai")[3];
+	if (!is.null(filename)) jpeg(filename = filename, width = widthInInches, height = plotHeight, units = "in", quality = 100, res = 300, type = "quartz");
 	
 	subjects = names(data);
 	num_subj = length(subjects);
