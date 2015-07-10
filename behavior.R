@@ -1114,8 +1114,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		}
 		potentiallySignificant = rep(F, length(df[,1]));
 		for (testName in names(tests)) potentiallySignificant = potentiallySignificant | ((!is.na(df[,testName])) & (df[,testName] < .05));
-		cat("Potentially significant results (p < .05):\n");
-		print(df[potentiallySignificant,])
+		if (sum(potentiallySignificant)) {
+			cat("Potentially significant results (p < .05):\n");
+			print(df[potentiallySignificant,])
+		} else {
+			cat("No potentially significant results (p < .05) found.\n")
+		}
 	}
 	write.csv(df, file = paste(outfilePrefix, "stats.csv", sep = "_"));
 	return(df);
@@ -1331,7 +1335,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	behcombos <- character();
 	for (beh in behnames) {
 		behcombos <- c(behcombos, paste(behnames, "->", beh));
-	} # TODO use new fxn .getBehcombosNames()
+	}
 	
 	TPmat = if (!byTotal) {matrix(nrow = length(behcombos), ncol = length(groupPMs), dimnames = list(behcombos, names(groupPMs)))}
 		  else {matrix(data = 0, nrow = length(behcombos), ncol = length(groupPMs), dimnames = list(behcombos, names(groupPMs)))};
@@ -2066,16 +2070,15 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 }
 
 
-# Statistically compares behaviors occurring in the windowwww. but, ALL BEHAVIORS LITERAL ALL. TODO actually comment
-# TODO nice interface for examining JUST TWO BEHS.
-.compareBehTimeWindow = function(data, outfilePrefix, windowStart = 0, windowEnd = 1,
+# Statistically compares the number of <varBehs> that occur within the given window of a <centerBeh> across groups. 
+.compareBehTimeWindow = function(data, outfilePrefix, centerBehs, varBehs, windowStart = 0, windowEnd = 1, 
 								 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), ...) {
 	data = .filterDataList(data, renameStartStop = TRUE);
 	groupwiseLogs = .sepGroups(data);
 	
 	timeMatsByGroup = list();
 	for (group in groupwiseLogs$groupNames) {
-		timeMatsByGroup[[group]] <- .makeTimeWindowMat(groupwiseLogs$groupData[[group]], groupwiseLogs$behnames, windowStart, windowEnd);
+		timeMatsByGroup[[group]] <- .makeTimeWindowMat(groupwiseLogs$groupData[[group]], centerBehs, varBehs, windowStart, windowEnd);
 		write.csv(timeMatsByGroup[[group]], file = paste(outfilePrefix, group, "timeMats_datadump.csv", sep = "_"));
 	}
 	
@@ -2083,11 +2086,14 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 			tests = tests, ...));
 }
 
-# TODO comment
-.makeTimeWindowMat = function(data, behnames, windowStart, windowEnd) {
-	behcombos = .getBehcombosNames(behnames);
-	nbehs = length(behnames);
-	twMat = matrix(nrow = nbehs * nbehs, ncol = length(data), dimnames = list(behcombos, names(data)));
+# Helper function for .compareBehTimeWindow()
+.makeTimeWindowMat = function(data, centerBehs, varBehs, windowStart, windowEnd) {
+	behcombos <- character();
+	for (beh in varBehs) {
+		behcombos <- c(behcombos, paste(centerBehs, "->", beh));
+	}
+	
+	twMat = matrix(nrow = length(behcombos), ncol = length(data), dimnames = list(behcombos, names(data)));
 	
 	for (behCombo in behcombos) {
 		leaderBeh = gsub(" -> .*", "", behCombo);
@@ -2233,7 +2239,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	behaviors <- names(.findDupBehaviors(data));
 	ssBehs = character();
 	for (beh in behaviors) {
-		if (sum(!is.na(unlist(lapply(data, function(d){d$type[d$behavior == beh][1]})))) > 0) ssBehs <- c(ssBehs, beh);
+		if (sum(!is.na(unlist(lapply(data, function(d){d$type[d$behavior == beh][1]})))) > 0) {
+			ssBehs <- c(ssBehs, beh);
+			isDurational = table(unlist(lapply(data, function(d){!is.na(d$duration[d$behavior == beh])})));
+			if ("FALSE" %in% names(isDurational)) warning("Durational behavior \"", beh, "\" is not durational in all logs.")
+		}
 	}
 	return(ssBehs);
 }
@@ -2284,12 +2294,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		durationalBehs = names(table(startStopBehs));
 		if (is.null(durationalBehs)) durationalBehs <- character()
 	} else {
-		if (sum(!(durationalBehs %in% names(table(startStopBehs)))) > 0) {
-			stop(paste('Behavior "', durationalBehs[which(!(durationalBehs %in% names(table(startStopBehs))))][1], 
-						'" in durationalBehs was not scored as a durational behavior.', sep = ""));
-		}
+		.checkDurationalBehs(durationalBehs, data, behaviorsToPlotAndColors);
 	}
-	
 	
 	for (i in 1:length(groupwiseLogs$groupNames)) {
 		.makeMulticolorRasterPlot(groupwiseLogs$groupData[[i]], behaviorsToPlotAndColors,
@@ -2319,12 +2325,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # of the height of the ticks. <defaultDur> is the width, in seconds, of the ticks. If some
 # ticks are very light or invisible, try increasing <defaultDur>. If <horizontalLines> is set
 # to true, a horizontal black line is drawn behind the raster plot for each subject.
-#
-# TODO no error checking on durationalBehs. Will probably crash if you put a non-durational beh in
-#   there. Also w/ ssBehs, what if it is ss in some-but-not-all logs? Add code to catch this case,
-#   draw a line, throw a warning.
 .makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, plotTitle = NULL, wiggle = .2, defaultDur = 2,
 									  durationalBehs = NA, staggerSubjects = F, widthInInches = 12, rowHeightInInches = .3, horizontalLines = F) {
+	if (!is.na(durationalBehs)) .checkDurationalBehs(durationalBehs, data, behaviorsToPlotAndColors);
 	plotHeight = rowHeightInInches * length(data) + par("mai")[1] + par("mai")[3];
 	if (!is.null(filename)) jpeg(filename = filename, width = widthInInches, height = plotHeight, units = "in", quality = 100, res = 300, type = "quartz");
 	
@@ -2404,7 +2407,13 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	if (!is.null(filename)) dev.off();
 }
 
-
+.checkDurationalBehs = function(durationalBehs, data, colorkey) {
+	for (beh in durationalBehs) {
+		if (!(beh %in% c(names(.findDupBehaviors(data)), colorkey[,1]))) warning("Durational behavior \"", beh, "\" not found in any score log. Please check spelling.");
+		isDurational = table(unlist(lapply(data, function(d){!is.na(d$duration[d$behavior == beh])})));
+		if ("FALSE" %in% names(isDurational)) warning("Durational behavior \"", beh, "\" is not durational in all logs.")
+	}
+}
 
 
 
