@@ -1154,6 +1154,39 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 ## PROBABILITY MATRICES                                                                            ##
 #####################################################################################################
 
+.getProbabilityInNSecondsMatrix = function(data, nseconds = 3) {
+	behL = names(table(data$behavior[-length(data$behavior)]));
+	behF = names(table(data$behavior));
+	probMat = matrix(nrow=length(behL), ncol=length(behF), dimnames=list(behL, behF));
+	for (leader in rownames(probMat)) {
+		for (follower in colnames(probMat)) {
+			tmp = .computeTransitionProbabilityInNSeconds(data=data, leader=leader, follower=follower, nseconds);
+			probMat[match(leader, rownames(probMat)), match(follower, colnames(probMat))] = tmp$probability;
+		}
+	}
+	return(probMat);
+}
+
+.computeTransitionProbabilityInNSeconds = function (data, leader, follower, nseconds) {
+	count = 0;
+	termination = 0;
+	for (i in which(data$behavior == leader)) {
+		# print(i);
+		# print(data$behavior == follower);
+		# print(data$time > data$time[i]);
+		# print(data$time <= data$time[i] + nseconds)
+		if (i == length(data$behavior)) {
+			termination = 1;
+		} else if (sum(data$behavior == follower & data$time > data$time[i] & data$time <= data$time[i] + nseconds)) {
+			count = count + 1;
+		}
+	}
+	total_leader = if(termination) {sum(data$behavior == leader) - 1} else {sum(data$behavior == leader)};
+	prob = if(total_leader) {count / total_leader} else {0} ;
+	return(list(probability=prob, termination=termination, count_transitions=count, count_leader=total_leader));
+}
+
+
 # Source: ethograms_from_scorevideo.R
 # Reads in a vector giving a sequence of behaviors and returns a matrix giving the transitional
 #  probability for each pair of behaviors.
@@ -1258,19 +1291,20 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # These values are compared with three different tests: wilcox.test(), t.test(), and bootstrap2independent(). Transitional
 # probabilities are only compared for behaviors that occur in at least <minNumLogs> score logs in each group, and where at
 # least one animal had a nonzero transitional probability. Graphs output by the bootstrap function are also saved.
-.compareTransitionalProbabilities = function(data, outfilePrefix, byTotal = FALSE,
+.compareTransitionalProbabilities = function(data, outfilePrefix, byTotal = FALSE, nSeconds = NA,
 											 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), ...) {
 	data = .filterDataList(data, renameStartStop = TRUE);
 	groupwiseLogs = .sepGroups(data);
 	
 	transProbsByGroup = list();
 	for (group in groupwiseLogs$groupNames) {
-		groupPMs = lapply(groupwiseLogs$groupData[[group]], function(d) {.getProbabilityMatrix(d$behavior, byTotal=byTotal)});
+		groupPMs = if (is.na(nSeconds)) lapply(groupwiseLogs$groupData[[group]], function(d) {.getProbabilityMatrix(d$behavior, byTotal=byTotal)})
+				   else lapply(groupwiseLogs$groupData[[group]], function(d) {.getProbabilityInNSecondsMatrix(d, nSeconds)});
 		transProbsByGroup[[group]] <- .makeTPMatrix(groupPMs, groupwiseLogs$behnames, byTotal);
 		write.csv(transProbsByGroup[[group]], file = paste(outfilePrefix, group, "transitionalprobabilities_datadump.csv", sep = "_"));
 		groupPMsAndCounts = list(probMats = groupPMs, counts = lapply(groupwiseLogs$groupData[[group]], function(d) {table(d$behavior)}));
 		probMat = .combineProbabilityMatrices(groupPMsAndCounts, groupwiseLogs$behnames, byTotal)$probMat;
-		if ((byTotal && sum(probMat) != 1) || (!byTotal && max(abs(apply(probMat,1,sum) - 1)) > 1e-15)) {
+		if (is.na(nSeconds) && ((byTotal && sum(probMat) != 1) || (!byTotal && max(abs(apply(probMat,1,sum) - 1)) > 1e-15))) {
 			print(probMat);
 			print(sum(probMat));
 			print(apply(probMat, 1, sum));
