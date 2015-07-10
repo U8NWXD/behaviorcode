@@ -1,3 +1,18 @@
+# Runs a bootstrap test on two numeric data vectors (<group1> and <group2>) representing
+# independent groups (names should be given in <groupNames>). Uses <Func> (either "mean"
+# or "median") to compute the stats.
+#
+# If <plots> is TRUE, a plot is output to the active Quartz window, or a jpeg if <outfile>
+# is specified. Graphical parameters that can be passed to the plotting function include:
+# <col> (default 'grey'), the color of the histogram bars;
+# <border> (default 'darkgrey'), the color of plot borders;
+# <col.line> (default 'red'), the color of the lines showing means or medians, and <stat>
+#   on the plot of the bootstrap results;
+# <jitter> (default .15), the amount of jitter that the scatterplot of data on top of the boxplot has;
+# <pch> (default 21, an open circle), the type of point used in this scatterplot;
+# <boxLineMedian> (default FALSE), should a line be drawn in the box plot at the median? FALSE makes
+#   it at the mean instead;
+# <widthInInches> (default 10) and <heightInInches> (default 10), the dimensions of the output jpeg.
 bootstrap2independent = function(group1, group2, groupNames = c('group1', 'group2'), dataDescriptor = NULL,
 								 trials = 10000, Func = 'mean', replace = T,
 								 printResults = F, verbose = F, plots = T, ...) {
@@ -21,8 +36,21 @@ bootstrap2independent = function(group1, group2, groupNames = c('group1', 'group
 	return(output);
 }
 
+# Runs a bootstrap test on two numeric data vectors (<condition1> and <condition2>) representing
+# measurements taken at two timepoints on the same group of subjects. (names should be given in
+# <conditionNames>). Uses <Func> (either "mean" or "median") to compute the stats.
+#
+# If <plots> is TRUE, a plot is output to the active Quartz window, or a jpeg if <outfile>
+# is specified. Graphical parameters that can be passed to the plotting function include:
+# <col> (default 'grey'), the color of the histogram bars;
+# <border> (default 'darkgrey'), the color of plot borders;
+# <col.line> (default 'red'), the color of the lines showing means or medians, and <stat>
+#   on the plot of the bootstrap results;
+# <pch> (default 21, an open circle), the type of point used in this scatterplot;
+# <cex.lab> and <cex.axis> (default 1.2), the magnifications of labels and axes;
+# <widthInInches> (default 12) and <heightInInches> (default 5), the dimensions of the output jpeg.
 bootstrap2paired = function(condition1, condition2, conditionNames = c('condition1', 'condition2'), dataDescriptor = NULL,
-							trials = 10000, Func = 'mean', abs.diffs = F, # may need to add cex.lab & cex.axis
+							trials = 10000, Func = 'mean', abs.diffs = F,
 							printResults = F, verbose = F, plots = T, ...) {
 	data = .validateAndCleanBootstrapData(condition1, condition2, conditionNames, paired = T);
 	if (is.null(data)) return(list(p = NA));
@@ -55,6 +83,14 @@ bootstrap2paired = function(condition1, condition2, conditionNames = c('conditio
 	return(output);
 }
 
+# Helper function for bootstrap2independent() and bootstrap2paired()
+# Checks the data given in <group1> and <group2> to ensure it is numeric, nonempty, and not all 0s or NAs.
+# If <paired>, the data is also checked to be sure it is the same length.
+# Either way, NAs are removed, groupNames is checked to be a character vector of length 2, and the cleaned
+# data is returned.
+# If problems are found, this function may throw an error, throw a warning, or cause the main function
+# to return early with p = NA.
+ remove NA values
 .validateAndCleanBootstrapData = function(group1, group2, groupNames, paired) {
 	if (!is.numeric(c(group1,group2))) stop('DATA CONTAINS NON-NUMERIC VALUES.');
 	if (paired && length(group1) != length(group2)) stop('GROUPS ARE DIFFERENT SIZES...\n   THIS DATA SHOULD BE PAIRED!!!');
@@ -92,6 +128,8 @@ bootstrap2paired = function(condition1, condition2, conditionNames = c('conditio
 	return(data);
 }
 
+# Helper function for bootstrap2independent()
+# Builds the null distribution for independent data.
 .buildNullDistributionIndependent = function(data, trials, Func, replace, dataDescriptor, verbose) {
 	if (verbose) {
 		cat('...........................................\n');
@@ -105,7 +143,7 @@ bootstrap2paired = function(condition1, condition2, conditionNames = c('conditio
 	group1Length = length(data[[1]]);
 	group2Length = length(data[[2]]);
 	fxn = get(Func);
-	statsNULL = numeric(length = trials);
+	statsNULL = numeric(length = trials); # this improves speed rather than expanding a vector 10000 times
 	for (trial in 1:trials) {
 		if (verbose && trial %% 1000 == 0) {
 			if (trials <= 20000) cat('  Run ', trial, '\n', sep = '')
@@ -120,6 +158,8 @@ bootstrap2paired = function(condition1, condition2, conditionNames = c('conditio
 	return(statsNULL);
 }
 
+# Helper function for bootstrap2paired()
+# Builds the null distribution for paired data.
 .buildNullDistributionPaired = function(diffs, trials, Func, abs.diffs, dataDescriptor, verbose) {
 	if (verbose) {
 		cat('...........................................\n');
@@ -130,7 +170,7 @@ bootstrap2paired = function(condition1, condition2, conditionNames = c('conditio
 	
 	fxn = get(Func);
 	numDiffs = length(diffs);
-	statsNULL = numeric(length = trials);
+	statsNULL = numeric(length = trials); # this improves speed rather than expanding a vector 10000 times
 	for (trial in 1:trials) {
 		if (verbose && trial %% 1000 == 0) {
 			if (trials <= 20000) cat('  Run ', trial, '\n', sep = '')
@@ -146,6 +186,8 @@ bootstrap2paired = function(condition1, condition2, conditionNames = c('conditio
 	return(statsNULL);
 }
 
+# Helper function for bootstrap2independent() and bootstrap2paired()
+# Computes the p-value from statsNULL.
 .computePValue = function(stat, statsNULL, reflect, trials) {
 	if (stat < 0) { 
 		p_left = sum(statsNULL < stat) / trials;
@@ -162,6 +204,9 @@ bootstrap2paired = function(condition1, condition2, conditionNames = c('conditio
 	return(p);
 }
 
+# Helper function for bootstrap2Independent().
+# Makes a plot showing histograms of both groups, a histogram of the results of the bootstrap run,
+# and box-and-whisker plots overlaid with individual data points showing the data from each group.
 .makeBootstrapPlotIndependent = function(data, dataDescriptor, Func, stat, reflect, statsNULL, replace, trials, p,
 										 col = 'grey', border = 'darkgrey', col.line = 'red', 
 										 jitter = .15, pch = 21, boxLineMedian = F, outfile = NULL,
@@ -213,6 +258,10 @@ bootstrap2paired = function(condition1, condition2, conditionNames = c('conditio
 	if (!is.null(outfile)) dev.off();
 }
 
+# Helper function for bootstrap2Paired().
+# Makes a plot showing histograms of the individual differences between condition1 and condition2,
+# a histogram of the results of the bootstrap run, and box-and-whisker plots overlaid with paired
+# data points showing the data from each group.
 .makeBootstrapPlotPaired = function(data, diffs, dataDescriptor, Func, stat, reflect, statsNULL, abs.diffs, trials, p,
 									col = 'grey', border = 'darkgrey', col.line = 'red', 
 									pch = 21, outfile = NULL, cex.lab = 1.2, cex.axis = 1.2,
