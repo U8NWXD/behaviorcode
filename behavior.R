@@ -1999,9 +1999,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 }
 
 
-# TODO comment
-# make sure to warn - do not use density!!!
-.compareBehavioralDensity = function(data, outfilePrefix, centerBeh, varBehs, weightingStyle = "centerbeh",
+# Runs a statistical comparison of the behavioral densities of <varBehs> relative to <centerBeh> at
+# every timepoint in the interval (-lim, lim) and outputs the results to files starting with <outfilePrefix>.
+# THIS IS NOT RECOMMENDED. But also, if you MUST do this, DO NOT USE "density" as your weightingStyle! Just
+# don't. "centerbeh" is probably alright.
+.compareBehavioralDensity = function(data, outfilePrefix, centerBeh, varBehs,
 									 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)),
 									 minNumLogs = 3, ...) {
 	data = .filterDataList(data, renameStartStop = TRUE);
@@ -2009,7 +2011,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	
 	behDensityByGroup = list();
 	for (group in groupwiseLogs$groupNames) {
-		behDensityByGroup[[group]] <- .makeDensityMatrix(groupwiseLogs$groupData[[group]], centerBeh, varBehs, weightingStyle, ...); 
+		behDensityByGroup[[group]] <- .makeDensityMatrix(groupwiseLogs$groupData[[group]], centerBeh, varBehs, ...); 
 		write.csv(behDensityByGroup[[group]], file = paste(outfilePrefix, group, "density_around", centerBeh, "rawdata.csv", sep = "_"));
 	}
 	
@@ -2017,7 +2019,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 			tests = tests, minNumLogsForComparison = minNumLogs, print = F));
 }
 
-# TODO comment
+# Helper function for .compareBehavioralDensity()
+# Returns a matrix with columns for each subject in <data> and rows for each timepoint of each pair of (centerBeh, a single varBeh).
 .makeDensityMatrix = function(data, centerBeh, varBehs, weightingStyle = "centerbeh", noRepCenterBeh = T, lim = 30, timesPerBin = 0.5, ...) {
 	masterMat = NULL;
 	for (varBeh in varBehs) {
@@ -2059,8 +2062,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	}
 }
 
-# closed interval [windowStart, windowEnd] NOT [windowStart, windowEnd)
-# TODO comment
+# Gives the probability of varBeh occuring within the closed interval [windowStart, windowEnd]
+# seconds after <centerBeh> (or technically before if these values are negative). <data> is a
+# SINGLE score log.
 .getProbabilityOfBehInTimeWindow = function(data, centerBeh, varBeh, windowStart = 0, windowEnd = 1) {
 	if (windowEnd <= windowStart) stop("Bad window given.");
 	
@@ -2079,7 +2083,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(sum(nBehsInWindow) / norm);
 }
 
-# TODO comment
+# Statistically compares behaviors occurring in the windowwww. but, ALL BEHAVIORS LITERAL ALL. TODO actually comment
 # TODO nice interface for examining JUST TWO BEHS.
 .compareBehTimeWindow = function(data, outfilePrefix, windowStart = 0, windowEnd = 1,
 								 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), ...) {
