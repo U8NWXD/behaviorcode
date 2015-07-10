@@ -1860,9 +1860,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		data$groupNames <- paste(' (', data$groupNames, ')', sep = '');
 	}
 	
-	behHistograms = lapply(data$groupData, function(d){.makeBehHistograms(d, behaviorsToPlotAndColors, centerBeh, lim, noRepCenterBeh,
-									   					weightingStyle, secondsPerBin, ...)})
-	# print(behHistograms);
+	behHistograms = lapply(data$groupData, function(d){.makeBehHistograms(d, behaviorsToPlotAndColors[,1], centerBeh, lim, weightingStyle, ...)})
 	
 	if(is.null(ymax)) ymax = max(unlist(lapply(behHistograms, function(behHistList){unlist(lapply(behHistList, function(bh) {bh$y}))}))) * 1.1;
 	
@@ -1870,29 +1868,26 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	if (!is.null(filename)) jpeg(filename = filename, width = 15, height = 5 * nHistograms, units = "in", quality = 100, res = 150, type = "quartz");
 	par(mfrow = c(nHistograms, 1))
 	for (i in 1:nHistograms) {
-		.plotBehDensityPlots(behHistograms[[i]], behaviorsToPlotAndColors, filename, data$groupNames[i], weightingStyle, lim, ymax, centerBeh, lineWidth, lineType);
+		.plotBehDensityPlot(behHistograms[[i]], behaviorsToPlotAndColors, filename, data$groupNames[i], weightingStyle, lim, ymax, centerBeh, lineWidth, lineType);
 	}
 	if (!is.null(filename)) dev.off();
 }
 
-.makeBehHistograms = function(data, behaviorsToPlotAndColors, centerBeh, lim = 15, noRepCenterBeh = TRUE, # TODO just pass in behaviors.
-							  weightingStyle = "density", secondsPerBin = .5, ...) {
+.makeBehHistograms = function(data, behaviors, centerBeh, lim, weightingStyle, noRepCenterBeh = TRUE, secondsPerBin = .5, ...) {
 	data <- .filterDataList(data, renameStartStop = TRUE);
 	behHistograms = list();
-	for (i in 1:(dim(behaviorsToPlotAndColors)[1])) {
+	for (i in 1:length(behaviors)) {
 		if (weightingStyle == "density") {
-			behHistograms[[i]] <- .getBehDensityHist(data, centerBeh, behaviorsToPlotAndColors[i, 1], noRepCenterBeh, lim, ...);
+			behHistograms[[i]] <- .getBehDensityHist(data, centerBeh, behaviors[i], noRepCenterBeh, lim, ...);
 		} else {
 			histBreaks = ((-ceiling(lim/secondsPerBin) - 1):(ceiling(lim/secondsPerBin)) + 0.5) * secondsPerBin;
-			behHistograms[[i]] <- .getBehHist(data, centerBeh, behaviorsToPlotAndColors[i, 1], noRepCenterBeh, histBreaks, weightingStyle);
+			behHistograms[[i]] <- .getBehHist(data, centerBeh, behaviors[i], noRepCenterBeh, histBreaks, weightingStyle);
 		}
 	}
 	return(behHistograms);
 }
 
-.plotBehDensityPlots = function(behHistograms, behaviorsToPlotAndColors, filename, groupName, weightingStyle, lim, ymax, centerBeh, lineWidth, lineType) {
-	# if (!is.null(filename)) jpeg(filename = filename, width = 15, height = 5, units = "in", quality = 100, res = 150, type = "quartz");
-	
+.plotBehDensityPlot = function(behHistograms, behaviorsToPlotAndColors, filename, groupName, weightingStyle, lim, ymax, centerBeh, lineWidth, lineType) {
 	ylabel = if(weightingStyle == "density") "Density"
 			 else if(weightingStyle=="singlebeh") "Fraction of individual behavior"
 			 else if(weightingStyle=="allbeh") "Fraction of all behaviors"
@@ -1906,8 +1901,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	par(new = TRUE);
 
 	for (i in 1:(dim(behaviorsToPlotAndColors)[1])) {
-	#	plot(x = behHistograms[[i]]$x, y = behHistograms[[i]]$y, type = "l", col = behaviorsToPlotAndColors[i, 2],
-		#	 xlim = c(-lim, lim), ylim = c(0, ymax), xlab = "", ylab = "", lwd = lineWidth, lty = lineType)
 		lines(x = behHistograms[[i]]$x, y = behHistograms[[i]]$y, col = behaviorsToPlotAndColors[i, 2],
 			 lwd = lineWidth, lty = lineType)
 		par(new = TRUE);
@@ -1915,7 +1908,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	par(new = FALSE);
 
 	.plotColorLegend(behaviorsToPlotAndColors, -lim, ymax, as.lines = T, lwd = 3, cex = .6)
-	# if (!is.null(filename)) dev.off();
 }
 
 # Makes a behavioral density histogram for use in behavioral density plots. 
