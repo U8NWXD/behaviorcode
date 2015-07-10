@@ -1849,48 +1849,30 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # you to do things like give the same color key for each group even if a behavior in it is never performed in a given group, but it
 # also enables you to make errors. Be careful!
 # TODO update comments
-.behavioralDensityGraph_tmp = function(data, behaviorsToPlotAndColors, centerBeh, filename = NULL, lim = 15, noRepCenterBeh = TRUE, multifish = FALSE,
+.behavioralDensityGraph = function(data, behaviorsToPlotAndColors, centerBeh, filename = NULL, lim = 15, noRepCenterBeh = TRUE, multifish = FALSE,
 								   ymax = NULL, lineWidth = 2, lineType = "solid", weightingStyle = "density", secondsPerBin = .5, ...) {
 	.validateColorKey(behaviorsToPlotAndColors);
-	# data <- .filterDataList(data, renameStartStop = TRUE);
-	if (!is.null(filename)) jpeg(filename = filename, width = 15, height = 5, units = "in", quality = 100, res = 150, type = "quartz");
-	# behHistograms = list();
-	# for (i in 1:(dim(behaviorsToPlotAndColors)[1])) {
-		# if (weightingStyle == "density") {
-			# behHistograms[[i]] <- .getBehDensityHist(data, centerBeh, behaviorsToPlotAndColors[i, 1], noRepCenterBeh, lim, ...);
-		# } else {
-			# histBreaks = ((-ceiling(lim/secondsPerBin) - 1):(ceiling(lim/secondsPerBin)) + 0.5) * secondsPerBin;
-			# behHistograms[[i]] <- .getBehHist(data, centerBeh, behaviorsToPlotAndColors[i, 1], noRepCenterBeh, histBreaks, weightingStyle);
-		# }
-
-	# }
-	behHistograms = .makeBehHistograms(data, behaviorsToPlotAndColors, centerBeh, lim = 15, noRepCenterBeh = TRUE,
-									   weightingStyle = "density", secondsPerBin = .5, ...);
 	
-	if(is.null(ymax)) ymax = max(unlist(lapply(behHistograms, function(behhist){behhist$y}))) * 1.1;
+	notSepGroupsOutput = length(names(data[[1]])) == 6 && names(data[[1]]) == c("time", "behavior", "subject", "type", "pair_time", "duration");
+	if (notSepGroupsOutput) {
+		data = list(groupData = list(data), groupNames = "");
+	} else {
+		data$groupNames <- paste(' (', data$groupNames, ')', sep = '');
+	}
 	
-	.plotBehDensityPlots(behHistograms, behaviorsToPlotAndColors, filename, weightingStyle, lim, ymax, centerBeh, lineWidth, lineType);
-	# ylabel = if(weightingStyle == "density") "Density"
-			 # else if(weightingStyle=="singlebeh") "Fraction of individual behavior"
-			 # else if(weightingStyle=="allbeh") "Fraction of all behaviors"
-			 # else if(weightingStyle=="centerbeh") paste("Frequency relative to", centerBeh)
-			 # else "Average Count";	
-	# plot(x = 0, y = 0, col = "white", xlim = c(-lim, lim), ylim = c(0, ymax), main = centerBeh, xlab = paste("Time after", centerBeh, "(seconds)"),
-			# ylab = ylabel);
-	# centerLineColor = if (centerBeh %in% behaviorsToPlotAndColors[,1]) behaviorsToPlotAndColors[which(behaviorsToPlotAndColors[,1] == centerBeh), 2] else "black";
-	# abline(v = 0, col = centerLineColor, lwd = lineWidth, lty = "dashed");
-	# par(new = TRUE);
+	behHistograms = lapply(data$groupData, function(d){.makeBehHistograms(d, behaviorsToPlotAndColors, centerBeh, lim, noRepCenterBeh,
+									   					weightingStyle, secondsPerBin, ...)})
+	# print(behHistograms);
 	
-	# for (i in 1:(dim(behaviorsToPlotAndColors)[1])) {
-	# #	plot(x = behHistograms[[i]]$x, y = behHistograms[[i]]$y, type = "l", col = behaviorsToPlotAndColors[i, 2],
-		# #	 xlim = c(-lim, lim), ylim = c(0, ymax), xlab = "", ylab = "", lwd = lineWidth, lty = lineType)
-		# lines(x = behHistograms[[i]]$x, y = behHistograms[[i]]$y, col = behaviorsToPlotAndColors[i, 2],
-			 # lwd = lineWidth, lty = lineType)
-		# par(new = TRUE);
-	# }
-	# par(new = FALSE);
-	# .plotColorLegend(behaviorsToPlotAndColors, -lim, ymax, as.lines = T, lwd = 3, cex = .6)
-	# if (!is.null(filename)) dev.off();
+	if(is.null(ymax)) ymax = max(unlist(lapply(behHistograms, function(behHistList){unlist(lapply(behHistList, function(bh) {bh$y}))}))) * 1.1;
+	
+	nHistograms = length(behHistograms);
+	if (!is.null(filename)) jpeg(filename = filename, width = 15, height = 5 * nHistograms, units = "in", quality = 100, res = 150, type = "quartz");
+	par(mfrow = c(nHistograms, 1))
+	for (i in 1:nHistograms) {
+		.plotBehDensityPlots(behHistograms[[i]], behaviorsToPlotAndColors, filename, data$groupNames[i], weightingStyle, lim, ymax, centerBeh, lineWidth, lineType);
+	}
+	if (!is.null(filename)) dev.off();
 }
 
 .makeBehHistograms = function(data, behaviorsToPlotAndColors, centerBeh, lim = 15, noRepCenterBeh = TRUE, # TODO just pass in behaviors.
@@ -1908,15 +1890,15 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(behHistograms);
 }
 
-.plotBehDensityPlots = function(behHistograms, behaviorsToPlotAndColors, filename, weightingStyle, lim, ymax, centerBeh, lineWidth, lineType) {
-	if (!is.null(filename)) jpeg(filename = filename, width = 15, height = 5, units = "in", quality = 100, res = 150, type = "quartz");
+.plotBehDensityPlots = function(behHistograms, behaviorsToPlotAndColors, filename, groupName, weightingStyle, lim, ymax, centerBeh, lineWidth, lineType) {
+	# if (!is.null(filename)) jpeg(filename = filename, width = 15, height = 5, units = "in", quality = 100, res = 150, type = "quartz");
 	
 	ylabel = if(weightingStyle == "density") "Density"
 			 else if(weightingStyle=="singlebeh") "Fraction of individual behavior"
 			 else if(weightingStyle=="allbeh") "Fraction of all behaviors"
 			 else if(weightingStyle=="centerbeh") paste("Frequency relative to", centerBeh)
 			 else "Average Count";	
-	plot(x = 0, y = 0, col = "white", xlim = c(-lim, lim), ylim = c(0, ymax), main = centerBeh, xlab = paste("Time after", centerBeh, "(seconds)"),
+	plot(x = 0, y = 0, col = "white", xlim = c(-lim, lim), ylim = c(0, ymax), main = paste(centerBeh, groupName, sep = ""), xlab = paste("Time after", centerBeh, "(seconds)"),
 			ylab = ylabel);
 
 	centerLineColor = if (centerBeh %in% behaviorsToPlotAndColors[,1]) behaviorsToPlotAndColors[which(behaviorsToPlotAndColors[,1] == centerBeh), 2] else "black";
@@ -1933,7 +1915,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	par(new = FALSE);
 
 	.plotColorLegend(behaviorsToPlotAndColors, -lim, ymax, as.lines = T, lwd = 3, cex = .6)
-	if (!is.null(filename)) dev.off();
+	# if (!is.null(filename)) dev.off();
 }
 
 # Makes a behavioral density histogram for use in behavioral density plots. 
@@ -2057,11 +2039,14 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	
 	for (beh in behnames) {
 		cat("Plotting behavior \"", beh, '"...\n', sep = "");
-		par(mfrow = c(length(groupwiseLogs$groupNames), 1));
-		for (i in 1:length(groupwiseLogs$groupNames)) {
-			.behavioralDensityGraph(groupwiseLogs$groupData[[i]], behaviorsToPlotAndColors, centerBeh = beh,
-								    filename = paste(filePref, "_", beh, "_", groupwiseLogs$groupNames[i], ".jpeg", sep = ""), multifish = TRUE, ...);
-		}
+		.behavioralDensityGraph(groupwiseLogs, behaviorsToPlotAndColors, centerBeh = beh,
+								filename = paste(filePref, "_", beh, ".jpeg", sep = ""), ...);
+
+		# par(mfrow = c(length(groupwiseLogs$groupNames), 1));
+		# for (i in 1:length(groupwiseLogs$groupNames)) {
+			# .behavioralDensityGraph(groupwiseLogs$groupData[[i]], behaviorsToPlotAndColors, centerBeh = beh,
+								    # filename = paste(filePref, "_", beh, "_", groupwiseLogs$groupNames[i], ".jpeg", sep = ""), multifish = TRUE, ...);
+		# }
 	}
 }
 
