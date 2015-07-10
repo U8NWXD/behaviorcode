@@ -977,7 +977,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 #   and control - so this behavior is not terrible) with three different tests - wilcox.test(), t.test(), and bootstrap2independent().
 #   Latencies are only compared for behaviors that occur in at least <minNumLogs> score logs in each group. Graphs output by the
 #   bootstrap function are also saved.
-.calcBasicStats = function(data, outfilePrefix, tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), minNumLogs = 3) {
+.calcBasicStats = function(data, outfilePrefix, tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), ...) {
 	groupwiseLogs = .sepGroups(data);
 
 	durBehDat = lapply(data, function(d) {d[!is.na(d$type) & d$type == "start",]});
@@ -988,7 +988,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		write.csv(dataByGroup[[group]]$total, file = paste(outfilePrefix, group, "data.csv", sep = "_"));
 	}
 	return(.runStats(dataByGroup = lapply(dataByGroup, function(d){d$total}), outfilePrefix = paste(outfilePrefix, "basicstats", sep = "_"),
-			tests = tests, minNumLogsForComparison = minNumLogs));
+			tests = tests, ...));
 }
 
 # A wrapper function for bootstrap2independent that makes it play well with .runStats
@@ -1051,7 +1051,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 #   myFunctionWrapper = function(arglist) {
 #		return(myFunction(group1 = arglist$x, group2 = arglist$y, arg1Name = arglist$arg1Name, outpref = arglist$outfilePrefix))
 #   }
-.runStats = function(dataByGroup, outfilePrefix, tests, minNumLogsForComparison = 3, skipNA = F, print = T) {
+# By default, rows with fewer than <minNumLogsForComparison> non-NA values are skipped. If you are using a test like coxph
+# that is designed to handle NAs as censored data, override this behavior by setting latencyTest = T. This will override
+# behavior for ALL tests in <tests>, however, so use caution! Other tests may give unreliable results and/or throw errors.
+# TODO double check w/testing that ... didn't mess up the other various stat fxns.
+.runStats = function(dataByGroup, outfilePrefix, tests, latencyTest = F, minNumLogsForComparison = 3, skipNA = F, print = T) {
 	if (length(dataByGroup) == 4) dataByGroup = .getChange(dataByGroup);
 			# TODO OUTPUT THOSE MATS.
 	average = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){mean(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, mean);
@@ -1087,7 +1091,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 			}
 			
 			enoughObservations = (sum(!is.na(group1dat)) >= minNumLogsForComparison && sum(!is.na(group2dat)) >= minNumLogsForComparison);
-			if (enoughObservations) {
+			if (latencyTest || enoughObservations) {
 				for (j in 1:length(tests)) {
 					if (!is.list(tests[[j]])) {
 						fxn = tests[[j]];
@@ -1099,7 +1103,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 					}
 				}
 			} else {
-				warning(paste('Skipping "', row, '" (not enough observations)', sep = ""), immediate.=T);
+				warning(paste('Skipping "', row, '" (fewer than ', minNumLogsForComparison,
+							  ' observations; lower parameter minNumLogsForComparison to override this)', sep = ""), immediate.=T);
 				df[i, (offset + 1):(offset + length(tests))] <- NA;
 			}
 		}
@@ -1254,7 +1259,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # probabilities are only compared for behaviors that occur in at least <minNumLogs> score logs in each group, and where at
 # least one animal had a nonzero transitional probability. Graphs output by the bootstrap function are also saved.
 .compareTransitionalProbabilities = function(data, outfilePrefix, byTotal = FALSE,
-											 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), minNumLogs = 3) {
+											 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), ...) {
 	data = .filterDataList(data, renameStartStop = TRUE);
 	groupwiseLogs = .sepGroups(data);
 	
@@ -1274,7 +1279,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		write.csv(probMat, file = paste(outfilePrefix, group, "transitionalprobabilities_average.csv", sep = "_"));
 	}
 	return(.runStats(dataByGroup = transProbsByGroup, outfilePrefix = paste(outfilePrefix, "transitionalprobabilities", sep = "_"),
-			tests = tests, minNumLogsForComparison = minNumLogs, skipNA = !byTotal));
+			tests = tests, skipNA = !byTotal, ...));
 }
 
 
@@ -1405,7 +1410,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # only compared for behaviors that occur in at least <minNumLogs> score logs in each group. Graphs output by
 # the bootstrap function are also saved.
 .compareEntropy = function(data, outfilePrefix, tests = list(t.test = t.test, wilcox = wilcox.test,
-						   bootstrap = list(func = .bootstrapWrapper)), minNumLogs = 3) {
+						   bootstrap = list(func = .bootstrapWrapper)), ...) {
 	data = .filterDataList(data, renameStartStop = TRUE);
 	groupwiseLogs = .sepGroups(data);
 	# 	return(list(groupNames = groupNames, groupData = groupData, behnames = behnames));
@@ -1417,7 +1422,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		write.csv(entropiesByGroup[[group]], file = paste(outfilePrefix, group, "entropydata.csv", sep = "_"));
 	}
 	return(.runStats(dataByGroup = entropiesByGroup, outfilePrefix = paste(outfilePrefix, "entropy", sep = "_"),
-					 tests = tests, minNumLogsForComparison = minNumLogs, skipNA = T));
+					 tests = tests, skipNA = T, ...));
 }
 
 
@@ -2077,7 +2082,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # TODO comment
 # TODO nice interface for examining JUST TWO BEHS.
 .compareBehTimeWindow = function(data, outfilePrefix, windowStart = 0, windowEnd = 1,
-								 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), minNumLogs = 3) {
+								 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), ...) {
 	data = .filterDataList(data, renameStartStop = TRUE);
 	groupwiseLogs = .sepGroups(data);
 	
@@ -2088,7 +2093,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	}
 	
 	return(.runStats(dataByGroup = timeMatsByGroup, outfilePrefix = paste(outfilePrefix, "timeMats", sep = "_"),
-			tests = tests, minNumLogsForComparison = minNumLogs));
+			tests = tests, ...));
 }
 
 
