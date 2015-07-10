@@ -1,7 +1,7 @@
 
 
 
-op = "__June/out_063020151450/"
+op = "__June/out_071020141352/"
 .calcBasicStats(practice_data, op)
 .compareTransitionalProbabilities(practice_data, byTotal = F, paste(op, "byTotalFalse", sep = '_'))
 .compareTransitionalProbabilities(practice_data, byTotal = T, paste(op, "byTotalTrue", sep = '_'))

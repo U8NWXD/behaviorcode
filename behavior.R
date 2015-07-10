@@ -722,7 +722,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(data);
 }
 
-# Returns TRUE if there are noongoing durational behaviors at index i of data, or FALSE if there are.
+# Helper function for .separateBouts()
+# Returns TRUE if there are no ongoing durational behaviors at index i of data, or FALSE if there are.
 .noCurrentDurationalBehs = function(data, i) {
 	type = data$type[1:i][!is.na(data$type)[1:i]];
 	return(sum(type == "start") == sum(type == "stop"));
@@ -1872,7 +1873,29 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 }
 
 
+# Draws behavioral density graphs centered at each behavior in <targetBehs>, or each behavior in the color key if no <targetBehs>
+# are provided. <data> is separated by experimental group, and the plots for each group are drawn stacked on top of each other.
+# For more information, look at the documentation for .behavioralDensityGraph().
+.behavioralDensityGraphs = function(data, behaviorsToPlotAndColors, filePref, targetBehs = NULL, ...) {
+	data = .filterDataList(data, renameStartStop = TRUE);
+	groupwiseLogs = .sepGroups(data);
 
+	if (is.null(targetBehs)) {behnames = behaviorsToPlotAndColors[,1];}
+	else {
+		for (beh in targetBehs) {
+			if (!(beh %in% groupwiseLogs$behnames)) stop(paste("Error: Behavior", beh, "is not in any score log."))
+		}
+		behnames = targetBehs;
+	}
+	
+	.validateColorKey(behaviorsToPlotAndColors, groupwiseLogs$behnames);
+	
+	for (beh in behnames) {
+		cat("Plotting behavior \"", beh, '"...\n', sep = "");
+		.behavioralDensityGraph(groupwiseLogs, behaviorsToPlotAndColors, centerBeh = beh,
+								filename = paste(filePref, "_behavioraldensity_", beh, ".jpeg", sep = ""), ...);
+	}
+}
 
 # Makes a behavioral density plot of the behaviors around <centerBeh> for every log in <data>. <data> can either be a simple
 # list of logs to get a single graph, or the output of .sepGroups() to get a graph for each group, stacked on top of each other
@@ -2075,29 +2098,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 }
 
 
-# Draws behavioral density graphs centered at each behavior in <targetBehs>, or each behavior in the color key if no <targetBehs>
-# are provided. <data> is separated by experimental group, and the plots for each group are drawn stacked on top of each other.
-# For more information, look at the documentation for .behavioralDensityGraph().
-.behavioralDensityGraphs = function(data, behaviorsToPlotAndColors, filePref, targetBehs = NULL, ...) {
-	data = .filterDataList(data, renameStartStop = TRUE);
-	groupwiseLogs = .sepGroups(data);
 
-	if (is.null(targetBehs)) {behnames = behaviorsToPlotAndColors[,1];}
-	else {
-		for (beh in targetBehs) {
-			if (!(beh %in% groupwiseLogs$behnames)) stop(paste("Error: Behavior", beh, "is not in any score log."))
-		}
-		behnames = targetBehs;
-	}
-	
-	.validateColorKey(behaviorsToPlotAndColors, groupwiseLogs$behnames);
-	
-	for (beh in behnames) {
-		cat("Plotting behavior \"", beh, '"...\n', sep = "");
-		.behavioralDensityGraph(groupwiseLogs, behaviorsToPlotAndColors, centerBeh = beh,
-								filename = paste(filePref, "_", beh, ".jpeg", sep = ""), ...);
-	}
-}
 
 # Gives the probability of varBeh occuring within the closed interval [windowStart, windowEnd]
 # seconds after <centerBeh> (or technically before if these values are negative). <data> is a

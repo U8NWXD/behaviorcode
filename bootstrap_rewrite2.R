@@ -97,7 +97,6 @@ bootstrap2paired = function(condition1, condition2, conditionNames = c('conditio
 # data is returned.
 # If problems are found, this function may throw an error, throw a warning, or cause the main function
 # to return early with p = NA.
- remove NA values
 .validateAndCleanBootstrapData = function(group1, group2, groupNames, paired) {
 	if (!is.numeric(c(group1,group2))) stop('DATA CONTAINS NON-NUMERIC VALUES.');
 	if (paired && length(group1) != length(group2)) stop('GROUPS ARE DIFFERENT SIZES...\n   THIS DATA SHOULD BE PAIRED!!!');
@@ -107,8 +106,8 @@ bootstrap2paired = function(condition1, condition2, conditionNames = c('conditio
 		if (paired) NAcheck1 = NAcheck2 = NAcheck1 | NAcheck2
 		group1 = group1[!NAcheck1];
 		group2 = group2[!NAcheck2];
-		if (paired) warning('NAs in one/both conditions, corresponding data points removed from BOTH', immediate. = T)
-		else warning('NAs removed from one or both groups, check your data', immediate. = T);
+		if (paired) warning('NAs in one/both conditions, corresponding data points removed from BOTH')
+		else warning('NAs removed from one or both groups, check your data');
 	}
 	
 	if (length(group1) == 0 || length(group2) == 0) {
