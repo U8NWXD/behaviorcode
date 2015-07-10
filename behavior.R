@@ -244,6 +244,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	}
 }
 
+# Helper function for .getData()
+# Gets the notes section from data0, prints it if nonempty, and returns it to be saved as an attribute
 .getNotes = function(data0) {
 	start_notes = which(data0=='NOTES') + 2;
 	end_notes = which(data0 == 'MARKS') - 2;
@@ -720,7 +722,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(data);
 }
 
-# TODO comment
+# Returns TRUE if there are noongoing durational behaviors at index i of data, or FALSE if there are.
 .noCurrentDurationalBehs = function(data, i) {
 	type = data$type[1:i][!is.na(data$type)[1:i]];
 	return(sum(type == "start") == sum(type == "stop"));
@@ -728,7 +730,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 
 # Whenever there are <intervalToSeparate> seconds between adjacent behaviors, inserts a "STOP" after the
 # behavior before the pause and a "START" before the behavior after the pause. Also inserts a "START" at the
-# beginning of the log and a "STOP" at the end.
+# beginning of the log and a "STOP" at the end. The pair_time of the START of a bout is the time of the STOP
+# of the same bout, and the duration is the duration of the bout (NOT the duration of the pause between!)
 .separateBouts = function (data, intervalToSeparate, stateBehaviors = NULL) {
 	# 	names(df) = c('time', 'behavior', 'subject', 'type', 'pair_time', 'duration');
 	data$type[!is.na(data$type) & data$type == "start" & data$behavior %in% stateBehaviors] <- "sTaRt";
@@ -1171,10 +1174,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	count = 0;
 	termination = 0;
 	for (i in which(data$behavior == leader)) {
-		# print(i);
-		# print(data$behavior == follower);
-		# print(data$time > data$time[i]);
-		# print(data$time <= data$time[i] + nseconds)
 		if (i == length(data$behavior)) {
 			termination = 1;
 		} else if (sum(data$behavior == follower & data$time > data$time[i] & data$time <= data$time[i] + nseconds)) {
@@ -1663,6 +1662,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	}
 }
 
+# Draws a color legend on the current plot, using the labels and colors in <colorkey>.
+# The upper left corner of the legend is at (x,y). If <as.lines>, a line of the given
+# color is drawn next to its label; otherwise, squares filled with the given color are
+# drawn. Additional parameters such as cex, lwd, etc. can be passed through the ... .
 .plotColorLegend = function(colorkey, x, y, as.lines, ...) {
 	if (!as.lines) legend(x, y, colorkey[,1], fill = colorkey[,2], ...)
 	else legend(x, y, colorkey[,1], lty = "solid", col = colorkey[,2], ...)
@@ -2232,8 +2235,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 }
 
 # Separates the logs in <data> by group and makes a multicolor raster plot of each one. The plots for
-# each group are saved to files starting with <outfilePrefix>. Parameters in the ... are passed on to
-# .makeMulticolorRasterPlot().
+# each group are saved to files starting with <outfilePrefix>. The color key is also saved to a separate
+# file with the same prefix. Parameters in the ... are passed on to .makeMulticolorRasterPlot().
 #
 # <behaviorsToPlotAndColors> and <durationalBehs> work the same as in .makeMulticolorRasterPlot(). If no
 # <behaviorsToPlotAndColors> is provided, the user is prompted to create a color key.
@@ -2259,6 +2262,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		cat("No color key provided to .makeMulticolorRasterPlots. Follow the prompts to create a key, or press ESC at any time to exit.\n")
 		behaviorsToPlotAndColors = .buildColorKey(behnames);
 	}
+	.plotColorKey(behaviorsToPlotAndColors, paste(outfilePrefix, "_rasterplot_colorkey.jpeg", sep = ''))
 	
 	if (!is.null(zeroBeh)) {
 		data <- .filterDataList(data, zeroBeh = zeroBeh, zeroBehN = zeroBeh.n);
@@ -2282,7 +2286,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		}
 	}
 	
-	.plotColorKey(behaviorsToPlotAndColors, paste(outfilePrefix, "_rasterplot_colorkey.jpeg", sep = ''))
+	
 	for (i in 1:length(groupwiseLogs$groupNames)) {
 		.makeMulticolorRasterPlot(groupwiseLogs$groupData[[i]], behaviorsToPlotAndColors,
 									filename = paste(outfilePrefix, "_rasterplot_", groupwiseLogs$groupNames[i], ".jpeg", sep = ''),
