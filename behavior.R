@@ -1121,6 +1121,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(df);
 }
 
+# TODO comment
 .getChange = function(dataByGroup) {
 	groupNames = names(dataByGroup);
 	orderedGroups <- as.list(rep(NA, 4));
@@ -1140,6 +1141,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(orderedGroups[3:4]);
 }
 
+# TODO comment
 .fillWithGroupPair = function(orderedGroups, groupNames, dataByGroup, baseIndex, expIndex) {
 	redo = T;
 	while (redo) {
@@ -1159,37 +1161,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 
 
 #####################################################################################################
-## PROBABILITY MATRICES                                                                            ##
+## PROBABILITY MATRICES AND ENTROPIES                                                              ##
 #####################################################################################################
-
-.getProbabilityInNSecondsMatrix = function(data, nseconds = 3) {
-	behL = names(table(data$behavior[-length(data$behavior)]));
-	behF = names(table(data$behavior));
-	probMat = matrix(nrow=length(behL), ncol=length(behF), dimnames=list(behL, behF));
-	for (leader in rownames(probMat)) {
-		for (follower in colnames(probMat)) {
-			tmp = .computeTransitionProbabilityInNSeconds(data=data, leader=leader, follower=follower, nseconds);
-			probMat[match(leader, rownames(probMat)), match(follower, colnames(probMat))] = tmp$probability;
-		}
-	}
-	return(probMat);
-}
-
-.computeTransitionProbabilityInNSeconds = function (data, leader, follower, nseconds) {
-	count = 0;
-	termination = 0;
-	for (i in which(data$behavior == leader)) {
-		if (i == length(data$behavior)) {
-			termination = 1;
-		} else if (sum(data$behavior == follower & data$time > data$time[i] & data$time <= data$time[i] + nseconds)) {
-			count = count + 1;
-		}
-	}
-	total_leader = if(termination) {sum(data$behavior == leader) - 1} else {sum(data$behavior == leader)};
-	prob = if(total_leader) {count / total_leader} else {0} ;
-	return(list(probability=prob, termination=termination, count_transitions=count, count_leader=total_leader));
-}
-
 
 # Source: ethograms_from_scorevideo.R
 # Reads in a vector giving a sequence of behaviors and returns a matrix giving the transitional
@@ -1231,6 +1204,36 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	}
 	total_leader = if(termination) {sum(data == leader) - 1} else {sum(data == leader)};
 	prob = if (byTotal) {count / (length(data) - 1)} else if(total_leader) {count / total_leader} else {0} ;
+	return(list(probability=prob, termination=termination, count_transitions=count, count_leader=total_leader));
+}
+
+# TODO comment
+.getProbabilityInNSecondsMatrix = function(data, nseconds = 3) {
+	behL = names(table(data$behavior[-length(data$behavior)]));
+	behF = names(table(data$behavior));
+	probMat = matrix(nrow=length(behL), ncol=length(behF), dimnames=list(behL, behF));
+	for (leader in rownames(probMat)) {
+		for (follower in colnames(probMat)) {
+			tmp = .computeTransitionProbabilityInNSeconds(data=data, leader=leader, follower=follower, nseconds);
+			probMat[match(leader, rownames(probMat)), match(follower, colnames(probMat))] = tmp$probability;
+		}
+	}
+	return(probMat);
+}
+
+# TODO comment
+.computeTransitionProbabilityInNSeconds = function (data, leader, follower, nseconds) {
+	count = 0;
+	termination = 0;
+	for (i in which(data$behavior == leader)) {
+		if (i == length(data$behavior)) {
+			termination = 1;
+		} else if (sum(data$behavior == follower & data$time > data$time[i] & data$time <= data$time[i] + nseconds)) {
+			count = count + 1;
+		}
+	}
+	total_leader = if(termination) {sum(data$behavior == leader) - 1} else {sum(data$behavior == leader)};
+	prob = if(total_leader) {count / total_leader} else {0} ;
 	return(list(probability=prob, termination=termination, count_transitions=count, count_leader=total_leader));
 }
 
@@ -1348,6 +1351,19 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(TPmat);
 }
 
+# Calls .computeEntropyProbMatrix(), but takes a behavior vector as input rather than
+# a probability matrix. This has an advantage in that logs where infrequent behaviors
+# occur spur a warning. 
+.computeEntropyBehVec = function (behvec, possibleBehs = NULL) {
+	infrequentBehs = names(table(behvec)[table(behvec) < 5]); # TODO get rid of magic number
+	if (length(infrequentBehs > 0)) {
+		warning(paste('"', infrequentBehs, '" occurs less than five times in this log. This will likely throw off your group averages.\n  ', sep = ''), immediate. = T);
+	}
+	
+	probMat = .getProbabilityMatrix(behvec, byTotal = F);
+	return(.computeEntropyProbMatrix(probMat, possibleBehs));
+}
+	
 # Source: ethograms_from_scorevideo.R
 # Reads in a probability matrix and returns a list containing:
 #    1. $probMat, the input probability matrix
@@ -1359,17 +1375,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # possibleBehs is the list of possible followers - this corrects for the situation where (for example)
 #   a log that only has 2 out of 10 behaviors has artificially high entropy. It has NO ERROR CHECKING.
 #   Be careful!
-.computeEntropyBehVec = function (behvec, possibleBehs = NULL) {
-	infrequentBehs = names(table(behvec)[table(behvec) < 5]); # TODO get rid of magic number
-	if (length(infrequentBehs > 0)) {
-		warning(paste('"', infrequentBehs, '" occurs less than five times in this log. This will likely throw off your group averages.\n  ', sep = ''), immediate. = T);
-	}
-	
-	probMat = .getProbabilityMatrix(behvec, byTotal = F);
-	return(.computeEntropyProbMatrix(probMat, possibleBehs));
-}
-	
-	
 .computeEntropyProbMatrix = function (probMat, possibleBehs = NULL) {
 	if (is.null(possibleBehs)) possibleBehs = dimnames(probMat)[[2]];
 	hMat = matrix(nrow = length(probMat[,1]), ncol = length(possibleBehs), dimnames = list(dimnames(probMat)[[1]], possibleBehs));
@@ -1815,68 +1820,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 ## BEHAVIORAL DENSITY PLOTS                                                                        ##
 #####################################################################################################
 
-# Returns a vector giving the distances between occurances of <centerBeh> and <varBeh> in data frame <data>.
-# If <noRepCenterBeh> is false, the vector has length count(centerBeh)*count(varBeh), and it has distances between every occurance of each behavior.
-# If <noRepCenterBeh> is true, the vector has length roughly 2*count(varBeh), as it only measures distances between a varBeh and its two neighboring centerBehs.
-# Optionally you can provide a buffer, specifying not to count centerBehs that occur too close to the beginning or end of data. This buffer
-# can be given in time (seconds) or behavior counts.
-# This function returns a list containing:
-#     1. <timeDists>, a vector of the distances in times
-#     2. <behDists>, a vector of the distances in behaviors
-#     3. <centerCount>, the number of occurances of behavior centerBeh
-#     4. <varCount>, the number of occurances of behavior varBeh
-.getAllIntervals = function (data, centerBeh, varBeh, startBuffer = 0, endBuffer = 0, bufferInTimes = TRUE, noRepCenterBeh = TRUE) {
-	varBehLocs = which(data$behavior == varBeh);
-	varBehTimes = data$time[varBehLocs];
-	centerBehLocs = which(data$behavior == centerBeh);
-	if (bufferInTimes) {
-		max_time = max(data$time);
-		centerBehTimes = data$time[centerBehLocs];
-		centerBehLocs = centerBehLocs[centerBehTimes > startBuffer & centerBehTimes <= max_time - endBuffer];
-	} else {
-		centerBehLocs = centerBehLocs[as.numeric(centerBehLocs) > startBuffer & as.numeric(centerBehLocs) <= length(data$behavior - endBuffer)];
-	}
-	centerBehTimes = data$time[centerBehLocs];
-	
-	
-	behDists = numeric();
-	timeDists = numeric();
-
-	for (i in 1:length(centerBehLocs)) {
-		if (noRepCenterBeh) {
-			if (i == 1) {
-				if (i == length(centerBehLocs)) { # there is only one centerBehLoc - cannot try to get centerBehLocs[i+1]
-					behDists = c(behDists, varBehLocs - centerBehLocs[i]);
-					timeDists = c(timeDists, varBehTimes - centerBehTimes[i]);
-				} else {
-					behDists = c(behDists, varBehLocs[varBehLocs <= centerBehLocs[i+1]] - centerBehLocs[i]);
-					timeDists = c(timeDists, varBehTimes[varBehTimes <= centerBehTimes[i+1]] - centerBehTimes[i]);
-				}			
-			} else if (i == length(centerBehLocs)) {
-				behDists = c(behDists, varBehLocs[varBehLocs >= centerBehLocs[i-1]] - centerBehLocs[i]);
-				timeDists = c(timeDists, varBehTimes[varBehTimes >= centerBehTimes[i-1]] - centerBehTimes[i]);				
-			} else {
-				behDists = c(behDists, varBehLocs[varBehLocs >= centerBehLocs[i-1] & varBehLocs <= centerBehLocs[i+1]] - centerBehLocs[i]);
-				timeDists = c(timeDists, varBehTimes[varBehTimes >= centerBehTimes[i-1] & varBehTimes <= centerBehTimes[i+1]] - centerBehTimes[i]);
-			}
-		} else {
-			behDists = c(behDists, varBehLocs - centerBehLocs[i]);
-			timeDists = c(timeDists, varBehTimes - centerBehTimes[i]);
-		}
-	}
-	
-	if (length(centerBehLocs) == 0) {
-		behDists = timeDists = numeric();
-	}
-	
-	if (centerBeh == varBeh) {
-		behDists <- behDists[behDists != 0];
-		timeDists <- timeDists[timeDists != 0];
-	}
-	return(list(behDists=behDists, timeDists=timeDists, centerCount = length(centerBehLocs), varCount = length(varBehLocs)));
-}
-
-
 # Draws behavioral density graphs centered at each behavior in <targetBehs>, or each behavior in the color key if no <targetBehs>
 # are provided. <data> is separated by experimental group, and the plots for each group are drawn stacked on top of each other.
 # For more information, look at the documentation for .behavioralDensityGraph().
@@ -1968,63 +1911,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 }
 
 # Helper function for .behavioralDensityGraph()
-# Generates the actual behavioral density plot, plotting the lines given by <behHistograms>.
-.plotBehDensityPlot = function(behHistograms, behaviorsToPlotAndColors, filename, groupName, weightingStyle, lim, ymax, centerBeh, lineWidth, lineType) {
-	ylabel = if(weightingStyle == "density") "Density"
-			 else if(weightingStyle=="singlebeh") "Fraction of individual behavior"
-			 else if(weightingStyle=="allbeh") "Fraction of all behaviors"
-			 else if(weightingStyle=="centerbeh") paste("Frequency relative to", centerBeh)
-			 else "Average Count";	
-	plot(x = 0, y = 0, col = "white", xlim = c(-lim, lim), ylim = c(0, ymax), main = paste(centerBeh, groupName, sep = ""), xlab = paste("Time after", centerBeh, "(seconds)"),
-			ylab = ylabel);
-
-	centerLineColor = if (centerBeh %in% behaviorsToPlotAndColors[,1]) behaviorsToPlotAndColors[which(behaviorsToPlotAndColors[,1] == centerBeh), 2] else "black";
-	abline(v = 0, col = centerLineColor, lwd = lineWidth, lty = "dashed");
-	par(new = TRUE);
-
-	for (i in 1:(dim(behaviorsToPlotAndColors)[1])) {
-		lines(x = behHistograms[[i]]$x, y = behHistograms[[i]]$y, col = behaviorsToPlotAndColors[i, 2],
-			 lwd = lineWidth, lty = lineType)
-		par(new = TRUE);
-	}
-	par(new = FALSE);
-
-	.plotColorLegend(behaviorsToPlotAndColors, -lim, ymax, as.lines = T, lwd = 3, cex = .6)
-}
-
-# Helper function for .behavioralDensityGraph()
-# Gets behavioral density data using the density() function for a single pair of behaviors
-# to use in behavioral density plots.
-# Returns a list of <x>, the time-values to be plotted; <y>, the density values to be plotted
-# (created by averaging together the density values at that time for each log in <data>); and
-# <matrix>, the matrix of the density values for each individual log that had its columns
-# averaged together to get <y>.
-# TODO put AFTER .getBehHist
-.getBehDensityHist = function(data, centerBeh, varBeh, noRepCenterBeh, lim, densityBW = .5, densityN = 512) {
-	predictedDensityN = ((0:(densityN - 1)) * 2 * lim / (densityN - 1)) - lim;
-	mat = matrix(nrow = length(data), ncol = densityN, dimnames = list(names(data), predictedDensityN));
-	for (fish in 1:length(data)) {
-		x <- .getAllIntervals(data[[fish]], centerBeh, varBeh, noRepCenterBeh = noRepCenterBeh);
-		p = NA;
-		if (length(x$timeDists) > 0) {
-			p <- density(x$timeDists, bw = densityBW, from = -lim, to = lim, n = densityN);
-		} else {
-			p <- list(x = NULL, y = rep(0, times = densityN));
-		}
-		mat[fish,] <- p$y;
-		if (is.null(dimnames(mat)[[2]])) {
-			dimnames(mat)[[2]] <- p$x;
-		} else if (!is.null(p$x) && sum(p$x != dimnames(mat)[[2]]) > 0) {
-			if (sum(abs(p$x - as.numeric(dimnames(mat)[[2]]))) > .00000001) {
-				warning("Density breaks do not match! (", sum(p$x != dimnames(mat)[[2]]), " errors)", immediate. = T)
-			}
-			dimnames(mat)[[2]] <- p$x;
-		}
-	}
-	return(list(x = as.numeric(dimnames(mat)[[2]]), y=apply(mat, 2, mean), matrix = mat));
-}
-
-# Helper function for .behavioralDensityGraph()
 # Gets behavioral density data using histograms with normalization style <weightingStyle> for a
 # single pair of behaviors to use in behavioral density plots.
 # Returns a list of <x>, the time-values to be plotted; <y>, the density values to be plotted
@@ -2062,6 +1948,177 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(list(x = as.numeric(dimnames(mat)[[2]]), y=apply(mat, 2, mean), matrix = mat));
 }
 
+# Helper function for .behavioralDensityGraph()
+# Gets behavioral density data using the density() function for a single pair of behaviors
+# to use in behavioral density plots.
+# Returns a list of <x>, the time-values to be plotted; <y>, the density values to be plotted
+# (created by averaging together the density values at that time for each log in <data>); and
+# <matrix>, the matrix of the density values for each individual log that had its columns
+# averaged together to get <y>.
+.getBehDensityHist = function(data, centerBeh, varBeh, noRepCenterBeh, lim, densityBW = .5, densityN = 512) {
+	predictedDensityN = ((0:(densityN - 1)) * 2 * lim / (densityN - 1)) - lim;
+	mat = matrix(nrow = length(data), ncol = densityN, dimnames = list(names(data), predictedDensityN));
+	for (fish in 1:length(data)) {
+		x <- .getAllIntervals(data[[fish]], centerBeh, varBeh, noRepCenterBeh = noRepCenterBeh);
+		p = NA;
+		if (length(x$timeDists) > 0) {
+			p <- density(x$timeDists, bw = densityBW, from = -lim, to = lim, n = densityN);
+		} else {
+			p <- list(x = NULL, y = rep(0, times = densityN));
+		}
+		mat[fish,] <- p$y;
+		if (is.null(dimnames(mat)[[2]])) {
+			dimnames(mat)[[2]] <- p$x;
+		} else if (!is.null(p$x) && sum(p$x != dimnames(mat)[[2]]) > 0) {
+			if (sum(abs(p$x - as.numeric(dimnames(mat)[[2]]))) > .00000001) {
+				warning("Density breaks do not match! (", sum(p$x != dimnames(mat)[[2]]), " errors)", immediate. = T)
+			}
+			dimnames(mat)[[2]] <- p$x;
+		}
+	}
+	return(list(x = as.numeric(dimnames(mat)[[2]]), y=apply(mat, 2, mean), matrix = mat));
+}
+
+# Returns a vector giving the distances between occurances of <centerBeh> and <varBeh> in data frame <data>.
+# If <noRepCenterBeh> is false, the vector has length count(centerBeh)*count(varBeh), and it has distances between every occurance of each behavior.
+# If <noRepCenterBeh> is true, the vector has length roughly 2*count(varBeh), as it only measures distances between a varBeh and its two neighboring centerBehs.
+# Optionally you can provide a buffer, specifying not to count centerBehs that occur too close to the beginning or end of data. This buffer
+# can be given in time (seconds) or behavior counts.
+# This function returns a list containing:
+#     1. <timeDists>, a vector of the distances in times
+#     2. <behDists>, a vector of the distances in behaviors
+#     3. <centerCount>, the number of occurances of behavior centerBeh
+#     4. <varCount>, the number of occurances of behavior varBeh
+.getAllIntervals = function (data, centerBeh, varBeh, startBuffer = 0, endBuffer = 0, bufferInTimes = TRUE, noRepCenterBeh = TRUE) {
+	varBehLocs = which(data$behavior == varBeh);
+	varBehTimes = data$time[varBehLocs];
+	centerBehLocs = which(data$behavior == centerBeh);
+	if (bufferInTimes) {
+		max_time = max(data$time);
+		centerBehTimes = data$time[centerBehLocs];
+		centerBehLocs = centerBehLocs[centerBehTimes > startBuffer & centerBehTimes <= max_time - endBuffer];
+	} else {
+		centerBehLocs = centerBehLocs[as.numeric(centerBehLocs) > startBuffer & as.numeric(centerBehLocs) <= length(data$behavior - endBuffer)];
+	}
+	centerBehTimes = data$time[centerBehLocs];
+	
+	
+	behDists = numeric();
+	timeDists = numeric();
+
+	for (i in 1:length(centerBehLocs)) {
+		if (noRepCenterBeh) {
+			if (i == 1) {
+				if (i == length(centerBehLocs)) { # there is only one centerBehLoc - cannot try to get centerBehLocs[i+1]
+					behDists = c(behDists, varBehLocs - centerBehLocs[i]);
+					timeDists = c(timeDists, varBehTimes - centerBehTimes[i]);
+				} else {
+					behDists = c(behDists, varBehLocs[varBehLocs <= centerBehLocs[i+1]] - centerBehLocs[i]);
+					timeDists = c(timeDists, varBehTimes[varBehTimes <= centerBehTimes[i+1]] - centerBehTimes[i]);
+				}			
+			} else if (i == length(centerBehLocs)) {
+				behDists = c(behDists, varBehLocs[varBehLocs >= centerBehLocs[i-1]] - centerBehLocs[i]);
+				timeDists = c(timeDists, varBehTimes[varBehTimes >= centerBehTimes[i-1]] - centerBehTimes[i]);				
+			} else {
+				behDists = c(behDists, varBehLocs[varBehLocs >= centerBehLocs[i-1] & varBehLocs <= centerBehLocs[i+1]] - centerBehLocs[i]);
+				timeDists = c(timeDists, varBehTimes[varBehTimes >= centerBehTimes[i-1] & varBehTimes <= centerBehTimes[i+1]] - centerBehTimes[i]);
+			}
+		} else {
+			behDists = c(behDists, varBehLocs - centerBehLocs[i]);
+			timeDists = c(timeDists, varBehTimes - centerBehTimes[i]);
+		}
+	}
+	
+	if (length(centerBehLocs) == 0) {
+		behDists = timeDists = numeric();
+	}
+	
+	if (centerBeh == varBeh) {
+		behDists <- behDists[behDists != 0];
+		timeDists <- timeDists[timeDists != 0];
+	}
+	return(list(behDists=behDists, timeDists=timeDists, centerCount = length(centerBehLocs), varCount = length(varBehLocs)));
+}
+
+# Helper function for .behavioralDensityGraph()
+# Generates the actual behavioral density plot, plotting the lines given by <behHistograms>.
+.plotBehDensityPlot = function(behHistograms, behaviorsToPlotAndColors, filename, groupName, weightingStyle, lim, ymax, centerBeh, lineWidth, lineType) {
+	ylabel = if(weightingStyle == "density") "Density"
+			 else if(weightingStyle=="singlebeh") "Fraction of individual behavior"
+			 else if(weightingStyle=="allbeh") "Fraction of all behaviors"
+			 else if(weightingStyle=="centerbeh") paste("Frequency relative to", centerBeh)
+			 else "Average Count";	
+	plot(x = 0, y = 0, col = "white", xlim = c(-lim, lim), ylim = c(0, ymax), main = paste(centerBeh, groupName, sep = ""), xlab = paste("Time after", centerBeh, "(seconds)"),
+			ylab = ylabel);
+
+	centerLineColor = if (centerBeh %in% behaviorsToPlotAndColors[,1]) behaviorsToPlotAndColors[which(behaviorsToPlotAndColors[,1] == centerBeh), 2] else "black";
+	abline(v = 0, col = centerLineColor, lwd = lineWidth, lty = "dashed");
+	par(new = TRUE);
+
+	for (i in 1:(dim(behaviorsToPlotAndColors)[1])) {
+		lines(x = behHistograms[[i]]$x, y = behHistograms[[i]]$y, col = behaviorsToPlotAndColors[i, 2],
+			 lwd = lineWidth, lty = lineType)
+		par(new = TRUE);
+	}
+	par(new = FALSE);
+
+	.plotColorLegend(behaviorsToPlotAndColors, -lim, ymax, as.lines = T, lwd = 3, cex = .6)
+}
+
+
+# Statistically compares behaviors occurring in the windowwww. but, ALL BEHAVIORS LITERAL ALL. TODO actually comment
+# TODO nice interface for examining JUST TWO BEHS.
+.compareBehTimeWindow = function(data, outfilePrefix, windowStart = 0, windowEnd = 1,
+								 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), ...) {
+	data = .filterDataList(data, renameStartStop = TRUE);
+	groupwiseLogs = .sepGroups(data);
+	
+	timeMatsByGroup = list();
+	for (group in groupwiseLogs$groupNames) {
+		timeMatsByGroup[[group]] <- .makeTimeWindowMat(groupwiseLogs$groupData[[group]], groupwiseLogs$behnames, windowStart, windowEnd);
+		write.csv(timeMatsByGroup[[group]], file = paste(outfilePrefix, group, "timeMats_datadump.csv", sep = "_"));
+	}
+	
+	return(.runStats(dataByGroup = timeMatsByGroup, outfilePrefix = paste(outfilePrefix, "timeMats", sep = "_"),
+			tests = tests, ...));
+}
+
+# TODO comment
+.makeTimeWindowMat = function(data, behnames, windowStart, windowEnd) {
+	behcombos = .getBehcombosNames(behnames);
+	nbehs = length(behnames);
+	twMat = matrix(nrow = nbehs * nbehs, ncol = length(data), dimnames = list(behcombos, names(data)));
+	
+	for (behCombo in behcombos) {
+		leaderBeh = gsub(" -> .*", "", behCombo);
+		followerBeh = gsub(".* -> ", "", behCombo);
+		for (subject in names(data)) {
+			twMat[behCombo, subject] = .getProbabilityOfBehInTimeWindow(data[[subject]], leaderBeh, followerBeh, windowStart, windowEnd);
+		}
+	}
+	return(twMat);
+}
+
+# Gives the probability of varBeh occuring within the closed interval [windowStart, windowEnd]
+# seconds after <centerBeh> (or technically before if these values are negative). <data> is a
+# SINGLE score log.
+.getProbabilityOfBehInTimeWindow = function(data, centerBeh, varBeh, windowStart = 0, windowEnd = 1) {
+	if (windowEnd <= windowStart) stop("Bad window given.");
+	
+	centerBehTimes = data$time[data$behavior == centerBeh];
+	nBehsInWindow = numeric();
+	
+	for (t in centerBehTimes) {
+		nBehsInWindow = c(nBehsInWindow, sum(data$behavior == varBeh & data$time >= t + windowStart & data$time <= t + windowEnd));
+	}
+	
+	
+	norm = if (length(centerBehTimes) > 0) length(centerBehTimes) else 1;
+	if (length(centerBehTimes) == 0 && sum(nBehsInWindow) != 0) stop ("Divide by zero error.")
+	
+	# print(nBehsInWindow);
+	return(sum(nBehsInWindow) / norm);
+}
 
 # Runs a statistical comparison of the behavioral densities of <varBehs> relative to <centerBeh> at
 # every timepoint in the interval (-lim, lim) and outputs the results to files starting with <outfilePrefix>.
@@ -2099,64 +2156,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		masterMat = rbind(masterMat, miniMat);
 	}
 	return(masterMat);
-}
-
-
-
-
-# Gives the probability of varBeh occuring within the closed interval [windowStart, windowEnd]
-# seconds after <centerBeh> (or technically before if these values are negative). <data> is a
-# SINGLE score log.
-.getProbabilityOfBehInTimeWindow = function(data, centerBeh, varBeh, windowStart = 0, windowEnd = 1) {
-	if (windowEnd <= windowStart) stop("Bad window given.");
-	
-	centerBehTimes = data$time[data$behavior == centerBeh];
-	nBehsInWindow = numeric();
-	
-	for (t in centerBehTimes) {
-		nBehsInWindow = c(nBehsInWindow, sum(data$behavior == varBeh & data$time >= t + windowStart & data$time <= t + windowEnd));
-	}
-	
-	
-	norm = if (length(centerBehTimes) > 0) length(centerBehTimes) else 1;
-	if (length(centerBehTimes) == 0 && sum(nBehsInWindow) != 0) stop ("Divide by zero error.")
-	
-	# print(nBehsInWindow);
-	return(sum(nBehsInWindow) / norm);
-}
-
-# Statistically compares behaviors occurring in the windowwww. but, ALL BEHAVIORS LITERAL ALL. TODO actually comment
-# TODO nice interface for examining JUST TWO BEHS.
-.compareBehTimeWindow = function(data, outfilePrefix, windowStart = 0, windowEnd = 1,
-								 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), ...) {
-	data = .filterDataList(data, renameStartStop = TRUE);
-	groupwiseLogs = .sepGroups(data);
-	
-	timeMatsByGroup = list();
-	for (group in groupwiseLogs$groupNames) {
-		timeMatsByGroup[[group]] <- .makeTimeWindowMat(groupwiseLogs$groupData[[group]], groupwiseLogs$behnames, windowStart, windowEnd);
-		write.csv(timeMatsByGroup[[group]], file = paste(outfilePrefix, group, "timeMats_datadump.csv", sep = "_"));
-	}
-	
-	return(.runStats(dataByGroup = timeMatsByGroup, outfilePrefix = paste(outfilePrefix, "timeMats", sep = "_"),
-			tests = tests, ...));
-}
-
-
-# TODO comment
-.makeTimeWindowMat = function(data, behnames, windowStart, windowEnd) {
-	behcombos = .getBehcombosNames(behnames);
-	nbehs = length(behnames);
-	twMat = matrix(nrow = nbehs * nbehs, ncol = length(data), dimnames = list(behcombos, names(data)));
-	
-	for (behCombo in behcombos) {
-		leaderBeh = gsub(" -> .*", "", behCombo);
-		followerBeh = gsub(".* -> ", "", behCombo);
-		for (subject in names(data)) {
-			twMat[behCombo, subject] = .getProbabilityOfBehInTimeWindow(data[[subject]], leaderBeh, followerBeh, windowStart, windowEnd);
-		}
-	}
-	return(twMat);
 }
 
 
