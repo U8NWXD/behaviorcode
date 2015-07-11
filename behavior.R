@@ -2374,6 +2374,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 				par(new = TRUE);
 			}
 		}
+		if ("assay start" %in% dataFrame$behavior) {
+			startTime = dataFrame$time[dataFrame$behavior == "assay start"];
+			assayEnd = startTime + attributes(dataFrame)$assay.length
+			rect(xleft = startTime, xright = assayEnd, ybottom = n - .5, ytop = n + .5, border = "darkgrey", density = 0, lwd = 1);
+		}
 		if(horizontalLines) abline(h=n, col='black');
 	}
 	par(new = FALSE); 
