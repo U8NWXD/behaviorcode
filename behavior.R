@@ -32,6 +32,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 
 # TODO add or ask about folder slash-at-end. Maybe do this in the Big Shell that asks for ONE outfile path.
 # TODO make the Big Shell
+# TODO warnings outfile http://stackoverflow.com/questions/8986495/rhistory-and-saving-all-warnings
 
 #####################################################################################################
 ## TINY HELPERS                                                                                    ##
@@ -644,7 +645,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	}
 	if (renameStartStop) {data = .renameStartStop(data);}
 	if (!is.null(zeroBeh)) {data = .setZeroToNthOfBehavior(data, zeroBeh, zeroBehN)}
-	dimnames(df)[[1]] <- 1:(length(df$time));
+	dimnames(data)[[1]] <- 1:(length(data$time));
 	return(data);
 }
 
@@ -1502,7 +1503,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 #	weird - hacky fix for drawing markov chains weighted by time, where smaller numbers should correspond to thicker lines. Probably don't use this?
 #	singleCharLables - puts labels inside the circles that are large enough to hold a single 24-pt character. Default is all labels outside.
 #	byTotal - was byTotal on or off when creating the probability matrix? (used in line weighting)#
-.buildDotFile = function (probMatrix, originalDataVec, file='', title='untitled', fontsize=24, minValForLine = 0, weird = FALSE, singleCharLabels = FALSE, byTotal = FALSE) {
+.buildDotFile = function (probMatrix, originalDataVec, file='', title='untitled', fontsize=24, minValForLine = 0, weird = FALSE,
+							singleCharLabels = FALSE, byTotal = FALSE, nodesToExclude = character(0)) {
 	# write top line to file
 	cat('digraph', title, '\n', '	{\n', file=file);
 		
@@ -1515,12 +1517,13 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	# # check that behaviors are in same order in freqs and probMatrix
 	if (!(sum(rownames(probMatrix)==names(freqs)) == length(freqs))) {stop('NAMES DONT MATCH, GO FIND AUSTIN!!!')}
 	
-   	toRemove = which(apply(probMatrix, 1, sum) == 0);
+	# TODO BUG probmats are no longer always-square. this needs to be dealt with here. And elsewhere??
+   	#toRemove = which(apply(probMatrix, 1, sum) == 0);
+   	toRemove = which(apply(probMatrix, 1, sum) == 0 | dimnames(probMatrix)[[1]] %in% nodesToExclude);
 	if(length(toRemove)) {
 		probMatrix = probMatrix[-toRemove,-toRemove];
 		freqs = freqs[-toRemove];
     }
-
 	# # compute proportions of behaviors for relative node size
 	for (beh in 1:length(freqs))
 	{
@@ -1532,14 +1535,17 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 			cat('		', gsub('[^A-Za-z1-9]', '', names(freqs)[beh]), ' [width=', prop, ', height=', prop, ', fontsize=', fontsize, '];\n', file=file, append=T, sep='');
 		}
 	}
-	
 	# loop through probMatrix to get probabilities
 	# probMatrix=probMatrix*10;
 	for (row in 1:nrow(probMatrix))
 	{
 		for (col in 1:ncol(probMatrix))
 		{
-			val = if (byTotal) {(probMatrix[row,col] / sum(probMatrix)) * 100} else if (!is.nan(probMatrix[row,1])) {(probMatrix[row,col] / sum(probMatrix[row,])) * 10} else {-1};
+			val = if (byTotal) {(probMatrix[row,col] / sum(probMatrix)) * 100}
+				  else if (is.nan(probMatrix[row,1])) {-1} 
+				  else if (sum(probMatrix[row,])) {(probMatrix[row,col] / sum(probMatrix[row,])) * 10}
+				  else if (probMatrix[row,col] == 0) 0
+				  else stop("divide by 0 error");
 			prob = if(byTotal) val / 100 else val / 10; 
 			if (weird) {val = 10 * (1 - (probMatrix[row,col] / max(probMatrix[row,])));} #FIX THIS !!!TODO
 			if (prob > minValForLine)
@@ -1652,12 +1658,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 }
 
 # Makes group markov chains. Calls .filterDataList with the ... arguments, then calls .groupLevelProbMats, and finally calls .makeDotPlotsFromProbMas.
-.makeGroupDotPlots = function(data, fileprefix, byTotal = FALSE, minValForLine = 0, singleLetterLabels = FALSE, ...) {
+.makeGroupDotPlots = function(data, fileprefix, byTotal = FALSE, minValForLine = 0, singleLetterLabels = FALSE, nodesToExclude = character(0), ...) {
 	data = .filterDataList(data, ...);
 	
 	cleanerDataForPlot <- .filterDataList(data, renameStartStop=T);
 	probMatData <- .groupLevelProbMats(cleanerDataForPlot, byTotal=byTotal);
-	.makeDotPlotsFromProbMas(probMatData, fileprefix, byTotal=byTotal, minValForLine=minValForLine, singleCharLabels=singleLetterLabels);
+	.makeDotPlotsFromProbMas(probMatData, fileprefix, byTotal=byTotal, minValForLine=minValForLine, singleCharLabels=singleLetterLabels, nodesToExclude = nodesToExclude);
 }
 
 
