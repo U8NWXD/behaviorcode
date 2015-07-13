@@ -644,6 +644,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	}
 	if (renameStartStop) {data = .renameStartStop(data);}
 	if (!is.null(zeroBeh)) {data = .setZeroToNthOfBehavior(data, zeroBeh, zeroBehN)}
+	dimnames(df)[[1]] <- 1:(length(df$time));
 	return(data);
 }
 
@@ -2261,7 +2262,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # will be displayed on the y-axis along with sort.name, which should be something like "GSI", "Time in pot",
 # "Spawning count", "Quiver latency", etc.
 # TODO subjects separation (male/female)- make sure it is the same behs!!!!
-.makeMulticolorRasterPlots = function (data, outfilePrefix, behaviorsToPlotAndColors = NULL, durationalBehs = NA,
+.makeMulticolorRasterPlots = function (data, outfilePrefix, behaviorsToPlotAndColors = NULL, durationalBehs = NULL,
 										sortAttribute = NULL, sort.name = "", sort.na.last = T, sort.decreasing = F, 
 										zeroBeh = NULL, zeroBeh.n = 1, ...) {
 	if (!is.null(sortAttribute)) {
@@ -2290,7 +2291,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		startStopBehs = c(startStopBehs, .startStopBehs(dataset));
 	}
 	
-	if (is.na(durationalBehs[1])) {
+	if (is.null(durationalBehs)) {
 		durationalBehs = names(table(startStopBehs));
 		if (is.null(durationalBehs)) durationalBehs <- character()
 	} else {
@@ -2326,9 +2327,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # ticks are very light or invisible, try increasing <defaultDur>. If <horizontalLines> is set
 # to true, a horizontal black line is drawn behind the raster plot for each subject.
 .makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, plotTitle = NULL, wiggle = .2, defaultDur = 2,
-									  durationalBehs = NA, staggerSubjects = F, widthInInches = 12, rowHeightInInches = .3,
+									  durationalBehs = NULL, staggerSubjects = F, widthInInches = 12, rowHeightInInches = .3,
 									  horizontalLines = F, linesBetweenLogs = F, sep = 0) {
-	if (!is.na(durationalBehs)) .checkDurationalBehs(durationalBehs, data, behaviorsToPlotAndColors);
+	if (!is.null(durationalBehs)) .checkDurationalBehs(durationalBehs, data, behaviorsToPlotAndColors);
 	plotHeight = rowHeightInInches * length(data) + par("mai")[1] + par("mai")[3];
 	if (!is.null(filename)) jpeg(filename = filename, width = widthInInches, height = plotHeight, units = "in", quality = 100, res = 300, type = "quartz");
 	
@@ -2336,7 +2337,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	num_subj = length(subjects);
 	maxtime = max(unlist(lapply(data, function(d){max(d$time)})));
 	mintime = min(c(0, unlist(lapply(data, function(d){min(d$time)}))));
-	ssBehs = if(is.na(durationalBehs[1])) .startStopBehs(data) else durationalBehs;
+	ssBehs = if(is.null(durationalBehs[1])) .startStopBehs(data) else durationalBehs;
 	
 	.validateColorKey(behaviorsToPlotAndColors);
 	singleBehsAndColors = rbind(NULL, behaviorsToPlotAndColors[!(behaviorsToPlotAndColors[,1] %in% ssBehs),]);
@@ -2368,9 +2369,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 						# ybottom = n - .45;
 					}
 				}
-				rect(xleft = times, xright = times + defaultDur,
-					 ybottom = ybottom, ytop = ytop,
-					 col = temp_behcolors[i,2], border = NA);
+				# rect(xleft = times, xright = times + defaultDur,
+					 # ybottom = ybottom, ytop = ytop,
+					 # col = temp_behcolors[i,2], border = NA);
+				segments(x0 = times, y0 = ybottom, y1 = ytop, col = temp_behcolors[i,2], lty = "solid")
 	
 				par(new = TRUE);
 			}
@@ -2380,6 +2382,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 			assayEnd = startTime + attributes(dataFrame)$assay.length
 			rect(xleft = startTime, xright = assayEnd, ybottom = n - .5, ytop = n + .5, border = "darkgrey", density = 0, lwd = 1);
 		}
+	}
+	for (n in 1:num_subj) {
 		if(horizontalLines) abline(h=n, col='black');
 		if(linesBetweenLogs) abline(h=n + .5, col='black');
 		if (linesBetweenLogs && n == 1) abline(h=n - .5, col='black');
