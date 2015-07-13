@@ -2326,7 +2326,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # ticks are very light or invisible, try increasing <defaultDur>. If <horizontalLines> is set
 # to true, a horizontal black line is drawn behind the raster plot for each subject.
 .makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, plotTitle = NULL, wiggle = .2, defaultDur = 2,
-									  durationalBehs = NA, staggerSubjects = F, widthInInches = 12, rowHeightInInches = .3, horizontalLines = F) {
+									  durationalBehs = NA, staggerSubjects = F, widthInInches = 12, rowHeightInInches = .3,
+									  horizontalLines = F, linesBetweenLogs = F, sep = 0) {
 	if (!is.na(durationalBehs)) .checkDurationalBehs(durationalBehs, data, behaviorsToPlotAndColors);
 	plotHeight = rowHeightInInches * length(data) + par("mai")[1] + par("mai")[3];
 	if (!is.null(filename)) jpeg(filename = filename, width = widthInInches, height = plotHeight, units = "in", quality = 100, res = 300, type = "quartz");
@@ -2356,15 +2357,15 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 				beh = temp_behcolors[i,1];
 				# print(beh);
 				times = dataFrame$time[dataFrame$behavior == beh];
-				ybottom = n - 0.5;
-				ytop = n + 0.5;
+				ybottom = n - 0.5 + (sep / 2);
+				ytop = n + 0.5 - (sep / 2);
 				if (staggerSubjects && dataFrame$subject[dataFrame$behavior == beh][1] %in% c("male", "female")) {
 					if (dataFrame$subject[dataFrame$behavior == beh][1] == "male") {
 						ybottom = n;
-						ytop = n + .45;
+						# ytop = n + .45;
 					} else {
 						ytop = n;
-						ybottom = n - .45;
+						# ybottom = n - .45;
 					}
 				}
 				rect(xleft = times, xright = times + defaultDur,
@@ -2380,6 +2381,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 			rect(xleft = startTime, xright = assayEnd, ybottom = n - .5, ytop = n + .5, border = "darkgrey", density = 0, lwd = 1);
 		}
 		if(horizontalLines) abline(h=n, col='black');
+		if(linesBetweenLogs) abline(h=n + .5, col='black');
+		if (linesBetweenLogs && n == 1) abline(h=n - .5, col='black');
 	}
 	par(new = FALSE); 
 
