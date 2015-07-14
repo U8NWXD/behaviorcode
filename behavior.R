@@ -1288,7 +1288,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		}
 	}
 	
-	nfish[which(nfish == 0)] <- 1; # to avoid dividing by zero
+	nfish[which(nfish == 0)] <- 1; # to avoid dividing by zero # TODO the actual val here should be NA. but then .compareTPMs crashes :(
 	
 	if (byTotal) {
 		probMat = probMat / length(probmas);
@@ -1543,7 +1543,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		{
 			val = if (byTotal) {(probMatrix[row,col] / sum(probMatrix)) * 100}
 				  else if (is.nan(probMatrix[row,1])) {-1} 
-				  else if (sum(probMatrix[row,])) {(probMatrix[row,col] / sum(probMatrix[row,])) * 10}
+				  # else if (sum(probMatrix[row,])) {(probMatrix[row,col] / sum(probMatrix[row,])) * 10}
+				  else if (sum(probMatrix[row,])) {(probMatrix[row,col]) * 10}
 				  else if (probMatrix[row,col] == 0) 0
 				  else stop("divide by 0 error");
 			prob = if(byTotal) val / 100 else val / 10; 
@@ -2334,7 +2335,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # to true, a horizontal black line is drawn behind the raster plot for each subject.
 .makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, plotTitle = NULL, wiggle = .2, defaultDur = 2,
 									  durationalBehs = NULL, staggerSubjects = F, widthInInches = 12, rowHeightInInches = .3,
-									  horizontalLines = F, linesBetweenLogs = F, sep = 0) {
+									  horizontalLines = F, linesBetweenLogs = F, sep = 0, durBehBounds = NULL) {
 	if (!is.null(durationalBehs)) .checkDurationalBehs(durationalBehs, data, behaviorsToPlotAndColors);
 	plotHeight = rowHeightInInches * length(data) + par("mai")[1] + par("mai")[3];
 	if (!is.null(filename)) jpeg(filename = filename, width = widthInInches, height = plotHeight, units = "in", quality = 100, res = 300, type = "quartz");
@@ -2402,7 +2403,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	
 	nSsBehs = length(ssBehs);
 	if (nSsBehs > 0) {
-		durBehBounds = data.frame(bottomBound = ((0:(nSsBehs - 1)) * 2 * wiggle / nSsBehs) - wiggle, topBound = ((1:nSsBehs) * 2 * wiggle / nSsBehs) - wiggle);
+		if (is.null(durBehBounds)) durBehBounds = data.frame(bottomBound = ((0:(nSsBehs - 1)) * 2 * wiggle / nSsBehs) - wiggle, topBound = ((1:nSsBehs) * 2 * wiggle / nSsBehs) - wiggle);
 		# print(durBehBounds);
 		dimnames(durBehBounds)[[1]] <- ssBehsAndColors[,1];
 	
