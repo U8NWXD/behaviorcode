@@ -2437,6 +2437,50 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 
 
 
+.secondsToPreviousBeh = function(log, prevbeh, centerbeh) {
+	times = numeric()
+	centerrep = numeric()
+	#print(which(log$behavior == centerbeh))
+	#print(which(log$behavior == prevbeh))
+	for (i in which(log$behavior == centerbeh)) {
+		prevbehlocs = which(log$behavior == prevbeh & log$time < log$time[i]);
+		prevbehloc = if(length(prevbehlocs)) max(prevbehlocs) else 0;
+		# print(prevbeh)
+		prevtime = if(prevbehloc) log$time[prevbehloc] else -1;
+		times = c(times, if(prevbehloc) log$time[i] - prevtime else Inf)
+		centerrep = c(centerrep, sum(log$behavior == centerbeh & log$time < log$time[i] & log$time > prevtime))
+	}
+	return(data.frame(time = times, centerRepeated = centerrep))
+}
+
+.assembleNSecondsBeforeTargetBeh = function(log, nseconds, targetbeh) {
+	targetBehIndices = which(log$behavior == targetbeh);
+	targetBehTimes = log$time[targetBehIndices];
+	startTimes = targetBehTimes - nseconds;
+	newDat = data.frame();
+	for (i in 1:length(targetBehIndices)) {
+		newDat = rbind(newDat, data.frame(time = startTimes[i], behavior = "START", subject = "none", type = "start", pair_time = targetBehTimes[i], duration = nseconds));
+		rowsToAdd = log[log$time >= startTimes[i] & log$time <= targetBehTimes[i],];
+		rowsToAdd$behavior[rowsToAdd$behavior == targetbeh & rowsToAdd$time < targetBehTimes[i]] <- paste("other", targetbeh);
+		newDat = rbind(newDat, rowsToAdd)
+	}
+	return(newDat);
+}
+
+.assembleNBehsBeforeTargetBeh = function(log, nbehs, targetbeh) {
+	targetBehIndices = which(log$behavior == targetbeh);
+	startIndices = targetBehIndices - nbehs;
+	newDat = data.frame();
+	for (i in 1:length(targetBehIndices)) {
+		newDat = rbind(newDat, data.frame(time = log$time[startIndices[i]], behavior = "START", subject = "none", type = NA, pair_time = NA, duration = NA));
+		rowsToAdd = log[startIndices[i]:(targetBehIndices[i] - 1),];
+		rowsToAdd$behavior[rowsToAdd$behavior == targetbeh] <- paste("other", targetbeh);
+		newDat = rbind(newDat, rowsToAdd, log[targetBehIndices[i],]);
+	}
+	return(newDat);
+}
+
+
 ###########
 # Other Functions
 ###########
@@ -2569,7 +2613,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 
 # TODO figure out how to preserve time numbers, etc in 3D data structure. list beh=current, time=, subj=, type=, .......
 # TODO sort. Try do.call() stdlib function.
-.getAllContexts = function(behaviorName, data, k=NULL, kbefore=0, kafter=0) {
+.getAllContextsMat = function(behaviorName, data, k=NULL, kbefore=0, kafter=0) {
 	if (!is.null(k)) {
 		kbefore = k;
 		kafter = k;
@@ -2589,6 +2633,22 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(df);
 }
 
+
+.getAllContextsVec = function(behaviorName, data, k=NULL, kbefore=0, kafter=0) {
+	if (!is.null(k)) {
+		kbefore = k;
+		kafter = k;
+	}
+	indicesVector = which(data$behavior == behaviorName);
+	indicesVector = indicesVector[indicesVector > kbefore & indicesVector <= (length(data$behavior) - kafter)];
+	if (length(indicesVector) == 0) warning(paste("Zero occurances of", behaviorName, "within margins in data provided to .getAllContexts"));
+	if (length(indicesVector) < 3) warning(paste("Only", length(indicesVector), "occurances of", behaviorName, "in data provided to .getAllContexts"));
+	contexts = data$behavior[indicesVector - kbefore];
+	for (i in (-kbefore + 1):kafter) {
+		contexts = paste(contexts, data$behavior[indicesVector + i], sep = ' | ');
+	}
+	return(contexts);
+}
 
 
 
