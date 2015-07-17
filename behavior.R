@@ -1357,6 +1357,13 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(TPmat);
 }
 
+.tpmatForClustering = function(data, byTotal = F, nSeconds = NA) {
+	data = .filterDataList(data, renameStartStop = TRUE);
+	groupPMs = if (is.na(nSeconds)) lapply(data, function(d) {.getProbabilityMatrix(d$behavior, byTotal=byTotal)})
+			   else lapply(data, function(d) {.getProbabilityInNSecondsMatrix(d, nSeconds)});
+	return(.makeTPMatrix(groupPMs, names(.findDupBehaviors(data)), byTotal));
+}
+
 # Calls .computeEntropyProbMatrix(), but takes a behavior vector as input rather than
 # a probability matrix. This has an advantage in that logs where infrequent behaviors
 # occur spur a warning. 
