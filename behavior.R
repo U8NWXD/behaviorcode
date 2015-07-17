@@ -771,7 +771,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # frame data. An example use of this function would be to replace "Male in pot" with
 # "Male In Pot"
 .replaceBeh = function(data, toReplace, replacement) {
-	data$behavior[data$behavior == toReplace] <- replacement;
+	data$behavior[data$behavior %in% toReplace] <- replacement;
 	return(data);
 }
 
