@@ -542,6 +542,18 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(attribute);
 }
 
+.matchIndexRosa = function(suppData, data, IDCol) {
+	indexCol = numeric(length(suppData[, IDCol]));
+	for (i in 1:length(suppData[, IDCol])) {
+		subj = suppData[i, IDCol];
+		logs = gsub('.*/([0-9]*)_.*', '\\1', names(data)) == subj;
+		if (sum(logs) == 0) indexCol[i] <- NA
+		else if (sum(logs) == 1) indexCol[i] <- which(logs)
+		else warning(paste("More than one log matches assay name", subj), immediate. = TRUE)
+	}
+	return(indexCol)
+}
+
 # The next four functions return behavior count, latency, total duration, and average duration
 # as an attribute-vector to use in .sortByAttribute().
 
@@ -613,7 +625,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 #   startTime/endTime!
 .filterData = function(data, startTime = NA, endTime = NA, subjects = NULL, startOnly = NULL,
 					   boutInterval = NULL, stateBehaviors = NULL, minNumBehaviors = NULL, toExclude = NULL,
-					   renameStartStop = FALSE, zeroBeh = NULL, zeroBehN = 1) {
+					   renameStartStop = FALSE, zeroBeh = NULL, zeroBehN = 1, noRepBehs = F) {
 	if (!is.na(startTime)) {data <- data[data$time >= startTime,];}
 	if (!is.na(endTime)) {data <- data[data$time <= endTime,];}
 	if (!is.null(subjects)) {
@@ -645,6 +657,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	}
 	if (renameStartStop) {data = .renameStartStop(data);}
 	if (!is.null(zeroBeh)) {data = .setZeroToNthOfBehavior(data, zeroBeh, zeroBehN)}
+	if (noRepBehs) {data = .elimRepBehs(data)}
 	dimnames(data)[[1]] <- 1:(length(data$time));
 	return(data);
 }
@@ -761,7 +774,17 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(data);
 }
 
-
+.elimRepBehs = function(log) {
+	toElim = numeric()
+	behaviors = names(table(log$behavior));
+	for (beh in behaviors) {
+		indices = which(log$behavior == beh);
+		toElim = c(toElim, indices[(indices - 1) %in% indices])
+	}
+	toElim = 1:length(log$behavior) %in% toElim;
+	return(log[!toElim,])
+}
+# TODO deal w/ startstop
 
 
 
@@ -1003,9 +1026,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 .bootstrapWrapper = function(argList) {
 	# print(argList);
 	if(!("trials" %in% names(argList))) argList$trials <- 10000;
+	if (!("Func" %in% names(argList))) argList$Func <- 'mean';
 	bs = bootstrap2independent(argList$x, argList$y, dataDescriptor = argList$row,
 	       						 outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"),
-	       						 groupNames = argList$groupNames, trials = argList$trials, printResults = FALSE, verbose = FALSE);
+	       						 groupNames = argList$groupNames, trials = argList$trials, printResults = FALSE, verbose = FALSE, Func = argList$Func);
 	# print(list(p = bs$p.value, dat = bs$data));
 	return(list(p.value = bs$p));
 }
@@ -1015,11 +1039,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # The function must be passed in in a list.
 .bootstrapPairedWrapper = function(argList) {
 	if(!("trials" %in% names(argList))) argList$trials <- 10000;
+	if (!("Func" %in% names(argList))) argList$Func <- 'mean';
 	sumVec = argList$x + argList$y;
 	if (sum(sumVec[!is.na(sumVec)]) == 0) return(list(p.value = NA));
 	bs = bootstrap2paired(argList$x, argList$y, dataDescriptor = argList$row,
 	       						 outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"),
-	       						 conditionNames = argList$groupNames, trials = argList$trials, printResults = FALSE, verbose = FALSE);
+	       						 conditionNames = argList$groupNames, trials = argList$trials, printResults = FALSE, verbose = FALSE, Func = argList$Func);
 	return(list(p.value = bs$p));
 }
 
@@ -1144,6 +1169,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		
 	orderedGroups[[3]] <- orderedGroups[[3]] - orderedGroups[[1]];
 	orderedGroups[[4]] <- orderedGroups[[4]] - orderedGroups[[2]];
+	names(orderedGroups)[3:4] <- paste(names(orderedGroups[3:4]), "Minus", names(orderedGroups[1:2]), sep = '')
+	# TODO output
 	return(orderedGroups[3:4]);
 }
 
@@ -2280,7 +2307,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 										sortAttribute = NULL, sort.name = "", sort.na.last = T, sort.decreasing = F, 
 										zeroBeh = NULL, zeroBeh.n = 1, ...) {
 	if (!is.null(sortAttribute)) {
-		names(data) <- paste(names(data), "                               ", sort.name, ":", as.character(sortAttribute));
+		names(data) <- paste(names(data), "                               ", sort.name, ":", as.character(signif(sortAttribute, digits = 5)));
 		data <- .sortByAttribute(data, sortAttribute, na.last = sort.na.last, decreasing = sort.decreasing);
 	}
 	
