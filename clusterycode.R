@@ -1,4 +1,5 @@
 library(dynamicTreeCut)
+library(WGCNA)
 
 
 
@@ -13,6 +14,8 @@ library(dynamicTreeCut)
 		par(oma = c(20,0,3,15));
 		heatmap(correlationsMat, symm = T, main = name);
 		dev.off();
+		
+		print(name)
 	
 		for (clustStyle in c("complete", "average")) {
 			hc = hclust(as.dist(1 - correlationsMat), method = clustStyle);
@@ -21,8 +24,8 @@ library(dynamicTreeCut)
 			dev.off();
 			
 			# for (minClusterSize in 3:(dim(correlationsMat)[1] / 3)) {
-			for (minClusterSize in 3:5) {
-				moduleNums = cutreeDynamic(hc, distM = 1 - correlationsMat, minClusterSize = minClusterSize, cutHeight = .995);
+			for (minClusterSize in 3) {
+				moduleNums = cutreeDynamic(hc, distM = 1 - correlationsMat, minClusterSize = minClusterSize, cutHeight = .995, verbose = 0);
 				moduleColors = c('darkgrey', rainbow(max(moduleNums)))[moduleNums + 1];
 				jpeg(paste(paste(outPref, name, "modules", clustStyle, "minClusterSize", minClusterSize, sep = "_"), "jpg", sep = '.'), width = 1024, height = 1024)
 				plotDendroAndColors(hc, moduleColors, main = paste(name, ' (', clustStyle, ', minClusterSize = ', minClusterSize, ')', sep = ''));
