@@ -1012,18 +1012,28 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 #   Latencies are only compared for behaviors that occur in at least <minNumLogs> score logs in each group. Graphs output by the
 #   bootstrap function are also saved.
 .calcBasicStats = function(data, outfilePrefix, tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), ...) {
-	groupwiseLogs = .sepGroups(data);
-
-	durBehDat = lapply(data, function(d) {d[!is.na(d$type) & d$type == "start",]});
-	durBehNames = names(table(unlist(lapply(durBehDat, function(f) {names(table(f$behavior))}))));
-	dataByGroup = list();
-	for (group in groupwiseLogs$groupNames) {
-		dataByGroup[[group]] <- .extractBasicStats(groupwiseLogs$groupData[[group]], groupwiseLogs$behnames, durBehNames);
-		write.csv(dataByGroup[[group]]$total, file = paste(outfilePrefix, group, "data.csv", sep = "_"));
-	}
-	return(.runStats(dataByGroup = lapply(dataByGroup, function(d){d$total}), outfilePrefix = paste(outfilePrefix, "basicstats", sep = "_"),
+	basicStatMats = function(...) {return(.extractBasicStats(...)$total)}
+	dataByGroup = .getGroupMats(data, basicStatMats, outfilePrefix = paste(outfilePrefix, "basicstats", sep = "_"),
+								renameStartStop = FALSE, durBehNames = .startStopBehs(data))
+	return(.runStats(dataByGroup = dataByGroup, outfilePrefix = paste(outfilePrefix, "basicstats", sep = "_"),
 			tests = tests, ...));
 }
+
+# Calls groupMatrixFxn() on the logs belonging to each group in logList, then returns the resulting matrices
+# (one for each group, with a column for each subject in the group) as a list. Parameters in the ... are
+# passed on to groupMatrixFxn().
+# TODO better comment
+.getGroupMats = function(logList, groupMatrixFxn, outfilePrefix = NULL, renameStartStop = TRUE, ...) {
+	if (renameStartStop) {logList = .filterDataList(logList, renameStartStop = TRUE);}
+	groupwiseLogs = .sepGroups(logList);
+	matsByGroup = list();
+	for (group in groupwiseLogs$groupNames) {
+		matsByGroup[[group]] <- groupMatrixFxn(groupwiseLogs$groupData[[group]], groupwiseLogs$behnames, ...);
+		if (!is.null(outfilePrefix)) write.csv(matsByGroup[[group]], file = paste(outfilePrefix, group, "data.csv", sep = '_'));
+	}
+	return(matsByGroup);
+}
+
 
 # A wrapper function for bootstrap2independent that makes it play well with .runStats
 # argList must contain x, y, row, outfilePrefix, groupNames, and can optionally contain <trials> (the number of trials).
@@ -1332,35 +1342,34 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(list(probMat = probMat, counts = countVec, nfish = nfish));
 }
 
+# TODO comment
+.tpgroupmatsWrapper = function(data, behnames, byTotal, nSeconds, outPref) {
+	groupPMs = if (is.na(nSeconds)) lapply(data, function(d) {.getProbabilityMatrix(d$behavior, byTotal=byTotal)})
+			   else lapply(data, function(d) {.getProbabilityInNSecondsMatrix(d, nSeconds)});
+	groupPMsAndCounts = list(probMats = groupPMs, counts = lapply(data, function(d) {table(d$behavior)}));
+	probMat = .combineProbabilityMatrices(groupPMsAndCounts, behnames, byTotal)$probMat;
+	# if (is.na(nSeconds) && ((byTotal && sum(probMat) != 1) || (!byTotal && max(abs(apply(probMat,1,sum) - 1)) > 1e-15))) {
+		# print(probMat);
+		# print(sum(probMat));
+		# print(apply(probMat, 1, sum));
+		# stop("Something is wrong about this probability matrix - the probabilities don't add up to 1. See Katrina for help.");
+	# } TODO restore check. IF a beh never occurs in a group, bad :(
+	write.csv(probMat, file = paste(outPref, "transitionalprobabilities", gsub("/.*$", '', names(data)[1]), "average.csv", sep = "_")); # TODO bad this is dependent on current group-sepping conditions :(
+	return(.makeTPMatrix(groupPMs, behnames, byTotal))
+}
+
 # Compares the transitional probabilities of every pair of behaviors between the first two experimental groups of <data>.
 # These values are compared with three different tests: wilcox.test(), t.test(), and bootstrap2independent(). Transitional
 # probabilities are only compared for behaviors that occur in at least <minNumLogs> score logs in each group, and where at
 # least one animal had a nonzero transitional probability. Graphs output by the bootstrap function are also saved.
 .compareTransitionalProbabilities = function(data, outfilePrefix, byTotal = FALSE, nSeconds = NA,
 											 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), ...) {
-	data = .filterDataList(data, renameStartStop = TRUE);
-	groupwiseLogs = .sepGroups(data);
+	transProbsByGroup = .getGroupMats(data, .tpgroupmatsWrapper, paste(outfilePrefix, "transitionalprobabilities", sep = "_"),
+									  renameStartStop = TRUE, byTotal = byTotal, nSeconds = nSeconds, outPref = outfilePrefix);
 	
-	transProbsByGroup = list();
-	for (group in groupwiseLogs$groupNames) {
-		groupPMs = if (is.na(nSeconds)) lapply(groupwiseLogs$groupData[[group]], function(d) {.getProbabilityMatrix(d$behavior, byTotal=byTotal)})
-				   else lapply(groupwiseLogs$groupData[[group]], function(d) {.getProbabilityInNSecondsMatrix(d, nSeconds)});
-		transProbsByGroup[[group]] <- .makeTPMatrix(groupPMs, groupwiseLogs$behnames, byTotal);
-		write.csv(transProbsByGroup[[group]], file = paste(outfilePrefix, group, "transitionalprobabilities_datadump.csv", sep = "_"));
-		groupPMsAndCounts = list(probMats = groupPMs, counts = lapply(groupwiseLogs$groupData[[group]], function(d) {table(d$behavior)}));
-		probMat = .combineProbabilityMatrices(groupPMsAndCounts, groupwiseLogs$behnames, byTotal)$probMat;
-		# if (is.na(nSeconds) && ((byTotal && sum(probMat) != 1) || (!byTotal && max(abs(apply(probMat,1,sum) - 1)) > 1e-15))) {
-			# print(probMat);
-			# print(sum(probMat));
-			# print(apply(probMat, 1, sum));
-			# stop("Something is wrong about this probability matrix - the probabilities don't add up to 1. See Katrina for help.");
-		# } TODO restore check. IF a beh never occurs in a group, bad :(
-		write.csv(probMat, file = paste(outfilePrefix, group, "transitionalprobabilities_average.csv", sep = "_"));
-	}
 	return(.runStats(dataByGroup = transProbsByGroup, outfilePrefix = paste(outfilePrefix, "transitionalprobabilities", sep = "_"),
 			tests = tests, skipNA = !byTotal, ...));
 }
-
 
 # Helper function for .compareTransitionalProbabilities(). Returns a matrix with a row for each pair of
 # behaviors and a column for each subject, giving the transitional probability for that pair of behaviors
@@ -1498,17 +1507,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # only compared for behaviors that occur in at least <minNumLogs> score logs in each group. Graphs output by
 # the bootstrap function are also saved.
 .compareEntropy = function(data, outfilePrefix, tests = list(t.test = t.test, wilcox = wilcox.test,
-						   bootstrap = list(func = .bootstrapWrapper)), ...) {
-	data = .filterDataList(data, renameStartStop = TRUE);
-	groupwiseLogs = .sepGroups(data);
-	# 	return(list(groupNames = groupNames, groupData = groupData, behnames = behnames));
-	
-	entropiesByGroup = list();
-	for (group in groupwiseLogs$groupNames) {
-		entropyVecs = lapply(groupwiseLogs$groupData[[group]], function(d) {.computeEntropyBehVec(d$behavior, groupwiseLogs$behnames)$h_norm});
-		entropiesByGroup[[group]] <- .makeEntropyVecMatrix(entropyVecs, groupwiseLogs$behnames);
-		write.csv(entropiesByGroup[[group]], file = paste(outfilePrefix, group, "entropydata.csv", sep = "_"));
+						   bootstrap = list(func = .bootstrapWrapper)), ...) {		   	
+	groupEntropyMat = function(data, behnames) {
+		entropyVecs = lapply(data, function(d) {.computeEntropyBehVec(d$behavior, behnames)$h_norm});
+		return(.makeEntropyVecMatrix(entropyVecs, behnames));
 	}
+	entropiesByGroup = .getGroupMats(data, groupEntropyMat, paste(outfilePrefix, "entropy", sep = "_"), renameStartStop = FALSE)
 	return(.runStats(dataByGroup = entropiesByGroup, outfilePrefix = paste(outfilePrefix, "entropy", sep = "_"),
 					 tests = tests, skipNA = T, ...));
 }
