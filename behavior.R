@@ -812,6 +812,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(table(unlist(lapply(data, function(f) {names(table(f$behavior))}))));
 }
 
+.behnames = function(data) {
+	return(names(table(unlist(lapply(data, function(f) {f$behavior})))));
+}
+
 # Makes <leader> into a durational behavior with stops at each occurance of <follower> in the log <data>.
 # If <rename>, follower occurances are renamed to <leader>. (recommended)
 .makeDurationalBehavior = function (data, leader, follower) {
@@ -939,6 +943,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # In this implementation, score logs that did not come from a folder (either from grouped datasets
 #    or ungrouped datasets) are placed in "Default Group".
 .sepGroups = function(data) {
+	# return(list(groupNames = "Fish", groupData = list(Fish = data), behnames = names(.findDupBehaviors(data))));}
 	groupNames = names(table(gsub("((.+)/)?.+", "\\2", names(data))));
 	ungrouped = "" %in% groupNames
 	groupNames[groupNames == ""] <- "Default Group";
@@ -1344,12 +1349,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		write.csv(transProbsByGroup[[group]], file = paste(outfilePrefix, group, "transitionalprobabilities_datadump.csv", sep = "_"));
 		groupPMsAndCounts = list(probMats = groupPMs, counts = lapply(groupwiseLogs$groupData[[group]], function(d) {table(d$behavior)}));
 		probMat = .combineProbabilityMatrices(groupPMsAndCounts, groupwiseLogs$behnames, byTotal)$probMat;
-		if (is.na(nSeconds) && ((byTotal && sum(probMat) != 1) || (!byTotal && max(abs(apply(probMat,1,sum) - 1)) > 1e-15))) {
-			print(probMat);
-			print(sum(probMat));
-			print(apply(probMat, 1, sum));
-			stop("Something is wrong about this probability matrix - the probabilities don't add up to 1. See Katrina for help.");
-		}
+		# if (is.na(nSeconds) && ((byTotal && sum(probMat) != 1) || (!byTotal && max(abs(apply(probMat,1,sum) - 1)) > 1e-15))) {
+			# print(probMat);
+			# print(sum(probMat));
+			# print(apply(probMat, 1, sum));
+			# stop("Something is wrong about this probability matrix - the probabilities don't add up to 1. See Katrina for help.");
+		# } TODO restore check. IF a beh never occurs in a group, bad :(
 		write.csv(probMat, file = paste(outfilePrefix, group, "transitionalprobabilities_average.csv", sep = "_"));
 	}
 	return(.runStats(dataByGroup = transProbsByGroup, outfilePrefix = paste(outfilePrefix, "transitionalprobabilities", sep = "_"),
@@ -2308,6 +2313,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 										zeroBeh = NULL, zeroBeh.n = 1, ...) {
 	if (!is.null(sortAttribute)) {
 		names(data) <- paste(names(data), "                               ", sort.name, ":", as.character(signif(sortAttribute, digits = 5)));
+		# names(data) <- paste(names(data), "                                   ", as.character(signif(sortAttribute, digits = 3))); # was for Scott
+		# names(data) <- paste(names(data), "                                   ", as.character(signif(sortAttribute, digits = 3)));
 		data <- .sortByAttribute(data, sortAttribute, na.last = sort.na.last, decreasing = sort.decreasing);
 	}
 	
@@ -2342,6 +2349,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	for (i in 1:length(groupwiseLogs$groupNames)) {
 		.makeMulticolorRasterPlot(groupwiseLogs$groupData[[i]], behaviorsToPlotAndColors,
 									filename = paste(outfilePrefix, "_rasterplot_", groupwiseLogs$groupNames[i], ".jpeg", sep = ''),
+							#		filename = paste(outfilePrefix, "_rasterplot_", groupwiseLogs$groupNames[i], ".tiff", sep = ''), # was for Scott
 									plotTitle = groupwiseLogs$groupNames[i], durationalBehs = durationalBehs, ...)
 	}
 }
@@ -2372,7 +2380,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 									  horizontalLines = F, linesBetweenLogs = F, sep = 0, durBehBounds = NULL) {
 	if (!is.null(durationalBehs)) .checkDurationalBehs(durationalBehs, data, behaviorsToPlotAndColors);
 	plotHeight = rowHeightInInches * length(data) + par("mai")[1] + par("mai")[3];
+	# print(filename)
 	if (!is.null(filename)) jpeg(filename = filename, width = widthInInches, height = plotHeight, units = "in", quality = 100, res = 300, type = "quartz");
+#	if (!is.null(filename)) tiff(filename = filename, width = widthInInches, height = plotHeight, units = "in", res = 300, type = "quartz"); was for Scott
 	
 	subjects = names(data);
 	num_subj = length(subjects);
@@ -2432,6 +2442,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	par(new = FALSE); 
 
 	title(xlab = "time (seconds)", main = plotTitle);
+	# title(xlab = "time (seconds)", ylab = "GSI", main = plotTitle); was for Scott
 	axis(2, at=1:num_subj, labels=subjects, tick=F, las=2);
 	axis(1, yaxp=c(mintime, maxtime, 10), col='white', col.ticks='black');
 	
@@ -2683,7 +2694,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	}
 	return(contexts);
 }
-
 
 
 
