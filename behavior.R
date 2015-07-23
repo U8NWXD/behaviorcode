@@ -506,59 +506,75 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 }
 
 
-.standardizeLogOrder = function(data) {
+.standardizeLogOrder = function(data, pairLogsFn = NULL) {
 	groupwiseData = .sepGroups(data);
 	groupPairingMat = attributes(data)$group.pairing;
 	
 	newLogOrder = character();
 	for (group in 1:nrow(groupPairingMat)) {
 		grlogs = groupwiseData$groupData[groupPairingMat[group,]];
-		newLogOrder = c(newLogOrder, .stdOrderOneGroup(lapply(grlogs, names), dimnames(groupPairingMat)[[1]][group], dimnames(groupPairingMat)[[2]]))
+		newLogOrder = c(newLogOrder, .stdOrderOneGroup(lapply(grlogs, names), dimnames(groupPairingMat)[[1]][group], dimnames(groupPairingMat)[[2]], pairLogsFn))
 	}
 	# print(newLogOrder);
 	return(data[newLogOrder]); # TODO check attr is conserved. # IT ISNT HOUSTON WE HAVE A PROBLEM. This is also gonna be an issue after calling .filterDataList or doing anything at all, really :((
 }
 
 # TODO implement
-.stdOrderOneGroup = function(lognamesByTimepoint, groupName, timepointNames) {
+.stdOrderOneGroup = function(lognamesByTimepoint, groupName, timepointNames, pairLogsFn = NULL) { # TODO add pairLogsFn
 	dat = character()
-	orderMat = NULL;
-	for (subject in lognamesByTimepoint[[1]]) {
-		row = subject;
-		for (followupGroup in lognamesByTimepoint[-1]) {
-			## TODO REPLACE THIS SECTION WITH A BETTER ALGORITHM (buggy, incorrect, sometimes loops infinitely)
-			subLen = 5;
-			uniqueMatches = NULL;
-			while (is.null(uniqueMatches)) {
-				for (j in 1:(nchar(subject) - subLen)) {
-					searchstring = substr(subject, j, j + subLen);
-					matches = grepl(paste("/.*", searchstring, ".*$", sep = ""), followupGroup);
-					if(sum(matches) == 1) {
-						uniqueMatches = c(uniqueMatches, followupGroup[matches]);
-						uniqueMatches = names(table(uniqueMatches));
-					}
-				}
-				if (!is.null(uniqueMatches) && length(uniqueMatches) > 1) uniqueMatches = NULL;
-				subLen = subLen + 1;
+	orderMat = lognamesByTimepoint[[1]];
+	repeat {
+		for (i in 2:length(lognamesByTimepoint)) {
+			followupGroup = lognamesByTimepoint[[i]];
+			col = character();
+			if (is.null(pairLogsFn)){
+				cat('"');
+				cat(followupGroup, sep = '" "');
+				cat('"\n');
 			}
-			## TODO REPLACE THIS SECTION WITH A BETTER ALGORITHM (buggy, incorrect, sometimes loops infinitely)
-			row = c(row, uniqueMatches);
+			for (subject in lognamesByTimepoint[[1]]) {
+				if (is.null(pairLogsFn)){
+					prompt = paste("Which log at timepoint ", timepointNames[i], " corresponds to log ", subject,
+								   " at timepoint ", timepointNames[1], "? (\"l\" to list options)\n  > ", sep = '');
+					pairLog = .getInputFromList(prompt, followupGroup);
+				} else {
+					pairLog = pairLogsFn(subject, followupGroup);
+				}
+				followupGroup = followupGroup[followupGroup != pairLog];
+				col = c(col, pairLog);
+			}
+			orderMat = cbind(orderMat, col);
 		}
-		orderMat = rbind(orderMat, row);
+		dimnames(orderMat) <- list(NULL, timepointNames);
+		print(orderMat);
+		if (.getYesOrNo("Is this log pairing correct? ")) break;
+		pairLogsFn = NULL;
 	}
-	dimnames(orderMat) <- list(NULL, timepointNames);
-	print(orderMat);
 	return(as.vector(orderMat));
 }
 
 
-.pairGroups = function(data) {
+.pairLogsRosa = function(subject, followupGroup) {
+	subjectID = gsub("^.*/([0-9]*)_.*$", "/\\1_", subject);
+	pairLog = grep(subjectID, followupGroup, value = T);
+	if (length(pairLog) > 1) {
+		warning("MORE THAN ONE MATCH", immediate. = T);
+		pairLog = pairLog[1];
+	} else if (length(pairLog) < 1) {
+		warning("NO MATCH", immediate. = T);
+		pairLog = "";
+	}
+	return(pairLog);
+}
+
+
+.pairGroups = function(data, pairLogsFn = NULL) {
 	groupwiseData = .sepGroups(data);
 	groupNames = groupwiseData$groupNames;
 	groupPairingMat = .getGroupPairingMat(groupNames, unlist(lapply(groupwiseData$groupData, length)));
 	attr(data, "group.pairing") <- groupPairingMat;
 	
-	data = .standardizeLogOrder(data);
+	data = .standardizeLogOrder(data, pairLogsFn);
 	return(data);
 		# TODO make dummies & ifs so this works out w/ 1gr1tp, 2gr1tp, 1gr2tp.
 	
