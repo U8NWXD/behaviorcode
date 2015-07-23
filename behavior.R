@@ -450,6 +450,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 
 # TODO comment
 .getGroupPairingMat = function(groupNames, groupLengths) {
+	if (length(groupNames) == 1) {
+		return(matrix(data = groupNames, nrow = 1, ncol = 1, dimnames = list(groupNames, groupNames)));
+	}
+	
 	cat("Folder names found:\n  \"");
 	cat(groupNames, sep = '" "');
 	cat('"\n');
@@ -461,6 +465,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 			ntimepoints = length(groupNames) / ngroups;
 			if (.getYesOrNo(paste(ngroups, " groups at ", ntimepoints, " timepoints. Is this correct? ", sep = ''))) break;
 		}
+	}
+	
+	if (ntimepoints == 1) {
+		return(matrix(data = groupNames, nrow = ngroups, ncol = 1, dimnames = list(groupNames, "")));
+	} else if (ngroups == 1) {
+		return(matrix(data = groupNames, nrow = 1, ncol = ntimepoints, dimnames = list("", groupNames)))
 	}
 	
 	groupPairingMat = matrix(nrow = ngroups, ncol = ntimepoints, dimnames = list(1:ngroups, 1:ntimepoints));	
@@ -507,9 +517,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 
 
 .standardizeLogOrder = function(data, pairLogsFn = NULL) {
-	groupwiseData = .sepGroups(data);
-	groupPairingMat = attributes(data)$group.pairing;
+	groupPairingMat = attributes(data[[1]])$group.pairing;
+	if (ncol(groupPairingMat) == 1) return(data);
 	
+	groupwiseData = .sepGroups(data);
 	newLogOrder = character();
 	for (group in 1:nrow(groupPairingMat)) {
 		grlogs = groupwiseData$groupData[groupPairingMat[group,]];
@@ -571,63 +582,18 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 .pairGroups = function(data, pairLogsFn = NULL) {
 	groupwiseData = .sepGroups(data);
 	groupNames = groupwiseData$groupNames;
-	groupPairingMat = .getGroupPairingMat(groupNames, unlist(lapply(groupwiseData$groupData, length)));
-	attr(data, "group.pairing") <- groupPairingMat;
+	groupPairingMat = .getGroupPairingMat(groupNames, unlist(lapply(groupwiseData$groupData, length)));	
+	data = lapply(data, function(log){attr(log, 'group.pairing') <- groupPairingMat; return(log)})
 	
 	data = .standardizeLogOrder(data, pairLogsFn);
 	return(data);
-		# TODO make dummies & ifs so this works out w/ 1gr1tp, 2gr1tp, 1gr2tp.
 	
 	# --
-	# TODO figure out the empty logs :((       ))
 	# add attribute ordered = T. test this survives .sepGroups etc. make ordered = F if you .sortLogs or something.
 	# ----
 	# change getDifference to use this info
 	# add options to all cmp fxns to compare (1) 2 groups at a timepoint, (2) 1 group at 2 timepoints, (3) subtraction (2 groups, 2 timepoints)
 	
-}
-
-# Sorts <data> so that logs for subjects at timepoint 1 are paired with their counterparts
-# for timepoint 2. Not necessarily reliable; use caution!
-# TODO confirm w/ user that pairing is correct; if not, user can correct <key>
-.pairLogs = function(data) {
-	groupwiseData = .sepGroups(data);
-	groupNames = groupwiseData$groupNames;
-	groupData = groupwiseData$groupData;
-	if (length(groupNames) != 2) stop("This code is written to deal with two groups. Please see Katrina.");
-
-	key = .makePairKey(names(groupData[[1]]), names(groupData[[2]]), groupNames);
-	return(data[as.vector(key)]);
-}
-
-# Helper function for .pairLogs(). Pairs logs whose longest common substring is longer
-# than either log's longest common substring with any other log.
-# Might loop infinitely if there is a tie. TODO fix that.
-.makePairKey = function(group1Names, group2Names, groupNames) {
-	key = matrix(ncol = 2, nrow = length(group1Names));
-	dimnames(key)[[2]] <- groupNames;
-	key[,1] <- group1Names;
-	group1Names = gsub(paste("^", groupNames[1], "/", sep = ""), "", group1Names);
-	# print(key);
-	for (i in 1:length(group1Names)) {
-		subLen = 5;
-		uniqueMatches = NULL;
-		while (is.null(uniqueMatches)) {
-			for (j in 1:(nchar(group1Names[i]) - subLen)) {
-				searchstring = substr(group1Names[i], j, j + subLen);
-				matches = grepl(paste("^", groupNames[2], "/.*", searchstring, ".*$", sep = ""), group2Names);
-				if(sum(matches) == 1) {
-					uniqueMatches = c(uniqueMatches, group2Names[matches]);
-					uniqueMatches = names(table(uniqueMatches));
-				}
-			}
-			if (!is.null(uniqueMatches) && length(uniqueMatches) > 1) uniqueMatches = NULL;
-			subLen = subLen + 1;
-		}
-		
-		key[i,2] <- uniqueMatches;
-	}
-	return(key);
 }
 
 
