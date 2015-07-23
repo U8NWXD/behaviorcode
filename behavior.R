@@ -1108,7 +1108,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		durTMat = t(durTMat);
 		durAMat = t(durAMat);
 	}
-	comboMat = rbind(t(countsMat), t(latMat), durTMat, durAMat);
+	comboMat = rbind(t(countsMat), durTMat, durAMat);
 	comboMat = comboMat[order(dimnames(comboMat)[[1]]),];
 	
 	return(list(counts = t(countsMat), latencies = t(latMat), durations = durTMat, total = comboMat));
@@ -1122,14 +1122,18 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 #   and control - so this behavior is not terrible) with three different tests - wilcox.test(), t.test(), and bootstrap2independent().
 #   Latencies are only compared for behaviors that occur in at least <minNumLogs> score logs in each group. Graphs output by the
 #   bootstrap function are also saved.
-.calcBasicStats = function(data, outfilePrefix, tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), ...) {
+.compareBasicStats = function(data, outfilePrefix, latTests = NULL, ...) {
 	basicStatMats = function(...) {return(.extractBasicStats(...)$total)}
 	dataByGroup = .getGroupMats(data, basicStatMats, outfilePrefix = paste(outfilePrefix, "basicstats", sep = "_"),
 								renameStartStop = FALSE, durBehNames = .startStopBehs(data))
-	# return(.runStats(dataByGroup = dataByGroup, outfilePrefix = paste(outfilePrefix, "basicstats", sep = "_"),
-			# tests = tests, ...));
-	return(.runStats(dataByGroup = dataByGroup, attributes(data[[1]])$group.pairing, outfilePrefix = paste(outfilePrefix, "basicstats", sep = "_"),
-			tests = tests, ...));		
+	.runStats(dataByGroup = dataByGroup, attributes(data[[1]])$group.pairing, outfilePrefix = paste(outfilePrefix, "basicstats", sep = "_"), ...);
+	
+	latMats = function(...) {return(.extractBasicStats(...)$latencies)}
+	latsByGroup = .getGroupMats(data, latMats, outfilePrefix = paste(outfilePrefix, "latencies", sep = "_"),
+								renameStartStop = FALSE, durBehNames = .startStopBehs(data))
+	if (is.null(latTests)) latTests = list(coxph = list(f = .coxphWrapper, assayLength = attributes(data[[1]])$assay.length));
+	.runStats(dataByGroup = latsByGroup, attributes(data[[1]])$group.pairing, outfilePrefix = paste(outfilePrefix, "latencies", sep = "_"),
+			  tests = latTests, paired_tests = NULL, latencyTest = T, print = F);
 }
 
 # Calls groupMatrixFxn() on the logs belonging to each group in logList, then returns the resulting matrices
@@ -1193,12 +1197,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(list(p.value = as.data.frame(coef(summary(testout)))$Pr));
 }
 
-# TODO arg order has changed. FIX IT EVERYWHERE.
+# TODO comment
 .runStats = function(dataByGroup, groupPairingMat, outfilePrefix,
 					 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)),
-					 paired_tests = list(bootstrapPAIRED = list(func = .bootstrapPairedWrapper)), ...) {
-
-						#				latencyTest = F, minNumLogsForComparison = 3, skipNA = F, print = T) {
+					 paired_tests = list(bootstrapPAIRED = list(f = .bootstrapPairedWrapper)), ...) {
 	if (length(groupPairingMat) != length(dataByGroup)) stop("Number of groups in groupPairingMat and dataByGroup do not match.");
 	groupNames = dimnames(groupPairingMat)[[1]];
 	timepointNames = dimnames(groupPairingMat)[[2]];
@@ -1237,10 +1239,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 				opTP = if (length(timepointNames) > 2) paste(outfilePrefix, "_cmp", timepoint1, timepoint2, sep = '') else outfilePrefix;
 				
 				# run paired test on each group
-				for (group in groupNames) {
-					if (length(groupNames) > 1) cat("  Group ", group, "...\n", sep = '');
-					op = if (length(groupNames) > 1) paste(opTP, group, sep = '_') else opTP;
-					.runStatsTwoGroups(dataByGroup[c(groupPairingMat[group, timepoint1], groupPairingMat[group, timepoint2])], op, tests = paired_tests, ...);
+				if (!is.null(paired_tests)){
+					for (group in groupNames) {
+						if (length(groupNames) > 1) cat("  Group ", group, "...\n", sep = '');
+						op = if (length(groupNames) > 1) paste(opTP, group, sep = '_') else opTP;
+						.runStatsTwoGroups(dataByGroup[c(groupPairingMat[group, timepoint1], groupPairingMat[group, timepoint2])], op, tests = paired_tests, ...);
+					}
 				}
 				
 				# compare differences between groups
@@ -1289,9 +1293,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # that is designed to handle NAs as censored data, override this behavior by setting latencyTest = T. This will override
 # behavior for ALL tests in <tests>, however, so use caution! Other tests may give unreliable results and/or throw errors.
 .runStatsTwoGroups = function(dataByGroup, outfilePrefix, tests, latencyTest = F, minNumLogsForComparison = 3, skipNA = F, print = F) {
-	#.printStuff(outfilePrefix, dataByGroup);}
-	
-	
 	# if (length(dataByGroup) == 4) dataByGroup = .getChange(dataByGroup);
 			# # TODO OUTPUT THOSE MATS.
 	average = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){mean(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, mean);
@@ -1356,47 +1357,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	}
 	write.csv(df, file = paste(outfilePrefix, "stats.csv", sep = "_"));
 	return(df);
-}
-
-# TODO comment
-.getChange = function(dataByGroup) {
-	groupNames = names(dataByGroup);
-	orderedGroups <- as.list(rep(NA, 4));
-	# 1 before 3; 2 before 4.
-	cat("Group names found:\n  \"");
-	cat(groupNames, sep = '" "');
-	cat('"\n');
-	orderedGroups <- .fillWithGroupPair(orderedGroups, groupNames, dataByGroup, 1, 3);
-	groupNames = groupNames[!(groupNames %in% names(orderedGroups))];
-	orderedGroups <- .fillWithGroupPair(orderedGroups, groupNames, dataByGroup, 2, 4);
-	
-	if (sum(dim(orderedGroups[[1]]) != dim(orderedGroups[[3]])) != 0) stop("Matrices to subtract have different dimensions.");
-	if (sum(dim(orderedGroups[[2]]) != dim(orderedGroups[[4]])) != 0) stop("Matrices to subtract have different dimensions.");
-		
-	orderedGroups[[3]] <- orderedGroups[[3]] - orderedGroups[[1]];
-	orderedGroups[[4]] <- orderedGroups[[4]] - orderedGroups[[2]];
-	names(orderedGroups)[3:4] <- paste(names(orderedGroups[3:4]), "Minus", names(orderedGroups[1:2]), sep = '')
-	# TODO output
-	return(orderedGroups[3:4]);
-}
-
-
-# TODO comment
-.fillWithGroupPair = function(orderedGroups, groupNames, dataByGroup, baseIndex, expIndex) {
-	redo = T;
-	while (redo) {
-		baselineName <- .getInputFromList("Please enter the name of a baseline group, or \"l\" to list groups again.\n  > ", groupNames);
-		orderedGroups[[baseIndex]] <- dataByGroup[[baselineName]];
-		names(orderedGroups)[baseIndex] <- baselineName;
-		promptForPair <- paste("  Which group is the experimental pair of baseline group \"", baselineName, '"? (q to cancel)\n  > ', sep = '');
-		expName <- .getInputFromList(promptForPair, groupNames[groupNames != baselineName]);
-		if (expName != "q") {
-			redo = F;
-			orderedGroups[[expIndex]] <- dataByGroup[[expName]];
-			names(orderedGroups)[expIndex] <- expName;
-		}
-	}
-	return(orderedGroups);
 }
 
 
@@ -1554,13 +1514,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # These values are compared with three different tests: wilcox.test(), t.test(), and bootstrap2independent(). Transitional
 # probabilities are only compared for behaviors that occur in at least <minNumLogs> score logs in each group, and where at
 # least one animal had a nonzero transitional probability. Graphs output by the bootstrap function are also saved.
-.compareTransitionalProbabilities = function(data, outfilePrefix, byTotal = FALSE, nSeconds = NA,
-											 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)), ...) {
+.compareTransitionalProbabilities = function(data, outfilePrefix, byTotal = FALSE, nSeconds = NA, ...) {
 	transProbsByGroup = .getGroupMats(data, .tpgroupmatsWrapper, paste(outfilePrefix, "transitionalprobabilities", sep = "_"),
 									  renameStartStop = TRUE, byTotal = byTotal, nSeconds = nSeconds, outPref = outfilePrefix);
 	
-	return(.runStats(dataByGroup = transProbsByGroup, outfilePrefix = paste(outfilePrefix, "transitionalprobabilities", sep = "_"),
-			tests = tests, skipNA = !byTotal, ...));
+	return(.runStats(dataByGroup = transProbsByGroup, attributes(data[[1]])$group.pairing,
+			outfilePrefix = paste(outfilePrefix, "transitionalprobabilities", sep = "_"), skipNA = !byTotal, ...));
 }
 
 # Helper function for .compareTransitionalProbabilities(). Returns a matrix with a row for each pair of
@@ -1698,15 +1657,15 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # are compared with three different tests: wilcox.test(), t.test(), and bootstrap2independent(). Entropies are
 # only compared for behaviors that occur in at least <minNumLogs> score logs in each group. Graphs output by
 # the bootstrap function are also saved.
-.compareEntropy = function(data, outfilePrefix, tests = list(t.test = t.test, wilcox = wilcox.test,
-						   bootstrap = list(func = .bootstrapWrapper)), ...) {		   	
+.compareEntropy = function(data, outfilePrefix, ...) {		   	
 	groupEntropyMat = function(data, behnames) {
 		entropyVecs = lapply(data, function(d) {.computeEntropyBehVec(d$behavior, behnames)$h_norm});
 		return(.makeEntropyVecMatrix(entropyVecs, behnames));
 	}
 	entropiesByGroup = .getGroupMats(data, groupEntropyMat, paste(outfilePrefix, "entropy", sep = "_"), renameStartStop = FALSE)
-	return(.runStats(dataByGroup = entropiesByGroup, outfilePrefix = paste(outfilePrefix, "entropy", sep = "_"),
-					 tests = tests, skipNA = T, ...));
+	return(.runStats(dataByGroup = entropiesByGroup, attributes(data[[1]])$group.pairing,
+					 outfilePrefix = paste(outfilePrefix, "entropy", sep = "_"), skipNA = T, ...));
+					 
 }
 
 
