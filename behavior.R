@@ -1191,6 +1191,79 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(list(p.value = as.data.frame(coef(summary(testout)))$Pr));
 }
 
+# TODO arg order has changed. FIX IT EVERYWHERE.
+.runStats = function(dataByGroup, groupPairingMat, outfilePrefix, ...) {
+
+						#				tests, latencyTest = F, minNumLogsForComparison = 3, skipNA = F, print = T) {
+	if (length(groupPairingMat) != length(dataByGroup)) stop("Number of groups in groupPairingMat and dataByGroup do not match.");
+	groupNames = dimnames(groupPairingMat)[[1]];
+	timepointNames = dimnames(groupPairingMat)[[2]];
+	
+	if (length(timepointNames) == 1) { # only one timepoint. compare groups directly.
+		if (length(groupNames) == 1) {
+			.runStatsTwoGroups(dataByGroup, outfilePrefix, ...)
+		} else {
+			for (i in 1:(length(groupNames) - 1)) {
+				group1 = groupNames[i];
+				for (j in (i + 1):length(groupNames)) {
+					group2 = groupNames[j];
+					if (length(groupNames) > 2) cat("Comparing ", group1, " and ", group2, "...\n", sep = '');
+					op = if (length(groupNames) > 2) paste(outfilePrefix, "_cmp", group1, group2, sep = '') else outfilePrefix;
+					.runStatsTwoGroups(dataByGroup[groupPairingMat[c(group1, group2), 1]], op, ...);
+				}
+			}
+		}
+	} else {
+		# compare groups @ each timepoint
+		if (length(groupNames) > 1) {
+			for (timepoint in timepointNames) {
+				cat("Comparing groups at timepoint ", timepoint, "...\n");
+				.runStats(dataByGroup = dataByGroup[groupPairingMat[,timepoint]],
+						  groupPairingMat = matrix(groupPairingMat[,timepoint], ncol = 1, dimnames = list(groupNames, "")),
+						  outfilePrefix = paste(outfilePrefix, timepoint, sep = '_'), ...);
+			}
+		}
+		
+		# cmp every pair of timepoints
+		for (i in 1:(length(timepointNames) - 1)) {
+			timepoint1 = timepointNames[i];
+			for (j in (i + 1):length(timepointNames)) {
+				timepoint2 = timepointNames[j];
+				if (length(timepointNames) > 2) cat("Comparing ", timepoint1, " and ", timepoint2, "...\n", sep = '');
+				opTP = if (length(timepointNames) > 2) paste(outfilePrefix, "_cmp", timepoint1, timepoint2, sep = '') else outfilePrefix;
+				
+				# run paired test on each group
+				for (group in groupNames) {
+					if (length(groupNames) > 1) cat("  Group ", group, "...\n", sep = '');
+					op = if (length(groupNames) > 1) paste(opTP, group, sep = '_') else opTP;
+					.runStatsTwoGroups(dataByGroup[c(groupPairingMat[group, timepoint1], groupPairingMat[group, timepoint2])], op, ...);
+				}
+				
+				# compare differences between groups
+				if (length(groupNames) > 1) {
+					diffData = list();
+					for (group in groupNames) {
+						diffData = c(diffData, list(dataByGroup[[groupPairingMat[group, timepoint2]]] - dataByGroup[[groupPairingMat[group, timepoint1]]]));
+					}
+					newNames = paste(groupNames, '_', timepoint2, "Minus", timepoint1, sep = '')
+					names(diffData) = newNames;
+					.runStats(dataByGroup = diffData,
+							  groupPairingMat = matrix(newNames, ncol = 1, dimnames = list(newNames, "")),
+							  outfilePrefix = gsub("cmp", "cmpdiff", opTP), ...);
+				}
+			}
+		}
+		
+	}
+}
+
+.printStuff = function(outfilePrefix, dataByGroup) {
+	cat("OUTFILE_PREFIX: ", outfilePrefix, "\n", sep = '')
+	cat("DATA BY GROUP: \"");
+	cat(names(dataByGroup), sep = '" "');
+	cat('"\n\n');
+}
+
 # Calculates the average and standard deviation of <dataByGroup> (and optionally statistical tests in <tests>) and
 #   outputs the results to a .csv starting with <outfilePrefix>. If <skipNA>, the average and standard deviation
 #   are calculated ignoring NAs. ie, average = (sum of not-NA data) / (number of subjects with not-NA data)
@@ -1211,10 +1284,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # By default, rows with fewer than <minNumLogsForComparison> non-NA values are skipped. If you are using a test like coxph
 # that is designed to handle NAs as censored data, override this behavior by setting latencyTest = T. This will override
 # behavior for ALL tests in <tests>, however, so use caution! Other tests may give unreliable results and/or throw errors.
-# TODO double check w/testing that ... didn't mess up the other various stat fxns.
-.runStats = function(dataByGroup, outfilePrefix, tests, latencyTest = F, minNumLogsForComparison = 3, skipNA = F, print = T) {
-	if (length(dataByGroup) == 4) dataByGroup = .getChange(dataByGroup);
-			# TODO OUTPUT THOSE MATS.
+.runStatsTwoGroups = function(dataByGroup, outfilePrefix, tests, latencyTest = F, minNumLogsForComparison = 3, skipNA = F, print = T) {
+	#.printStuff(outfilePrefix, dataByGroup);}
+	
+	
+	# if (length(dataByGroup) == 4) dataByGroup = .getChange(dataByGroup);
+			# # TODO OUTPUT THOSE MATS.
 	average = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){mean(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, mean);
 	stddev = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){sd(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, sd);
 	if (skipNA) {
@@ -1222,6 +1297,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 			allNARows = apply(dataByGroup[[i]], 1, function(row){sum(!is.na(row)) == 0});
 			average[[i]][allNARows] <- NA;
 			stddev[[i]][allNARows] <- NA;
+			# TODO add median
 		}
 	}
 	rownames = dimnames(dataByGroup[[1]])[[1]];
