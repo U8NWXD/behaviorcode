@@ -70,7 +70,10 @@ pointsStaggered = function(x, y, color) {
 } 
 
 
+par(mfrow = c(4,1))
+par(oma = c(0, 1, 0, 0))
 .makeBoxplot(x$durations[1,], names(counts), ylab = "Time attending to females (s)")
 .makeBoxplot(x$durations[2,], names(counts), ylab = "Time attending to males (s)")
 .makeBoxplot(x$durations[4,], names(counts), ylab = "Time maintaining territory (s)")
 .makeBoxplot(counts, names(counts), ylab = "Total number of behaviors")
+dev.off()

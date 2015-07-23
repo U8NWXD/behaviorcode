@@ -516,6 +516,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 }
 
 
+# TODO comment
 .standardizeLogOrder = function(data, pairLogsFn = NULL) {
 	groupPairingMat = attributes(data[[1]])$group.pairing;
 	if (ncol(groupPairingMat) == 1) return(data);
@@ -530,7 +531,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(data[newLogOrder]); # TODO check attr is conserved. # IT ISNT HOUSTON WE HAVE A PROBLEM. This is also gonna be an issue after calling .filterDataList or doing anything at all, really :((
 }
 
-# TODO implement
+# TODO comment
 .stdOrderOneGroup = function(lognamesByTimepoint, groupName, timepointNames, pairLogsFn = NULL) { # TODO add pairLogsFn
 	dat = character()
 	orderMat = lognamesByTimepoint[[1]];
@@ -565,6 +566,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 }
 
 
+# TODO comment
 .pairLogsRosa = function(subject, followupGroup) {
 	subjectID = gsub("^.*/([0-9]*)_.*$", "/\\1_", subject);
 	pairLog = grep(subjectID, followupGroup, value = T);
@@ -578,7 +580,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(pairLog);
 }
 
-
+# TODO comment
 .pairGroups = function(data, pairLogsFn = NULL) {
 	groupwiseData = .sepGroups(data);
 	groupNames = groupwiseData$groupNames;
@@ -589,10 +591,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(data);
 	
 	# --
-	# add attribute ordered = T. test this survives .sepGroups etc. make ordered = F if you .sortLogs or something.
+	# TODO keep track of ordered or not somehow. make ordered = F if you .sortLogs or something. or maybe just throw a warning if you see that there are >= 2 timepoints??
 	# ----
-	# change getDifference to use this info
-	# add options to all cmp fxns to compare (1) 2 groups at a timepoint, (2) 1 group at 2 timepoints, (3) subtraction (2 groups, 2 timepoints)
+	# add options to all cmp fxns about which comparisons to make TODO
 	
 }
 
@@ -1201,7 +1202,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 .runStats = function(dataByGroup, groupPairingMat, outfilePrefix,
 					 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)),
 					 paired_tests = list(bootstrapPAIRED = list(f = .bootstrapPairedWrapper)), ...) {
-	if (length(groupPairingMat) != length(dataByGroup)) stop("Number of groups in groupPairingMat and dataByGroup do not match.");
+	if (length(groupPairingMat) != length(dataByGroup)) stop("Number of groups in groupPairingMat and dataByGroup do not match.");	
 	groupNames = dimnames(groupPairingMat)[[1]];
 	timepointNames = dimnames(groupPairingMat)[[2]];
 	
@@ -1223,7 +1224,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		# compare groups @ each timepoint
 		if (length(groupNames) > 1) {
 			for (timepoint in timepointNames) {
-				cat("Comparing groups at timepoint ", timepoint, "...\n");
+				cat("Comparing groups at timepoint ", timepoint, "...\n", sep = '');
 				.runStats(dataByGroup = dataByGroup[groupPairingMat[,timepoint]],
 						  groupPairingMat = matrix(groupPairingMat[,timepoint], ncol = 1, dimnames = list(groupNames, "")),
 						  outfilePrefix = paste(outfilePrefix, timepoint, sep = '_'), tests = tests, ...);
@@ -1240,10 +1241,14 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 				
 				# run paired test on each group
 				if (!is.null(paired_tests)){
-					for (group in groupNames) {
-						if (length(groupNames) > 1) cat("  Group ", group, "...\n", sep = '');
-						op = if (length(groupNames) > 1) paste(opTP, group, sep = '_') else opTP;
-						.runStatsTwoGroups(dataByGroup[c(groupPairingMat[group, timepoint1], groupPairingMat[group, timepoint2])], op, tests = paired_tests, ...);
+					if (length(groupNames) > 1) {
+						for (group in groupNames) {
+							cat("  Group ", group, "...\n", sep = '');
+							op = paste(opTP, group, sep = '_');
+							.runStatsTwoGroups(dataByGroup[c(groupPairingMat[group, timepoint1], groupPairingMat[group, timepoint2])], op, tests = paired_tests, ...);
+						}
+					} else {
+						.runStatsTwoGroups(dataByGroup[c(groupPairingMat[1, timepoint1], groupPairingMat[1, timepoint2])], opTP, tests = paired_tests, ...);
 					}
 				}
 				
@@ -1252,6 +1257,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 					diffData = list();
 					for (group in groupNames) {
 						diffData = c(diffData, list(dataByGroup[[groupPairingMat[group, timepoint2]]] - dataByGroup[[groupPairingMat[group, timepoint1]]]));
+						# TODO output diff mat as .csv
 					}
 					newNames = paste(groupNames, '_', timepoint2, "Minus", timepoint1, sep = '')
 					names(diffData) = newNames;
@@ -1261,16 +1267,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 				}
 			}
 		}
-		
 	}
 }
 
-.printStuff = function(outfilePrefix, dataByGroup) {
-	cat("OUTFILE_PREFIX: ", outfilePrefix, "\n", sep = '')
-	cat("DATA BY GROUP: \"");
-	cat(names(dataByGroup), sep = '" "');
-	cat('"\n\n');
-}
+
 
 # Calculates the average and standard deviation of <dataByGroup> (and optionally statistical tests in <tests>) and
 #   outputs the results to a .csv starting with <outfilePrefix>. If <skipNA>, the average and standard deviation
@@ -1293,8 +1293,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # that is designed to handle NAs as censored data, override this behavior by setting latencyTest = T. This will override
 # behavior for ALL tests in <tests>, however, so use caution! Other tests may give unreliable results and/or throw errors.
 .runStatsTwoGroups = function(dataByGroup, outfilePrefix, tests, latencyTest = F, minNumLogsForComparison = 3, skipNA = F, print = F) {
-	# if (length(dataByGroup) == 4) dataByGroup = .getChange(dataByGroup);
-			# # TODO OUTPUT THOSE MATS.
 	average = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){mean(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, mean);
 	stddev = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){sd(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, sd);
 	if (skipNA) {
