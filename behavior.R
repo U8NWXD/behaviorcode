@@ -1126,8 +1126,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	basicStatMats = function(...) {return(.extractBasicStats(...)$total)}
 	dataByGroup = .getGroupMats(data, basicStatMats, outfilePrefix = paste(outfilePrefix, "basicstats", sep = "_"),
 								renameStartStop = FALSE, durBehNames = .startStopBehs(data))
-	return(.runStats(dataByGroup = dataByGroup, outfilePrefix = paste(outfilePrefix, "basicstats", sep = "_"),
-			tests = tests, ...));
+	# return(.runStats(dataByGroup = dataByGroup, outfilePrefix = paste(outfilePrefix, "basicstats", sep = "_"),
+			# tests = tests, ...));
+	return(.runStats(dataByGroup = dataByGroup, attributes(data[[1]])$group.pairing, outfilePrefix = paste(outfilePrefix, "basicstats", sep = "_"),
+			tests = tests, ...));		
 }
 
 # Calls groupMatrixFxn() on the logs belonging to each group in logList, then returns the resulting matrices
@@ -1192,9 +1194,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 }
 
 # TODO arg order has changed. FIX IT EVERYWHERE.
-.runStats = function(dataByGroup, groupPairingMat, outfilePrefix, ...) {
+.runStats = function(dataByGroup, groupPairingMat, outfilePrefix,
+					 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)),
+					 paired_tests = list(bootstrapPAIRED = list(func = .bootstrapPairedWrapper)), ...) {
 
-						#				tests, latencyTest = F, minNumLogsForComparison = 3, skipNA = F, print = T) {
+						#				latencyTest = F, minNumLogsForComparison = 3, skipNA = F, print = T) {
 	if (length(groupPairingMat) != length(dataByGroup)) stop("Number of groups in groupPairingMat and dataByGroup do not match.");
 	groupNames = dimnames(groupPairingMat)[[1]];
 	timepointNames = dimnames(groupPairingMat)[[2]];
@@ -1209,7 +1213,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 					group2 = groupNames[j];
 					if (length(groupNames) > 2) cat("Comparing ", group1, " and ", group2, "...\n", sep = '');
 					op = if (length(groupNames) > 2) paste(outfilePrefix, "_cmp", group1, group2, sep = '') else outfilePrefix;
-					.runStatsTwoGroups(dataByGroup[groupPairingMat[c(group1, group2), 1]], op, ...);
+					.runStatsTwoGroups(dataByGroup[groupPairingMat[c(group1, group2), 1]], op, tests = tests, ...);
 				}
 			}
 		}
@@ -1220,7 +1224,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 				cat("Comparing groups at timepoint ", timepoint, "...\n");
 				.runStats(dataByGroup = dataByGroup[groupPairingMat[,timepoint]],
 						  groupPairingMat = matrix(groupPairingMat[,timepoint], ncol = 1, dimnames = list(groupNames, "")),
-						  outfilePrefix = paste(outfilePrefix, timepoint, sep = '_'), ...);
+						  outfilePrefix = paste(outfilePrefix, timepoint, sep = '_'), tests = tests, ...);
 			}
 		}
 		
@@ -1236,7 +1240,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 				for (group in groupNames) {
 					if (length(groupNames) > 1) cat("  Group ", group, "...\n", sep = '');
 					op = if (length(groupNames) > 1) paste(opTP, group, sep = '_') else opTP;
-					.runStatsTwoGroups(dataByGroup[c(groupPairingMat[group, timepoint1], groupPairingMat[group, timepoint2])], op, ...);
+					.runStatsTwoGroups(dataByGroup[c(groupPairingMat[group, timepoint1], groupPairingMat[group, timepoint2])], op, tests = paired_tests, ...);
 				}
 				
 				# compare differences between groups
@@ -1249,7 +1253,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 					names(diffData) = newNames;
 					.runStats(dataByGroup = diffData,
 							  groupPairingMat = matrix(newNames, ncol = 1, dimnames = list(newNames, "")),
-							  outfilePrefix = gsub("cmp", "cmpdiff", opTP), ...);
+							  outfilePrefix = gsub("cmp", "cmpdiff", opTP), tests = tests, ...);
 				}
 			}
 		}
@@ -1284,7 +1288,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # By default, rows with fewer than <minNumLogsForComparison> non-NA values are skipped. If you are using a test like coxph
 # that is designed to handle NAs as censored data, override this behavior by setting latencyTest = T. This will override
 # behavior for ALL tests in <tests>, however, so use caution! Other tests may give unreliable results and/or throw errors.
-.runStatsTwoGroups = function(dataByGroup, outfilePrefix, tests, latencyTest = F, minNumLogsForComparison = 3, skipNA = F, print = T) {
+.runStatsTwoGroups = function(dataByGroup, outfilePrefix, tests, latencyTest = F, minNumLogsForComparison = 3, skipNA = F, print = F) {
 	#.printStuff(outfilePrefix, dataByGroup);}
 	
 	
@@ -1314,7 +1318,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		}
 		for (i in 1:length(rownames)) {
 			row = rownames[i]
-			if(print) cat('Analyzing "', row, '"...\n', sep = "");
+			if(print) cat('    Analyzing "', row, '"...\n', sep = "");
 			group1dat = dataByGroup[[1]][row,];
 			group2dat = dataByGroup[[2]][row,];
 			
