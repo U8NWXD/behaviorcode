@@ -448,8 +448,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(overlapFound);
 }
 
-
-.getGroupPairingMat = function(groupNames) {
+# TODO comment
+.getGroupPairingMat = function(groupNames, groupLengths) {
 	cat("Folder names found:\n  \"");
 	cat(groupNames, sep = '" "');
 	cat('"\n');
@@ -484,10 +484,18 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		cat("\"");
 		cat(groupNames, sep = '" "');
 		cat('"\n');
-		for (i in 1:nrow(groupPairingMat)) { for (j in 1:ncol(groupPairingMat)) {
+		for (i in 1:ngroups) { for (j in 1:ntimepoints) {
 			prompt = paste("Which folder is group \"", dimnames(groupPairingMat)[[1]][i], '" at timepoint "',
 					 dimnames(groupPairingMat)[[2]][j],'"? ("l" to list unused folders)\n  > ', sep = '');
-			groupPairingMat[i,j] = .getInputFromList(prompt, unusedGroupNames);
+			repeat {
+				groupPairingMat[i,j] = .getInputFromList(prompt, unusedGroupNames);
+				if (j > 1 && groupLengths[groupPairingMat[i,1]] != groupLengths[groupPairingMat[i,j]]) {
+					cat("WARNING: Folder ", groupPairingMat[i,j], " has ", groupLengths[groupPairingMat[i,j]],
+					    " logs, while timepoint ", dimnames(groupPairingMat)[[2]][1], " for that group (folder ",
+					    groupPairingMat[i,1], ") has ", groupLengths[groupPairingMat[i,1]], " logs.\n", sep = '');
+					if (.getYesOrNo("Use anyway? ")) break;
+				} else break;
+			}
 			unusedGroupNames = unusedGroupNames[unusedGroupNames != groupPairingMat[i,j]];
 		}}
 		print(groupPairingMat);
@@ -498,38 +506,69 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 }
 
 
+.standardizeLogOrder = function(data) {
+	groupwiseData = .sepGroups(data);
+	groupPairingMat = attributes(data)$group.pairing;
+	
+	newLogOrder = character();
+	for (group in 1:nrow(groupPairingMat)) {
+		grlogs = groupwiseData$groupData[groupPairingMat[group,]];
+		newLogOrder = c(newLogOrder, .stdOrderOneGroup(lapply(grlogs, names), dimnames(groupPairingMat)[[1]][group], dimnames(groupPairingMat)[[2]]))
+	}
+	# print(newLogOrder);
+	return(data[newLogOrder]); # TODO check attr is conserved. # IT ISNT HOUSTON WE HAVE A PROBLEM. This is also gonna be an issue after calling .filterDataList or doing anything at all, really :((
+}
+
+# TODO implement
+.stdOrderOneGroup = function(lognamesByTimepoint, groupName, timepointNames) {
+	dat = character()
+	orderMat = NULL;
+	for (subject in lognamesByTimepoint[[1]]) {
+		row = subject;
+		for (followupGroup in lognamesByTimepoint[-1]) {
+			## TODO REPLACE THIS SECTION WITH A BETTER ALGORITHM (buggy, incorrect, sometimes loops infinitely)
+			subLen = 5;
+			uniqueMatches = NULL;
+			while (is.null(uniqueMatches)) {
+				for (j in 1:(nchar(subject) - subLen)) {
+					searchstring = substr(subject, j, j + subLen);
+					matches = grepl(paste("/.*", searchstring, ".*$", sep = ""), followupGroup);
+					if(sum(matches) == 1) {
+						uniqueMatches = c(uniqueMatches, followupGroup[matches]);
+						uniqueMatches = names(table(uniqueMatches));
+					}
+				}
+				if (!is.null(uniqueMatches) && length(uniqueMatches) > 1) uniqueMatches = NULL;
+				subLen = subLen + 1;
+			}
+			## TODO REPLACE THIS SECTION WITH A BETTER ALGORITHM (buggy, incorrect, sometimes loops infinitely)
+			row = c(row, uniqueMatches);
+		}
+		orderMat = rbind(orderMat, row);
+	}
+	dimnames(orderMat) <- list(NULL, timepointNames);
+	print(orderMat);
+	return(as.vector(orderMat));
+}
+
+
 .pairGroups = function(data) {
 	groupwiseData = .sepGroups(data);
 	groupNames = groupwiseData$groupNames;
-	groupPairingMat = .getGroupPairingMat(groupNames);
+	groupPairingMat = .getGroupPairingMat(groupNames, unlist(lapply(groupwiseData$groupData, length)));
+	attr(data, "group.pairing") <- groupPairingMat;
 	
+	data = .standardizeLogOrder(data);
+	return(data);
+		# TODO make dummies & ifs so this works out w/ 1gr1tp, 2gr1tp, 1gr2tp.
 	
-
-	# save groupPairingMat as an attribute
-	# reorder logs so subtraction in the future will work
+	# --
+	# TODO figure out the empty logs :((       ))
 	# add attribute ordered = T. test this survives .sepGroups etc. make ordered = F if you .sortLogs or something.
-	# return(data)
 	# ----
 	# change getDifference to use this info
 	# add options to all cmp fxns to compare (1) 2 groups at a timepoint, (2) 1 group at 2 timepoints, (3) subtraction (2 groups, 2 timepoints)
 	
-	orderedGroups <- .fillWithGroupPair(orderedGroups, groupNames, dataByGroup, 1, 3);
-	groupNames = groupNames[!(groupNames %in% names(orderedGroups))];
-	orderedGroups <- .fillWithGroupPair(orderedGroups, groupNames, dataByGroup, 2, 4);
-	
-	orderedGroups <- as.list(rep(NA, 4));
-	# 1 before 3; 2 before 4.
-	
-	
-	if (sum(dim(orderedGroups[[1]]) != dim(orderedGroups[[3]])) != 0) stop("Matrices to subtract have different dimensions.");
-	if (sum(dim(orderedGroups[[2]]) != dim(orderedGroups[[4]])) != 0) stop("Matrices to subtract have different dimensions.");
-		
-	orderedGroups[[3]] <- orderedGroups[[3]] - orderedGroups[[1]];
-	orderedGroups[[4]] <- orderedGroups[[4]] - orderedGroups[[2]];
-	names(orderedGroups)[3:4] <- paste(names(orderedGroups[3:4]), "Minus", names(orderedGroups[1:2]), sep = '')
-	# TODO output
-	
-	return(data);
 }
 
 # Sorts <data> so that logs for subjects at timepoint 1 are paired with their counterparts
