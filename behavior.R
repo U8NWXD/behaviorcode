@@ -90,6 +90,13 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(userInput);
 }
 
+# Gets the user to input an integer answer to <prompt>.
+.getInteger = function(prompt) {
+	userInput = readline(prompt);
+	while(!grepl('^[0-9]*$', userInput)) userInput = readline("Please enter an integer: ");
+	return(as.numeric(userInput));
+}
+
 # "Autocompletes" <input> to be one of the strings in <choices> by looking to see if there
 # is exactly one string in <choices> that has <input> as a prefix.
 # If case sensitivity is turned off (default), <input> will be modified to match the case
@@ -441,6 +448,89 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(overlapFound);
 }
 
+
+.getGroupPairingMat = function(groupNames) {
+	cat("Folder names found:\n  \"");
+	cat(groupNames, sep = '" "');
+	cat('"\n');
+	
+	repeat {
+		ngroups = .getInteger("How many experimental groups were there? ");
+		if (length(groupNames) %% ngroups) cat(length(groupNames), " is not a multiple of ", ngroups, ".\n")
+		else {
+			ntimepoints = length(groupNames) / ngroups;
+			if (.getYesOrNo(paste(ngroups, " groups at ", ntimepoints, " timepoints. Is this correct? ", sep = ''))) break;
+		}
+	}
+	
+	groupPairingMat = matrix(nrow = ngroups, ncol = ntimepoints, dimnames = list(1:ngroups, 1:ntimepoints));	
+	repeat {
+		for (i in 1:ngroups) {
+			dimnames(groupPairingMat)[[1]][i] = gsub('^["\'](.*)["\']$', '\\1', readline("Please enter the name of a group (ie 'Control', 'Injected', etc.).\n  > "));
+		}
+		for (i in 1:ntimepoints) {
+			dimnames(groupPairingMat)[[2]][i] = gsub('^["\'](.*)["\']$', '\\1', readline("Please enter the name of a timepoint (ie 'Baseline', 'Day 4', etc.).\n  > "));
+		}
+		cat("Groups:\n  \"");
+		cat(dimnames(groupPairingMat)[[1]], sep = '" "');
+		cat('"\nTimepoints:\n  "');
+		cat(dimnames(groupPairingMat)[[2]], sep = '" "');
+		cat('"\n');
+		if (.getYesOrNo("Is this correct? ")) break;
+	}
+	
+	repeat {
+		unusedGroupNames = groupNames;
+		cat("\"");
+		cat(groupNames, sep = '" "');
+		cat('"\n');
+		for (i in 1:nrow(groupPairingMat)) { for (j in 1:ncol(groupPairingMat)) {
+			prompt = paste("Which folder is group \"", dimnames(groupPairingMat)[[1]][i], '" at timepoint "',
+					 dimnames(groupPairingMat)[[2]][j],'"? ("l" to list unused folders)\n  > ', sep = '');
+			groupPairingMat[i,j] = .getInputFromList(prompt, unusedGroupNames);
+			unusedGroupNames = unusedGroupNames[unusedGroupNames != groupPairingMat[i,j]];
+		}}
+		print(groupPairingMat);
+		if (.getYesOrNo("Is this correct? ")) break;
+	}
+	
+	return(groupPairingMat);
+}
+
+
+.pairGroups = function(data) {
+	groupwiseData = .sepGroups(data);
+	groupNames = groupwiseData$groupNames;
+	groupPairingMat = .getGroupPairingMat(groupNames);
+	
+	
+
+	# save groupPairingMat as an attribute
+	# reorder logs so subtraction in the future will work
+	# add attribute ordered = T. test this survives .sepGroups etc. make ordered = F if you .sortLogs or something.
+	# return(data)
+	# ----
+	# change getDifference to use this info
+	# add options to all cmp fxns to compare (1) 2 groups at a timepoint, (2) 1 group at 2 timepoints, (3) subtraction (2 groups, 2 timepoints)
+	
+	orderedGroups <- .fillWithGroupPair(orderedGroups, groupNames, dataByGroup, 1, 3);
+	groupNames = groupNames[!(groupNames %in% names(orderedGroups))];
+	orderedGroups <- .fillWithGroupPair(orderedGroups, groupNames, dataByGroup, 2, 4);
+	
+	orderedGroups <- as.list(rep(NA, 4));
+	# 1 before 3; 2 before 4.
+	
+	
+	if (sum(dim(orderedGroups[[1]]) != dim(orderedGroups[[3]])) != 0) stop("Matrices to subtract have different dimensions.");
+	if (sum(dim(orderedGroups[[2]]) != dim(orderedGroups[[4]])) != 0) stop("Matrices to subtract have different dimensions.");
+		
+	orderedGroups[[3]] <- orderedGroups[[3]] - orderedGroups[[1]];
+	orderedGroups[[4]] <- orderedGroups[[4]] - orderedGroups[[2]];
+	names(orderedGroups)[3:4] <- paste(names(orderedGroups[3:4]), "Minus", names(orderedGroups[1:2]), sep = '')
+	# TODO output
+	
+	return(data);
+}
 
 # Sorts <data> so that logs for subjects at timepoint 1 are paired with their counterparts
 # for timepoint 2. Not necessarily reliable; use caution!
@@ -1188,6 +1278,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	# TODO output
 	return(orderedGroups[3:4]);
 }
+
 
 # TODO comment
 .fillWithGroupPair = function(orderedGroups, groupNames, dataByGroup, baseIndex, expIndex) {
