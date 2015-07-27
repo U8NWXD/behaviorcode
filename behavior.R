@@ -22,7 +22,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 
 # > eval(parse(text="tmp[order(tmp[,4], tmp[,3], tmp[,2], tmp[,6], tmp[,7]),]"))
 
-
+# TODO add some cluster info and such to the helpfile.
 
 # heatmap(cor(t(probma)), symm = TRUE)
 

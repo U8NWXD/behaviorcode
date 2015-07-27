@@ -29,7 +29,23 @@
 	> my_data <- .stitchLogsTogether(my_data)
    and follow the prompts to combine all the logs for each assay.
 
-3. Edit your data if desired. To pair up two start-only behaviors into a single durational
+3. Sort your data into groups by calling
+	> my_data <- .pairGroups(my_data)
+   Follow the prompts to tell the program how many experimental groups you measured at how
+   many timepoints. You must do this EVEN IF you had only one experimental group at one
+   timepoint.
+
+   If you had more than one timepoint, you may wish to provide a function to match up logs
+   across timepoints:
+	> my_data <- .pairGroups(my_data, my_pair_fn)
+   my_pair_fn should take as its first parameter a log name from the first timepoint
+   (preceded by a folder and a slash) and as its second parameter a character vector of
+   log names from any one followup timepoint (again preceded by their folder and a slash).
+   It should return the log name from the character vector that is the followup log for
+   the log given as the first parameter. For examples of this, see .pairLogsAustin() and
+   .pairLogsRosa().
+
+4. Edit your data if desired. To pair up two start-only behaviors into a single durational
    behavior (for example "pot entry" and "pot exit", call
 	> my_data <- .makeDurationalBehaviorAll(my_data, "pot entry", "pot exit").
    This function will also rename the "end" behavior (ie, "pot exit") to match the start
@@ -56,40 +72,39 @@
    You can also write a function specifically for a given batch of data to clean it up. For
    examples of this, see .cleanUpMariana() and .cleanUpPGF2a().
 
-4. Run .calcBasicStats() on your data. This function outputs several .csv files that can be
+5. Run .compareBasicStats() on your data. This function outputs several .csv files that can be
    opened in Excel:
 	1. "<outfilePrefix>_<GROUPNAME>_data.csv" for each group, which contains the
 	   counts, latencies, total duration, and average duration of each behavior
 	   for each fish in the group; and
 	2. "<outfilePrefix>_stats.csv", which contains the average and standard deviation
 	   for each group of the counts, latencies, and durations of each behavior. It also
-	   has p-values for each measure. P-values are not calculated for the latencies if
-	   there is a group for which fewer than three fish performed the behavior.
+	   has p-values for each measure.
 	3. JPGs of the plots produced by the bootstrap function
    Example function call:
-	> .calcBasicStats(my_data, "~/Desktop/myExperiment");
+	> .compareBasicStats(my_data, "~/Desktop/myExperiment");
 
    If there are fewer than <minNumLogs> observations for a given behavior, the stats will
    be skipped with a warning. The default for this parameter is 3, but you can raise it or
    lower it.
    
    By default, p-values are computed with a student t-test, a wilcox rank test, and an
-   independent bootstrap test (which outputs a JPG for each behavior with histograms and
-   box-and-whisker plots). To pass in your set of stats tests, use the tests parameter.
+   independent bootstrap test with means (which outputs a JPG for each behavior with
+   histograms and box-and-whisker plots). To pass in your own set of stats tests, use
+   the tests parameter.
    For example, to use just the t-test and the wilcox test, you could call
-   	> .calcBasicStats(my_data, "~/Desktop/myExperiment", tests = list(ttest = t.test, wilcox = wilcox.test)
+   	> .compareBasicStats(my_data, "~/Desktop/myExperiment", tests = list(ttest = t.test, wilcox = wilcox.test)
+
+   By default, latencies are compared with a coxph test. IF YOUR ASSAYS WERE DIFFERENT
+   LENGTHS (ie, time-censored at different times) THIS WILL NOT WORK!!!! To compare latencies
+   with a different test, use the parameter latTests just like tests above.
 
    The functions you use MUST take the data as parameters x and y, and MUST return the
    p value as an item named "p.value" in a list. If you're not sure what that last sentence
    meant and you're having trouble, find Katrina or Austin for help. For more information
    about passing arguments to these passed-in functions, see the documentation for .runStats.
 
-   If you want to run the coxph() test to test the latencies as time-censored data, call
-	> .calcBasicStats(practice_data, "__June/junkruns/1437", tests = list(coxph = list(func = .coxphWrapper, assayLength = 1800)), latencyTest = T)
-   This will work if you had 30-minute assays (1800 seconds); if you didn't, change the 1800
-   the length in seconds of your assay.
-
-5. Compare entropies and transitional probabilities. The function calls should be:
+6. Compare entropies and transitional probabilities. The function calls should be:
 	> .compareTransitionalProbabilities(my_data, outfilePrefix = "~/Desktop/myExperiment")
    and
 	> .compareEntropy(my_data, "~/Desktop/myExperiment")
@@ -104,7 +119,7 @@
    boutInterval, etc.) to directly compare two markov chains that show something other
    than just raw transitional probabilities.
 
-6. Make Markov chains. There are several options for this. The most common is 
+7. Make Markov chains. There are several options for this. The most common is 
    .makeGroupDotPlots(), which outputs one markov chain graph for each group. Example
    function call:
 	> .makeGroupDotPlots(my_data, "~/Desktop/unmodified_markov", minValForLine = .02)
@@ -133,13 +148,13 @@
 
    You will need to have GraphViz installed to open and view your Markov chains.
 
-7. Make a color key. To do this, call
+8. Make a color key. To do this, call
    	> my_color_key <- .buildColorKey(names(.findDupBehaviors(my_data)))
    and follow the prompts. This will make a color key that is suitable for raster plots; to
    make one suitable for behavioral density graphs, call
 	> my_color_key <- .buildColorKey(names(.findDupBehaviors(.filterDataList(my_data, renameStartStop = T))))
 
-8. Make raster plots. To do this, call
+9. Make raster plots. To do this, call
         > .makeMulticolorRasterPlots(my_data, "~/Desktop/myExperiment", my_color_key)
    This makes a separate raster plot for each experimental group and outputs the color key
    used. There are a ton of options for this function:
@@ -183,7 +198,7 @@
 	sort in decreasing order, and/or sort.na.last = F to put NAs first or
 	sort.na.last = NA to exclude NA values of your attribute.
 
-9. Make Behavioral Density plots by calling .behavioralDensityGraphs(), which makes one graph
+10.Make Behavioral Density plots by calling .behavioralDensityGraphs(), which makes one graph
    for each behavior in <targetBehs>, or each behavior in my_color_key if <targetBehs> is
    unspecified.
    Example function call:
@@ -218,7 +233,7 @@
    You can also call .behavioralDensityGraph() directly to plot a single graph centered at
    <centerBeh> without separating by group.
 
-10. TODO follow up on leads! (how?)
+11. TODO follow up on leads! (how?)
 
 
 Get Things in R
@@ -240,7 +255,7 @@ Get Things in R
 
    
 
-10. Other Relevant Information (for development)
+12. Other Relevant Information (for development)
 Other functions that are archaic, untested, incomplete, etc. are at the bottom of the file.
 
 .getAllContexts() is the start of what will eventually be used to make branching diagrams.
@@ -254,3 +269,4 @@ TROUBLESHOOTING COMMON ERRORS AND ISSUES:
 Is there a weird character in a behavior name? ie '/', ':', '\', '{', '}', etc.
 Do you need to filter your data to be startOnly or renameStartStop?
 Are you giving this function a single data frame (one log) or a list?
+Have you called .stitchLogsTogether() if applicable and .pairGroups()?
