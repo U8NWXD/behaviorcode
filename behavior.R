@@ -588,12 +588,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(pairLog);
 }
 
-# pairLogsFn
+# pairLogsFn for Austin's gene expression / ascent data
 .pairLogsAustin = function(subject, followupGroup) {
 	date = gsub('^.*/log([0-9]*)_B[567].*$', '\\1', subject);
 	tank = gsub('^.*/log[0-9]*_B([567]).*$', '\\1', subject);
 	followupdate = as.character(as.numeric(date) + 100); # needs assays to be 1 day apart, not starting on December 31
-	searchTerm = paste("/log", followupdate, '_B', tank, sep = '');
+	searchTerm = paste("/log", if (as.numeric(followupdate) >= 100000) '' else '0', followupdate, '_B', tank, sep = '');
 	pairLog = grep(searchTerm, followupGroup, value = T);
 	if (length(pairLog) > 1) {
 		warning("MORE THAN ONE MATCH", immediate. = T);
@@ -1235,6 +1235,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 .runStats = function(dataByGroup, groupPairingMat, outfilePrefix,
 					 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)),
 					 paired_tests = list(bootstrapPAIRED = list(f = .bootstrapPairedWrapper)), ...) {
+	# TODO if (no group pairing mat) call the pairing fxn OR throw a warning/error
 	if (length(groupPairingMat) != length(dataByGroup)) stop("Number of groups in groupPairingMat and dataByGroup do not match.");	
 	groupNames = dimnames(groupPairingMat)[[1]];
 	timepointNames = dimnames(groupPairingMat)[[2]];
