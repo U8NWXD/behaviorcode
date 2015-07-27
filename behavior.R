@@ -771,11 +771,13 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 .filterData = function(data, startTime = NA, endTime = NA, subjects = NULL, startOnly = NULL,
 					   boutInterval = NULL, stateBehaviors = NULL, minNumBehaviors = NULL, toExclude = NULL,
 					   renameStartStop = FALSE, zeroBeh = NULL, zeroBehN = 1, noRepBehs = F) {
+					  # 	print("hi")
 	if (!is.na(startTime)) {data <- data[data$time >= startTime,];}
 	if (!is.na(endTime)) {data <- data[data$time <= endTime,];}
 	if (!is.null(subjects)) {
 		data <- data[data$subject %in% subjects,]
-		if(length(data$behavior) == 0) {stop(paste("Error: Incorrect Subject Name:", subjects))}
+	#	if(length(data$behavior) == 0) {stop(paste("Error: Incorrect Subject Name:", subjects))}
+		if(length(data$behavior) == 0) {warning(paste("No behaviors found for subject", subjects))}
 	}
 	if (!is.null(startOnly)) {
 		if (is.logical(startOnly) && startOnly) {
@@ -1307,7 +1309,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 				if (length(groupNames) > 1) {
 					diffData = list();
 					for (group in groupNames) {
-						diffData = c(diffData, list(dataByGroup[[groupPairingMat[group, timepoint2]]] - dataByGroup[[groupPairingMat[group, timepoint1]]]));
+						diffMat = dataByGroup[[groupPairingMat[group, timepoint2]]] - dataByGroup[[groupPairingMat[group, timepoint1]]];
+						diffData = c(diffData, list(diffMat));
+						write.csv(diffMat, file = paste(opTP, group, 'diffdata.csv', sep = '_'))
 						# TODO output diff mat as .csv
 					}
 					newNames = paste(groupNames, '_', timepoint2, "Minus", timepoint1, sep = '')
