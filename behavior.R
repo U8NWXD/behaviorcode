@@ -282,17 +282,17 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 .promptToElimDups = function(data) {
 	prompt = 'Please enter the name of a behavior that you would like to merge into another behavior, or "l" to print the current list of behaviors or "s" to save and quit.\n> '
 	userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
-	userInput = .autocomplete(userInput, c(names(.findDupBehaviors(data)), "s", "l"), caseSensitive = TRUE);
+	userInput = .autocomplete(userInput, c(.behnames(data), "s", "l"), caseSensitive = TRUE);
 	while (userInput != "s") {
 		if (userInput == "l") {
 			.printFindDupBehaviors(data);
-		} else if (userInput %in% names(.findDupBehaviors(data))) {
+		} else if (userInput %in% .behnames(data)) { # TODO rewrite this to leverage pickFromList and repeat{if () break;}
 			prompt2 = paste('  What behavior do you want to merge "', userInput, '" with? (enter "q" to cancel)\n  > ', sep = "");
 			input2 = gsub('^["\']','', gsub('["\']$','', readline(prompt2)));
-			input2 = .autocomplete(input2, c(names(.findDupBehaviors(data)), "q"), caseSensitive = TRUE);
-			while (!(input2 %in% c(names(.findDupBehaviors(data)), "q"))) {
+			input2 = .autocomplete(input2, c(.behnames(data), "q"), caseSensitive = TRUE);
+			while (!(input2 %in% c(.behnames(data), "q"))) {
 				input2 = gsub('^["\']','', gsub('["\']$','', readline(prompt2)));
-				input2 = .autocomplete(input2, c(names(.findDupBehaviors(data)), "q"), caseSensitive = TRUE);
+				input2 = .autocomplete(input2, c(.behnames(data), "q"), caseSensitive = TRUE);
 			}
 			confirmPrompt = paste('  Are you sure you want to merge behavior "', userInput, '" into "', input2,'"? ', sep = "")
 			if (input2 != "q" && .getYesOrNo(confirmPrompt)) {
@@ -303,7 +303,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		}
 
 		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
-		userInput = .autocomplete(userInput, c(names(.findDupBehaviors(data)), "s", "l"), caseSensitive = TRUE);
+		userInput = .autocomplete(userInput, c(.behnames(data), "s", "l"), caseSensitive = TRUE);
 	}
 	data = .filterDataList(data, renameSubjects = T);
 	return(data);
@@ -816,7 +816,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # renameSubjects is here because we want to rename the same behaviors in the same way across all logs.
 .filterDataList = function(data, renameSubjects = F, ...) {
 	if (renameSubjects) {
-		behaviors <- names(.findDupBehaviors(data));
+		behaviors <- .behnames(data);
 		problemBehs = character()
 		for (beh in behaviors) {
 			if (length(table(unlist(lapply(data, function(d) {d[d$behavior == beh,]$subject})))) != 1) problemBehs <- c(problemBehs, beh);
@@ -969,11 +969,13 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # Returns a table with names of all the behaviors in the logs in <data>, and counts of
 # how many logs each behavior appears in.
 .findDupBehaviors = function(data) {
-	return(table(unlist(lapply(data, function(f) {names(table(f$behavior))}))));
+	tab = table(unlist(lapply(data, function(f) {names(table(f$behavior))})));
+	return(tab[names(tab) != "no behaviors performed"])
 }
 
 .behnames = function(data) {
-	return(names(table(unlist(lapply(data, function(f) {f$behavior})))));
+	behnames = names(table(unlist(lapply(data, function(f) {f$behavior}))));
+	return(behnames[behnames != "no behaviors performed"])
 }
 
 # Makes <leader> into a durational behavior with stops at each occurance of <follower> in the log <data>.
@@ -1107,7 +1109,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	groupNames = names(table(gsub("((.+)/)?.+", "\\2", names(data))));
 	ungrouped = "" %in% groupNames
 	groupNames[groupNames == ""] <- "Default Group";
-	behnames = names(table(unlist(lapply(data, function(f) {names(table(f$behavior))}))));
+	behnames = .behnames(data);
 	groupData = list();
 	for (i in 1:length(groupNames)) {
 		groupData[[i]] = data[grepl(paste("^", groupNames[i], "/", sep = ""), names(data))];
@@ -1423,8 +1425,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 #  probability for each pair of behaviors.
 # Usage: .getProbabilityMatrix(.renameStartStop(dataFrame)$behavior)      to include behavior starts and ends
 .getProbabilityMatrix = function (data, removeZeroCol=F, ...) {
-	behL = names(table(data[-length(data)]));
-	behF = names(table(data));
+	behL = names(table(data[-length(data)])); #TODO not notabeh #TODO should work w/ behvec of len 1
+	behF = names(table(data)); #TODO not notabeh #TODO should work w/ behvec of len 1
 	probMat = matrix(nrow=length(behL), ncol=length(behF), dimnames=list(behL, behF));
 	for (leader in rownames(probMat)) {
 		for (follower in colnames(probMat)) {
@@ -1465,8 +1467,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # next behavior after the leader, but rather of it coming within <nseconds> of the
 # leader.
 .getProbabilityInNSecondsMatrix = function(data, nseconds = 3) {
-	behL = names(table(data$behavior[-length(data$behavior)]));
-	behF = names(table(data$behavior));
+	behL = names(table(data$behavior[-length(data$behavior)])); #TODO not notabeh #TODO should work w/ behvec of len 1
+	behF = names(table(data$behavior)); #TODO not notabeh #TODO should work w/ behvec of len 1
 	probMat = matrix(nrow=length(behL), ncol=length(behF), dimnames=list(behL, behF));
 	for (leader in rownames(probMat)) {
 		for (follower in colnames(probMat)) {
@@ -1611,7 +1613,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	data = .filterDataList(data, renameStartStop = TRUE);
 	groupPMs = if (is.na(nSeconds)) lapply(data, function(d) {.getProbabilityMatrix(d$behavior, byTotal=byTotal)})
 			   else lapply(data, function(d) {.getProbabilityInNSecondsMatrix(d, nSeconds)});
-	return(.makeTPMatrix(groupPMs, names(.findDupBehaviors(data)), byTotal));
+	return(.makeTPMatrix(groupPMs, .behnames(data), byTotal));
 }
 
 # Calls .computeEntropyProbMatrix(), but takes a behavior vector as input rather than
@@ -2496,7 +2498,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 
 # Returns a vector of the names of behaviors that are durational in <data>, a list of logs.
 .startStopBehs = function(data) {
-	behaviors <- names(.findDupBehaviors(data));
+	behaviors <- .behnames(data);
 	ssBehs = character();
 	for (beh in behaviors) {
 		if (sum(!is.na(unlist(lapply(data, function(d){d$type[d$behavior == beh][1]})))) > 0) {
@@ -2531,7 +2533,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		data <- .sortByAttribute(data, sortAttribute, na.last = sort.na.last, decreasing = sort.decreasing);
 	}
 	
-	behnames = names(.findDupBehaviors(data));	
+	behnames = .behnames(data);	
 	if (!is.null(behaviorsToPlotAndColors)) {
 		.validateColorKey(behaviorsToPlotAndColors, behnames);
 	} else {
@@ -2686,7 +2688,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 
 .checkDurationalBehs = function(durationalBehs, data, colorkey) {
 	for (beh in durationalBehs) {
-		if (!(beh %in% c(names(.findDupBehaviors(data)), colorkey[,1]))) warning("Durational behavior \"", beh, "\" not found in any score log. Please check spelling.");
+		if (!(beh %in% c(.behnames(data), colorkey[,1]))) warning("Durational behavior \"", beh, "\" not found in any score log. Please check spelling.");
 		isDurational = table(unlist(lapply(data, function(d){!is.na(d$duration[d$behavior == beh])})));
 		if ("FALSE" %in% names(isDurational)) warning("Durational behavior \"", beh, "\" is not durational in all logs.")
 	}
