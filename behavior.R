@@ -580,6 +580,22 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(pairLog);
 }
 
+.pairLogsAustin = function(subject, followupGroup) {
+	date = gsub('^.*/log([0-9]*)_B[567].*$', '\\1', subject);
+	tank = gsub('^.*/log[0-9]*_B([567]).*$', '\\1', subject);
+	followupdate = as.character(as.numeric(date) + 100); # needs assays to be 1 day apart, not starting on December 31
+	searchTerm = paste("/log", followupdate, '_B', tank, sep = '');
+	pairLog = grep(searchTerm, followupGroup, value = T);
+	if (length(pairLog) > 1) {
+		warning("MORE THAN ONE MATCH", immediate. = T);
+		pairLog = pairLog[1];
+	} else if (length(pairLog) < 1) {
+		warning("NO MATCH", immediate. = T);
+		pairLog = "";
+	}
+	return(pairLog);
+}
+
 # TODO comment
 .pairGroups = function(data, pairLogsFn = NULL) {
 	groupwiseData = .sepGroups(data);
