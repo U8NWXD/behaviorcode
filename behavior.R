@@ -931,6 +931,19 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 }
 # TODO deal w/ startstop
 
+.elimRepSpawn = function(log, beh) {
+	toElim = numeric()
+	behaviors = beh;
+	for (beh in behaviors) {
+		startindices = which(log$behavior == beh & !is.na(log$type) & log$type == "start");
+		stopindices = which(log$behavior == beh & !is.na(log$type) & log$type == "stop");
+		toElim = c(toElim, startindices[(startindices - 1) %in% stopindices]);
+		toElim = c(toElim, stopindices[(stopindices + 1) %in% startindices]);
+	}
+	toElim = 1:length(log$behavior) %in% toElim;
+	return(log[!toElim,]) # TODO warning the pairs are no longer paired
+}
+
 
 
 ######################################### EDITING ###################################################
@@ -1231,7 +1244,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(list(p.value = as.data.frame(coef(summary(testout)))$Pr));
 }
 
-# TODO comment
+# Uses the groupPairingMat to parse dataByGroup and compare:
+# WITHIN EACH TIMEPOINT, the data for each pair of groups with <tests>;
+# WITHIN EACH GROUP, the difference between each pair of timepoints with <paired_tests>;
+# FOR EACH PAIR OF TIME POINTS, the differences between those timepoints for each pair of groups with <tests>.
+# Tests are run via a call to .runStatsTwoGroups(), which gets parameters passed through the ...s.
 .runStats = function(dataByGroup, groupPairingMat, outfilePrefix,
 					 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)),
 					 paired_tests = list(bootstrapPAIRED = list(f = .bootstrapPairedWrapper)), ...) {
@@ -1326,6 +1343,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # By default, rows with fewer than <minNumLogsForComparison> non-NA values are skipped. If you are using a test like coxph
 # that is designed to handle NAs as censored data, override this behavior by setting latencyTest = T. This will override
 # behavior for ALL tests in <tests>, however, so use caution! Other tests may give unreliable results and/or throw errors.
+# TODO update comment
 .runStatsTwoGroups = function(dataByGroup, outfilePrefix, tests, latencyTest = F, minNumLogsForComparison = 3, skipNA = F, print = F) {
 	average = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){mean(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, mean);
 	stddev = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){sd(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, sd);
@@ -1439,7 +1457,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(list(probability=prob, termination=termination, count_transitions=count, count_leader=total_leader));
 }
 
-# TODO comment
+# Returns a probability matrix with the probabilities not of the follower being the
+# next behavior after the leader, but rather of it coming within <nseconds> of the
+# leader.
 .getProbabilityInNSecondsMatrix = function(data, nseconds = 3) {
 	behL = names(table(data$behavior[-length(data$behavior)]));
 	behF = names(table(data$behavior));
@@ -1453,7 +1473,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(probMat);
 }
 
-# TODO comment
+# Returns the probability that <leader> is followed by at least one <follower>
+# within <nseconds>.
 .computeTransitionProbabilityInNSeconds = function (data, leader, follower, nseconds) {
 	count = 0;
 	termination = 0;
@@ -1526,7 +1547,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(list(probMat = probMat, counts = countVec, nfish = nfish));
 }
 
-# TODO comment
+# Helper function for .compareTransitionalProbabilities() that gets passed to .getGroupMats.
+# Gets the transitional probability by fish matrix with the specified parameters for just the logs in <data>.
 .tpgroupmatsWrapper = function(data, behnames, byTotal, nSeconds, outPref) {
 	groupPMs = if (is.na(nSeconds)) lapply(data, function(d) {.getProbabilityMatrix(d$behavior, byTotal=byTotal)})
 			   else lapply(data, function(d) {.getProbabilityInNSecondsMatrix(d, nSeconds)});

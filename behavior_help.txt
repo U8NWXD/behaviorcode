@@ -90,8 +90,9 @@
    
    By default, p-values are computed with a student t-test, a wilcox rank test, and an
    independent bootstrap test with means (which outputs a JPG for each behavior with
-   histograms and box-and-whisker plots). To pass in your own set of stats tests, use
-   the tests parameter.
+   histograms and box-and-whisker plots) for unpaired tests, and a paired bootstrap test
+   for paired tests. To pass in your own set of stats tests, use the tests and paired_tests
+   parameters.
    For example, to use just the t-test and the wilcox test, you could call
    	> .compareBasicStats(my_data, "~/Desktop/myExperiment", tests = list(ttest = t.test, wilcox = wilcox.test)
 
