@@ -448,7 +448,11 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(overlapFound);
 }
 
-# TODO comment
+# Helper function for .pairGroups()
+# Takes the group names output by .sepGroups and organizes them into a matrix with a row
+# for each group and a column for each timepoint. This is all done by prompting the user.
+# If there is only one folder, or if there is only one timepoint/only one experimental group,
+# the function prompts the user less.
 .getGroupPairingMat = function(groupNames, groupLengths) {
 	if (length(groupNames) == 1) {
 		return(matrix(data = groupNames, nrow = 1, ncol = 1, dimnames = list(groupNames, groupNames)));
@@ -515,7 +519,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(groupPairingMat);
 }
 
-
+# Helper function for .pairGroups()
+# Organizes the logs within each experimental group to be in the same order at each timepoint,
+# enabling paired comparisons.
 .standardizeLogOrder = function(data, pairLogsFn = NULL) {
 	groupPairingMat = attributes(data[[1]])$group.pairing;
 	if (ncol(groupPairingMat) == 1) return(data);
@@ -530,7 +536,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(data[newLogOrder]); # TODO check attr is conserved. # IT ISNT HOUSTON WE HAVE A PROBLEM. This is also gonna be an issue after calling .filterDataList or doing anything at all, really :((
 }
 
-# TODO implement
+# Helper function for .standardizeLogOrder()
+# Gets the order for logs in a single experimental group by either calling pairLogsFn
+# and confirming 
 .stdOrderOneGroup = function(lognamesByTimepoint, groupName, timepointNames, pairLogsFn = NULL) { # TODO add pairLogsFn
 	dat = character()
 	orderMat = lognamesByTimepoint[[1]];
@@ -564,7 +572,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(as.vector(orderMat));
 }
 
-
+# pairLogsFn for Rosa's aggression data
 .pairLogsRosa = function(subject, followupGroup) {
 	subjectID = gsub("^.*/([0-9]*)_.*$", "/\\1_", subject);
 	pairLog = grep(subjectID, followupGroup, value = T);
@@ -578,7 +586,15 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	return(pairLog);
 }
 
-
+# Divides logs into groups by the folder they came from; asks the user which are experimental
+# groups and which are timepoints, then sorts the logs so they are in the correct order for later
+# between-group comparisons.
+# pairLogsFn can be provided if you have data from more than one timepoint. It should be a function
+# that takes arguments (subject, followupGroup) where subject is the log name of a baseline log
+# and followupGroup is a character vector of the names of all the logs in a followup timepoint. The
+# function should return the name of the single log from the followup timepoint that corresponds to
+# the baseline log. No error checking is performed on this function. If pairLogsFn is not provided,
+# the user can manually pair logs (but it's a pain)
 .pairGroups = function(data, pairLogsFn = NULL) {
 	groupwiseData = .sepGroups(data);
 	groupNames = groupwiseData$groupNames;
@@ -1201,6 +1217,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 .runStats = function(dataByGroup, groupPairingMat, outfilePrefix,
 					 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)),
 					 paired_tests = list(bootstrapPAIRED = list(f = .bootstrapPairedWrapper)), ...) {
+	# TODO if (no group pairing mat) call the pairing fxn OR throw a warning/error
 	if (length(groupPairingMat) != length(dataByGroup)) stop("Number of groups in groupPairingMat and dataByGroup do not match.");
 	groupNames = dimnames(groupPairingMat)[[1]];
 	timepointNames = dimnames(groupPairingMat)[[2]];
