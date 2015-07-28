@@ -204,7 +204,7 @@ bootstrap2paired = function(condition1, condition2, conditionNames = c('conditio
 		p_left = sum(statsNULL < reflect) / trials;
 		p = p_right + p_left;
 	} else {
-		warning("Statistic == 0; this may indicate a problem...", immediate. = T)
+		warning("Statistic == 0; this may indicate a problem...")
 		p = 1;
 	}
 	return(p);

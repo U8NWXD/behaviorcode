@@ -37,9 +37,26 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 
 .EMPTY_LOG = data.frame(time = NA, behavior = "no behaviors performed", subject = NA, type = NA, pair_time = NA, duration = NA)
 
+
+.convertType = function(loglist) {
+	nonasintype = function(log) {
+		if (log$behavior[1] != .EMPTY_LOG$behavior) log$type[is.na(log$type)] <- "neither";
+		return(log);
+	}
+	return(lapply(loglist, nonasintype));
+}
+
 #####################################################################################################
 ## TINY HELPERS                                                                                    ##
 #####################################################################################################
+
+lighten = function(color, addN = 30) {
+	rgbtable = t(col2rgb(color));
+	tmp = rgbtable + addN;
+	tmp[tmp > 255] <- 255
+	tmp[tmp < 0] <- 0
+	return(rgb(tmp / 255));
+}
 
 # Checks that <colName> is either a valid column index for <object> (a data frame or
 # matrix) or a valid column name for <object>.
@@ -1966,7 +1983,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # TODO validBehNames not currently used - at least throw a warning!
 .validateColorKey = function(behcolors, validBehNames = NULL) {
 	if (dim(behcolors)[2] != 2) stop("behaviorsToPlotAndColors must have 2 columns!");
-	if (sum(!(behcolors[,2] %in% colors())) != 0) {
+	if (sum(!(behcolors[,2] %in% colors()) & !(grepl("^#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]$", behcolors[,2]))) != 0) {
 		stop(paste('Invalid color in behaviorsToPlotAndColors: "', behcolors[!(behcolors[,2] %in% colors()), 2], '"\n', sep = ""));
 	}
 	if (!is.null(validBehNames) && sum(!(behcolors[,1] %in% validBehNames)) != 0) {
@@ -1996,6 +2013,20 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	}
 	axis(2, at=1:length(behaviors), labels=behaviors[length(behaviors):1], tick=F, las=2);
 	if(!is.null(outfile)) dev.off();
+}
+
+.makeColorKeyStartStop = function(colorkey, durbehs) {
+	for (beh in durbehs) {
+		if (beh %in% colorkey[,1]) {
+			index = which(colorkey[,1] == beh);
+			color = colorkey[index,2]
+			newrows = cbind(paste(beh, c("start", "stop")), c(lighten(color, -50), lighten(color, 50)));
+			colorkey = rbind(if (index > 1) colorkey[1:(index - 1),] else NULL,
+							 newrows,
+							 if (index < length(colorkey[,1])) colorkey[(index+1):length(colorkey[,1]),] else NULL)
+		}
+	}
+	return(colorkey)
 }
 
 # Prints out the color key in a nice format to the console, with each row preceded by <whitespace>.
@@ -2126,6 +2157,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # are provided. <data> is separated by experimental group, and the plots for each group are drawn stacked on top of each other.
 # For more information, look at the documentation for .behavioralDensityGraph().
 .behavioralDensityGraphs = function(data, behaviorsToPlotAndColors, filePref, targetBehs = NULL, ...) {
+	durbehs = .startStopBehs(data);
+	behaviorsToPlotAndColors = .makeColorKeyStartStop(behaviorsToPlotAndColors, durbehs)
 	data = .filterDataList(data, renameStartStop = TRUE);
 	groupwiseLogs = .sepGroups(data);
 
