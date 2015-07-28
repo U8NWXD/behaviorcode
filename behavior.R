@@ -2141,9 +2141,13 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	.validateColorKey(behaviorsToPlotAndColors, groupwiseLogs$behnames);
 	
 	for (beh in behnames) {
-		cat("Plotting behavior \"", beh, '"...\n', sep = "");
-		.behavioralDensityGraph(groupwiseLogs, behaviorsToPlotAndColors, centerBeh = beh,
-								filename = paste(filePref, "_behavioraldensity_", beh, ".jpeg", sep = ""), ...);
+		if (beh %in% .behnames(data)) {
+			cat("Plotting behavior \"", beh, '"...\n', sep = "");
+			.behavioralDensityGraph(groupwiseLogs, behaviorsToPlotAndColors, centerBeh = beh,
+									filename = paste(filePref, "_behavioraldensity_", beh, ".jpeg", sep = ""), ...);
+		} else {
+			cat("Skipping behavior \"", beh, '" (occurs in 0 logs)...\n', sep = "")
+		}
 	}
 }
 
