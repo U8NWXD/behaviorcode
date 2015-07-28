@@ -1283,6 +1283,14 @@ lighten = function(color, addN = 30) {
 	return(list(p.value = bs$p));
 }
 
+.powerWrapper = function(argList) {
+	if (!("Func" %in% names(argList))) argList$Func <- 'mean';
+	if(!("trials" %in% names(argList))) argList$trials <- 10000;
+	bs = powerBootstrap2Independent(ctrl = argList$x, exp = argList$y, Func = argList$Func, trials = argList$trials, verbose = F);
+	# TODO add outfile
+	return(list(p.value = bs$power));
+}
+
 # A wrapper function for bootstrap2paired that makes it play well with .runStats
 # argList must contain assayLength (the length of assays), x, y, row, outfilePrefix,
 #   groupNames
