@@ -34,6 +34,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # TODO make the Big Shell
 # TODO warnings outfile http://stackoverflow.com/questions/8986495/rhistory-and-saving-all-warnings
 
+
+.EMPTY_LOG = data.frame(time = NA, behavior = "no behaviors performed", subject = NA, type = NA, pair_time = NA, duration = NA)
+
 #####################################################################################################
 ## TINY HELPERS                                                                                    ##
 #####################################################################################################
@@ -131,7 +134,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	}
 	
 	# .printFindDupBehaviors(data);
-	data <- .removeNALogs(data);
+	data <- .fixNALogs(data);
 	# print(lapply(data, function(f) {names(table(f$behavior))}));
 	
 	cat("Behaviors found:\n");
@@ -771,13 +774,29 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 .filterData = function(data, startTime = NA, endTime = NA, subjects = NULL, startOnly = NULL,
 					   boutInterval = NULL, stateBehaviors = NULL, minNumBehaviors = NULL, toExclude = NULL,
 					   renameStartStop = FALSE, zeroBeh = NULL, zeroBehN = 1, noRepBehs = F) {
-					  # 	print("hi")
-	if (!is.na(startTime)) {data <- data[data$time >= startTime,];}
-	if (!is.na(endTime)) {data <- data[data$time <= endTime,];}
+	if (length(data$behavior) == 1 && data$behavior == .EMPTY_LOG$behavior) return(data);
+	if (!is.na(startTime)) {
+		if (sum(data$time >= startTime)) {
+			data = data[data$time >= startTime,];
+		} else {
+			warning("No behaviors before start time ", startTime, immediate. = T);
+			return(.EMPTY_LOG)
+		}
+	}
+	if (!is.na(endTime)) {
+		if (sum(data$time <= endTime)) {
+			data = data[data$time <= endTime,];
+		} else {
+			warning("No behaviors before end time ", endTime, immediate. = T);
+			return(.EMPTY_LOG)
+		}
+	}
 	if (!is.null(subjects)) {
 		data <- data[data$subject %in% subjects,]
-	#	if(length(data$behavior) == 0) {stop(paste("Error: Incorrect Subject Name:", subjects))}
-		if(length(data$behavior) == 0) {warning(paste("No behaviors found for subject", subjects))}
+		if (length(data$behavior) == 0) {
+			warning(paste("No behaviors found for subject", subjects), immediate. = T)
+			return(.EMPTY_LOG)
+		}
 	}
 	if (!is.null(startOnly)) {
 		if (is.logical(startOnly) && startOnly) {
@@ -797,10 +816,17 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 		freqtable = table(data$behavior);
 		behaviorsToTrash = names(freqtable)[freqtable < minNumBehaviors]
 		data <- data[!(data$behavior %in% behaviorsToTrash),];
-		if(length(data$behavior) == 0) {stop(paste("Error: minNumBehaviors is set too high. No behavior occurs", minNumBehaviors, "times."))}
+		if(length(data$behavior) == 0) {
+			warning(paste("No behavior occurs", minNumBehaviors, "times."));
+			return(.EMPTY_LOG)
+		}
 	}
 	if (!is.null(toExclude)) {
 		data <- data[!(data$behavior %in% toExclude),];
+		if(length(data$behavior) == 0) {
+			warning("All behaviors in log are in toExclude.");
+			return(.EMPTY_LOG)
+		}
 	}
 	if (renameStartStop) {data = .renameStartStop(data);}
 	if (!is.null(zeroBeh)) {data = .setZeroToNthOfBehavior(data, zeroBeh, zeroBehN)}
@@ -833,10 +859,17 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 
 # Removes empty score logs from <data>. BE CAREFUL WITH THIS - it might mess up all kinds
 # of things by changing the number and order of logs.
-.removeNALogs = function(data) {
+.fixNALogs = function(data) {
 	emptyLogs = which(unlist(lapply(data, function(d){!is.data.frame(d)})))
-	return(if (length(emptyLogs) == 0) data else data[-emptyLogs]);
+	if (length(emptyLogs) == 0) return(data)
+	else {
+		for (i in emptyLogs) {
+			data[[i]] <- .EMPTY_LOG;
+		}
+		return(data);
+	}
 }
+
 
 # Might someday become a handy interface for .filterDataList(). Or nah. TODO complete or trash
 # .interactiveFilter = function(data) {
@@ -970,12 +1003,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # how many logs each behavior appears in.
 .findDupBehaviors = function(data) {
 	tab = table(unlist(lapply(data, function(f) {names(table(f$behavior))})));
-	return(tab[names(tab) != "no behaviors performed"])
+	return(tab[names(tab) != .EMPTY_LOG$behavior])
 }
 
 .behnames = function(data) {
 	behnames = names(table(unlist(lapply(data, function(f) {f$behavior}))));
-	return(behnames[behnames != "no behaviors performed"])
+	return(behnames[behnames != .EMPTY_LOG$behavior])
 }
 
 # Makes <leader> into a durational behavior with stops at each occurance of <follower> in the log <data>.
