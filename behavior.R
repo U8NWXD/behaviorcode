@@ -1,6 +1,7 @@
 library(stringr);
 options(stringsAsFactors = FALSE);
 source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
+source("~/Desktop/Katrina/behavior_code/powerBootstrap2Independent.R")
 #use color=blue in .dot output script to make separate sets of lines for 1st follower, 2nd, etc.
 # Find a way to represent AB -> C, ABC -> D instead of only A -> B probabilities
 # collapse statistics across animals. Arrows only allowed from subj to different subj.
@@ -1286,8 +1287,8 @@ lighten = function(color, addN = 30) {
 .powerWrapper = function(argList) {
 	if (!("Func" %in% names(argList))) argList$Func <- 'mean';
 	if(!("trials" %in% names(argList))) argList$trials <- 10000;
-	bs = powerBootstrap2Independent(ctrl = argList$x, exp = argList$y, Func = argList$Func, trials = argList$trials, verbose = F);
-	# TODO add outfile
+	bs = powerBootstrap2Independent(ctrl = argList$x, exp = argList$y, Func = argList$Func, trials = argList$trials, verbose = F,
+										outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"));
 	return(list(p.value = bs$power));
 }
 

@@ -26,7 +26,7 @@
 ### 'cex.main' sets sizes of plot and histogram titles
 ### 'verbose' is boolean indicating whether to print trial number every 1000 trials 
 
-powerBootstrap2Independent = function (ctrl, exp=NULL, change=NULL, Func='mean', trials=10000, abs=F, plot=T, breaks=NULL, cex.main=1.1, verbose=T, ...) {
+powerBootstrap2Independent = function (ctrl, exp=NULL, change=NULL, Func='mean', trials=10000, abs=F, plot=T, breaks=NULL, cex.main=1.1, verbose=T, outfile = NULL, ...) {
 	# check if only ctrl group is provided
 	if (is.null(exp)) {
 		# if yes, simulate exp group
@@ -36,9 +36,14 @@ powerBootstrap2Independent = function (ctrl, exp=NULL, change=NULL, Func='mean',
 		} else {
 			stop('if no "exp" data provided "change" must be numeric');
 		}
-	} 
-	# TODO remove NAs w/ warning
+	}
 	
+	# remove NAs
+	if (sum(is.na(c(ctrl,exp))) > 0) {
+		ctrl = ctrl[!is.na(ctrl)];
+		exp = exp[!is.na(exp)];
+		warning('NAs removed from one or both groups, check your data');
+	}
 	
 	# compute actual value of statistic (stat) and %change (delta) from ctrl to exp group 
 	old = eval(call(Func, ctrl));
@@ -85,6 +90,7 @@ powerBootstrap2Independent = function (ctrl, exp=NULL, change=NULL, Func='mean',
 	
 	# plot histograms of alt and null distributions with vertical line(s) at significance cutoff(s)
 	if (plot) {
+		if (!is.null(outfile)) jpeg(filename = outfile, width = 6, height = 10, units = "in", quality = 100, res = 150, type = "quartz");
 		if (is.null(breaks)) { breaks = trials / 2 }
 		par(mfrow=c(2, 1), oma=c(0,0,3,0), mar=c(2,4,3,2));
 		# print(breaks)
@@ -102,6 +108,7 @@ powerBootstrap2Independent = function (ctrl, exp=NULL, change=NULL, Func='mean',
 		plot(histALT, main='alternate dist', col='grey', border='darkgrey', xlab='', ylim=c(0, ymax), xlim=c(xmin, xmax), cex.main=cex.main*.85, ...);
 		abline(v = NULLconfint, col = 'red', lty = 'dashed');
 		title(main=paste('Test statistic: difference of group ', Func, 's\npower = ', signif(power, 2), sep=''), outer=T, cex.main=cex.main);
+		if (!is.null(outfile)) dev.off()
 	}
 	
 	return(list(ctrl=ctrl, exp=exp, stat=stat, delta=delta, confint=NULLconfint, rightcount=right_count, leftcount=left_count, power=power, null.dist=statsNULL, alt.dist=statsALT));
