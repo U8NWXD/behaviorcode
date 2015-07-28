@@ -1412,17 +1412,19 @@ lighten = function(color, addN = 30) {
 # TODO update comment
 .runStatsTwoGroups = function(dataByGroup, outfilePrefix, tests, latencyTest = F, minNumLogsForComparison = 3, skipNA = F, print = F) {
 	average = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){mean(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, mean);
+	median = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){median(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, median);
 	stddev = if (skipNA) {lapply(dataByGroup, apply, 1, function(row){sd(row[!is.na(row)])})} else lapply(dataByGroup, apply, 1, sd);
 	if (skipNA) {
 		for (i in 1:length(dataByGroup)) {
 			allNARows = apply(dataByGroup[[i]], 1, function(row){sum(!is.na(row)) == 0});
 			average[[i]][allNARows] <- NA;
+			median[[i]][allNARows] <- NA;
 			stddev[[i]][allNARows] <- NA;
 			# TODO add median
 		}
 	}
 	rownames = dimnames(dataByGroup[[1]])[[1]];
-	df = data.frame(average = average, stddev = stddev);
+	df = data.frame(average = average, median = median, stddev = stddev);
 	offset = dim(df)[2];
 	
 	if (length(dataByGroup) >= 2 && length(tests) > 0) {
