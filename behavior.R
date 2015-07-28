@@ -2128,11 +2128,16 @@ lighten = function(color, addN = 30) {
 	cat(validBehNames, sep = '" "');
 	cat('"\n');
 	
-	colorkey = NULL;
-	for (beh in validBehNames) {
-		color = .getColor(beh);
-		if (color != "none") {
-			colorkey = rbind(colorkey, c(beh, color));
+	if (!.getYesOrNo("Do you want to select colors manually (recommended)? ")) {
+		cat("Generating colors automatically.\n")
+		colorkey = cbind(validBehNames, rainbow(length(validBehNames)))
+	} else {		
+		colorkey = NULL;
+		for (beh in validBehNames) {
+			color = .getColor(beh);
+			if (color != "none") {
+				colorkey = rbind(colorkey, c(beh, color));
+			}
 		}
 	}
 	
