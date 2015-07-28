@@ -352,7 +352,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	# Get time, behavior, subject, type
 	df = data.frame(matrix(nrow=1, ncol=6));
 	for (entry in full) {
-		isStart = if (length(entry)==5) {entry[5]} else {NA}
+		isStart = if (length(entry)==5) {entry[5]} else {"neither"} # CHANGING TYPE TO BE NOT NA. # TODO test
 		newRow = c(as.numeric(entry[1]), as.character(entry[3]), as.character(entry[4]), isStart, NA, NA)
 		df = rbind(df, newRow);
 	}
@@ -366,7 +366,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	# Match up starts and stops; calculate durations
 	for (i in 1:(dim(df)[1])) {
 		entry = df[i,];
-		if (!is.na(entry$type) && entry$type == 'stop') {
+		if (entry$type == 'stop') { # TODO test
 			this_time = entry$time;
 			startIndex = 0;
 			for (j in i:1) {
@@ -733,7 +733,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	for (i in 1:length(data)) {
 		behOccurances = data[[i]][data[[i]]$behavior == behavior,];
 		if (length(behOccurances$duration) > 0) {
-			if (sum(is.na(behOccurances$type)) > 0) stop("Behavior \"", behavior, "\" is not durational.");
+			if (sum(behOccurances$type == "neither") > 0) stop("Behavior \"", behavior, "\" is not durational."); # TODO test
 			durations[i] = sum(behOccurances$duration[which(behOccurances$type == "start")]);
 		}
 	}
@@ -800,12 +800,12 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	}
 	if (!is.null(startOnly)) {
 		if (is.logical(startOnly) && startOnly) {
-			data <- data[is.na(data$type) | data$type != "stop",];
-			data$type <- NA;
+			data <- data[data$type != "stop",]; # TODO test
+			data$type <- "neither";
 		} else if (!is.logical(startOnly)) {
 			for (beh in startOnly) {
-				data$type[data$behavior == beh & !is.na(data$type) & data$type == "start"] <- NA;
-				data <- data[!(data$behavior == beh & !is.na(data$type) & data$type == "stop"),]
+				data$type[data$behavior == beh & data$type == "start"] <- "neither"; # TODO test
+				data <- data[!(data$behavior == beh & data$type == "stop"),] # TODO test
 			}
 		}
 	}
@@ -895,7 +895,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # Renames behaviors to differentiate between starts and stops. If the behavior has already been renamed,
 # this function does nothing.
 .renameStartStop = function(data) {
-	toReplace = !is.na(data$type) & !grepl(" st[oa][rp]t?$", data$behavior);
+	toReplace = !(data$type == "neither") & !grepl(" st[oa][rp]t?$", data$behavior); # TODO test
 	data$behavior[toReplace] <- paste(data$behavior[toReplace], data$type[toReplace]);
 	return(data);
 }
@@ -905,7 +905,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # to rezero to the first behavior, or all aggressive behaviors to rezero to the first aggressive behavior.
 .setZeroToNthOfBehavior = function(data, behavior, n = 1) {
 	if (attributes(data)$assay.start$rezeroed == F) {
-		data = rbind(data, list(time = 0, behavior = "assay start", subject = "none", type = NA, pair_time = NA, duration = NA));
+		data = rbind(data, list(time = 0, behavior = "assay start", subject = "none", type = "neither", pair_time = NA, duration = NA));
 		data = .sortByTime(data);
 	}
 	targetBehIndices = which(data$behavior %in% behavior);
@@ -924,7 +924,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # Helper function for .separateBouts()
 # Returns TRUE if there are no ongoing durational behaviors at index i of data, or FALSE if there are.
 .noCurrentDurationalBehs = function(data, i) {
-	type = data$type[1:i][!is.na(data$type)[1:i]];
+	type = data$type[1:i][!(data$type == "neither")[1:i]]; # TODO test
 	return(sum(type == "start") == sum(type == "stop"));
 }
 
@@ -934,8 +934,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 # of the same bout, and the duration is the duration of the bout (NOT the duration of the pause between!)
 .separateBouts = function (data, intervalToSeparate, stateBehaviors = NULL) {
 	# 	names(df) = c('time', 'behavior', 'subject', 'type', 'pair_time', 'duration');
-	data$type[!is.na(data$type) & data$type == "start" & data$behavior %in% stateBehaviors] <- "sTaRt";
-	data$type[!is.na(data$type) & data$type == "stop" & data$behavior %in% stateBehaviors] <- "sToP";
+	data$type[data$type == "start" & data$behavior %in% stateBehaviors] <- "sTaRt"; # TODO test
+	data$type[data$type == "stop" & data$behavior %in% stateBehaviors] <- "sToP"; # TODO test
 	
 	
 	timeDiffs = data$time[2:length(data$time)] - data$time[1:(length(data$time) - 1)];
@@ -953,8 +953,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	data = rbind(data, startRows, stopRows);
 	data = .sortByTime(data);
 	
-	data$type[!is.na(data$type) & data$type == "sTaRt"] <- "start";
-	data$type[!is.na(data$type) & data$type == "sToP"] <- "stop";
+	data$type[data$type == "sTaRt"] <- "start";
+	data$type[data$type == "sToP"] <- "stop";
 	return(data);
 }
 
@@ -974,8 +974,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	toElim = numeric()
 	behaviors = beh;
 	for (beh in behaviors) {
-		startindices = which(log$behavior == beh & !is.na(log$type) & log$type == "start");
-		stopindices = which(log$behavior == beh & !is.na(log$type) & log$type == "stop");
+		startindices = which(log$behavior == beh & log$type == "start"); # TODO test
+		stopindices = which(log$behavior == beh & log$type == "stop");
 		toElim = c(toElim, startindices[(startindices - 1) %in% stopindices]);
 		toElim = c(toElim, stopindices[(stopindices + 1) %in% startindices]);
 	}
@@ -2542,7 +2542,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	behaviors <- .behnames(data);
 	ssBehs = character();
 	for (beh in behaviors) {
-		if (sum(!is.na(unlist(lapply(data, function(d){d$type[d$behavior == beh][1]})))) > 0) {
+		if (sum(unlist(lapply(data, function(d){d$type[d$behavior == beh][1]})) == "neither") > 0) { # TODO test
 			ssBehs <- c(ssBehs, beh);
 			isDurational = table(unlist(lapply(data, function(d){!is.na(d$duration[d$behavior == beh])})));
 			if ("FALSE" %in% names(isDurational)) warning("Durational behavior \"", beh, "\" is not durational in all logs.")
@@ -2769,7 +2769,7 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	startIndices = targetBehIndices - nbehs;
 	newDat = data.frame();
 	for (i in 1:length(targetBehIndices)) {
-		newDat = rbind(newDat, data.frame(time = log$time[startIndices[i]], behavior = "START", subject = "none", type = NA, pair_time = NA, duration = NA));
+		newDat = rbind(newDat, data.frame(time = log$time[startIndices[i]], behavior = "START", subject = "none", type = "neither", pair_time = NA, duration = NA));
 		rowsToAdd = log[startIndices[i]:(targetBehIndices[i] - 1),];
 		rowsToAdd$behavior[rowsToAdd$behavior == targetbeh] <- paste("other", targetbeh);
 		newDat = rbind(newDat, rowsToAdd, log[targetBehIndices[i],]);
