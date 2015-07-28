@@ -870,6 +870,10 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	}
 }
 
+.isEmpty = function(data) {
+	return(unlist(lapply(data, function(log) {length(log$behavior) == 1 && log$behavior == .EMPTY_LOG$behavior})))
+}
+
 
 # Might someday become a handy interface for .filterDataList(). Or nah. TODO complete or trash
 # .interactiveFilter = function(data) {
@@ -2620,10 +2624,9 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 #
 # <wiggle> controls the amount of space the durational bars are allowed to take up. It
 # should always be a value between 0 and 0.5. The default .2 gives the durational bars 40%
-# of the height of the ticks. <defaultDur> is the width, in seconds, of the ticks. If some
-# ticks are very light or invisible, try increasing <defaultDur>. If <horizontalLines> is set
-# to true, a horizontal black line is drawn behind the raster plot for each subject.
-.makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, plotTitle = NULL, wiggle = .2, defaultDur = 2,
+# of the height of the ticks. If <horizontalLines> is set to true, a horizontal black 
+# line is drawn behind the raster plot for each subject.
+.makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, plotTitle = NULL, wiggle = .2,
 									  durationalBehs = NULL, staggerSubjects = F, widthInInches = 12, rowHeightInInches = .3,
 									  horizontalLines = F, linesBetweenLogs = F, sep = 0, durBehBounds = NULL) {
 	if (!is.null(durationalBehs)) .checkDurationalBehs(durationalBehs, data, behaviorsToPlotAndColors);
@@ -2634,8 +2637,8 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 	
 	subjects = names(data);
 	num_subj = length(subjects);
-	maxtime = max(unlist(lapply(data, function(d){max(d$time)})));
-	mintime = min(c(0, unlist(lapply(data, function(d){min(d$time)}))));
+	maxtime = max(unlist(lapply(data[!.isEmpty(data)], function(d){max(d$time)})));
+	mintime = min(c(0, unlist(lapply(data[!.isEmpty(data)], function(d){min(d$time)}))));
 	ssBehs = if(is.null(durationalBehs[1])) .startStopBehs(data) else durationalBehs;
 	
 	.validateColorKey(behaviorsToPlotAndColors);
@@ -2668,9 +2671,6 @@ source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
 						# ybottom = n - .45;
 					}
 				}
-				# rect(xleft = times, xright = times + defaultDur,
-					 # ybottom = ybottom, ytop = ytop,
-					 # col = temp_behcolors[i,2], border = NA);
 				segments(x0 = times, y0 = ybottom, y1 = ytop, col = temp_behcolors[i,2], lty = "solid")
 	
 				par(new = TRUE);

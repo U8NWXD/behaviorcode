@@ -162,7 +162,6 @@
     (a) Graphics options.
 	<wiggle> controls how much height the durational behavior bars are allowed to
 	take up. It should always be between 0 and 0.5 (default 0.2)
-	<defaultDur> is the width (in seconds) of the tick marks (default 2)
 	<durationalBehs> is a vector of behaviors that should be plotted as bars instead
 	of tick marks. Default is all behaviors scored as durational.
 	<staggerSubjects> if TRUE causes male behaviors to be plotted above the line
