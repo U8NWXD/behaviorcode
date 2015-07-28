@@ -155,12 +155,12 @@ lighten = function(color, addN = 30) {
 	data <- .fixNALogs(data);
 	# print(lapply(data, function(f) {names(table(f$behavior))}));
 	
-	cat("Behaviors found:\n");
-	.printFindDupBehaviors(data);
-	cat('There may be some behaviors in the list above that should be combined (for example, "Female Follows" and "female follows").\n');
-	if (.getYesOrNo("Are there any behaviors in the list that should be combined? ")) {
+	# cat("Behaviors found:\n");
+	# .printFindDupBehaviors(data);
+	# cat('There may be some behaviors in the list above that should be combined (for example, "Female Follows" and "female follows").\n');
+	# if (.getYesOrNo("Are there any behaviors in the list that should be combined? ")) {
 		data <- .promptToElimDups(data);
-	}
+	# }
 	
 	if(.getYesOrNo("Were all of your assays the same length of time? ")) {
 		userInput = readline("Please enter the length of your assay in seconds.\n> ");
@@ -301,6 +301,17 @@ lighten = function(color, addN = 30) {
 # Provides a nice user interface for merging duplicate behaviors. Returns <data> with the
 # dupped behaviors merged.
 .promptToElimDups = function(data) {
+	cat("Behaviors found:\n");
+	.printFindDupBehaviors(data);
+	cat('There may be some behaviors in the list above that should be combined (for example, "Female Follows" and "female follows").\n');
+	if (!.getYesOrNo("Are there any behaviors in the list that should be combined? ")) {
+		return(data);
+	}
+	
+	if (.getYesOrNo("Would you like to merge behaviors that have the same letters, but in a different case? (uppercase/lowercase)\n  > ")) {
+		data = lapply(data, function(log){log$behavior <- tolower(log$behavior); return(log)})
+		.printFindDupBehaviors(data);
+	}
 	prompt = 'Please enter the name of a behavior that you would like to merge into another behavior, or "l" to print the current list of behaviors or "s" to save and quit.\n> '
 	userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
 	userInput = .autocomplete(userInput, c(.behnames(data), "s", "l"), caseSensitive = TRUE);
@@ -1288,7 +1299,7 @@ lighten = function(color, addN = 30) {
 	if (!("Func" %in% names(argList))) argList$Func <- 'mean';
 	if(!("trials" %in% names(argList))) argList$trials <- 10000;
 	bs = powerBootstrap2Independent(ctrl = argList$x, exp = argList$y, Func = argList$Func, trials = argList$trials, verbose = F,
-										outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"));
+										outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "power.jpg", sep = "_"));
 	return(list(p.value = bs$power));
 }
 
@@ -1317,7 +1328,7 @@ lighten = function(color, addN = 30) {
 .runStats = function(dataByGroup, groupPairingMat, outfilePrefix,
 					 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)),
 					 paired_tests = list(bootstrapPAIRED = list(f = .bootstrapPairedWrapper)), ...) {
-	# TODO if (no group pairing mat) call the pairing fxn OR throw a warning/error
+	if (is.null(groupPairingMat)) stop("No group pairing matrix found. Please run .pairGroups() on your data before calculating stats.")
 	if (length(groupPairingMat) != length(dataByGroup)) stop("Number of groups in groupPairingMat and dataByGroup do not match.");	
 	groupNames = dimnames(groupPairingMat)[[1]];
 	timepointNames = dimnames(groupPairingMat)[[2]];

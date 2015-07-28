@@ -26,7 +26,7 @@
 ### 'cex.main' sets sizes of plot and histogram titles
 ### 'verbose' is boolean indicating whether to print trial number every 1000 trials 
 
-powerBootstrap2Independent = function (ctrl, exp=NULL, change=NULL, Func='mean', trials=10000, abs=F, plot=T, breaks=NULL, cex.main=1.1, verbose=T, outfile = NULL, ...) {
+powerBootstrap2Independent = function (ctrl, exp=NULL, change=NULL, Func='mean', trials=10000, abs=F, plot=T, breaks=NULL, cex.main=1.1, verbose=T, outfile = NULL, sigThreshold = .05, ...) {
 	# check if only ctrl group is provided
 	if (is.null(exp)) {
 		# if yes, simulate exp group
@@ -42,7 +42,7 @@ powerBootstrap2Independent = function (ctrl, exp=NULL, change=NULL, Func='mean',
 	if (sum(is.na(c(ctrl,exp))) > 0) {
 		ctrl = ctrl[!is.na(ctrl)];
 		exp = exp[!is.na(exp)];
-		warning('NAs removed from one or both groups, check your data');
+		warning('NAs removed from one or both groups, check your data. Power test output will be based on number of not-NA data points, NOT the group size provided.', immediate. = T);
 	}
 	
 	# compute actual value of statistic (stat) and %change (delta) from ctrl to exp group 
@@ -76,13 +76,13 @@ powerBootstrap2Independent = function (ctrl, exp=NULL, change=NULL, Func='mean',
 	# get power by computing how much of alt distribution is more extreme than 95th%tile of null distribution
 	if (abs) {
 		statsNULL = abs(statsNULL);
-		NULLconfint = quantile(statsNULL, 0.95, na.rm=T);
+		NULLconfint = quantile(statsNULL, 1 - sigThreshold, na.rm=T); # TODO not a magic number
 		statsALT = abs(statsALT);
 		right_count = sum(statsALT > NULLconfint,na.rm=T);
 		left_count = NULL;
 		power = right_count / trials;
 	} else {
-		NULLconfint = quantile(statsNULL, c(0.025, 0.975), na.rm=T);
+		NULLconfint = quantile(statsNULL, c(sigThreshold/2, 1 - sigThreshold / 2), na.rm=T);
 		right_count = sum(statsALT > NULLconfint[2],na.rm=T);
 		left_count = sum(statsALT < NULLconfint[1],na.rm=T);
 		power = (right_count + left_count) / trials;
