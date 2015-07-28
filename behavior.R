@@ -553,14 +553,13 @@ lighten = function(color, addN = 30) {
 		grlogs = groupwiseData$groupData[groupPairingMat[group,]];
 		newLogOrder = c(newLogOrder, .stdOrderOneGroup(lapply(grlogs, names), dimnames(groupPairingMat)[[1]][group], dimnames(groupPairingMat)[[2]], pairLogsFn))
 	}
-	# print(newLogOrder);
-	return(data[newLogOrder]); # TODO check attr is conserved. # IT ISNT HOUSTON WE HAVE A PROBLEM. This is also gonna be an issue after calling .filterDataList or doing anything at all, really :((
+	return(data[newLogOrder]);
 }
 
 # Helper function for .standardizeLogOrder()
 # Gets the order for logs in a single experimental group by either calling pairLogsFn
 # and confirming the order with the user, or prompting the user to pair logs individually.
-.stdOrderOneGroup = function(lognamesByTimepoint, groupName, timepointNames, pairLogsFn = NULL) { # TODO add pairLogsFn
+.stdOrderOneGroup = function(lognamesByTimepoint, groupName, timepointNames, pairLogsFn = NULL) {
 	dat = character()
 	orderMat = lognamesByTimepoint[[1]];
 	repeat {
@@ -1367,7 +1366,6 @@ lighten = function(color, addN = 30) {
 						diffMat = dataByGroup[[groupPairingMat[group, timepoint2]]] - dataByGroup[[groupPairingMat[group, timepoint1]]];
 						diffData = c(diffData, list(diffMat));
 						write.csv(diffMat, file = paste(opTP, group, 'diffdata.csv', sep = '_'))
-						# TODO output diff mat as .csv
 					}
 					newNames = paste(groupNames, '_', timepoint2, "Minus", timepoint1, sep = '')
 					names(diffData) = newNames;
@@ -1478,8 +1476,8 @@ lighten = function(color, addN = 30) {
 #  probability for each pair of behaviors.
 # Usage: .getProbabilityMatrix(.renameStartStop(dataFrame)$behavior)      to include behavior starts and ends
 .getProbabilityMatrix = function (data, removeZeroCol=F, ...) {
-	behL = names(table(data[-length(data)])); #TODO not notabeh #TODO should work w/ behvec of len 1
-	behF = names(table(data)); #TODO not notabeh #TODO should work w/ behvec of len 1
+	behL = names(table(data[-length(data)]));
+	behF = names(table(data));
 	probMat = matrix(nrow=length(behL), ncol=length(behF), dimnames=list(behL, behF));
 	for (leader in rownames(probMat)) {
 		for (follower in colnames(probMat)) {
@@ -1520,8 +1518,8 @@ lighten = function(color, addN = 30) {
 # next behavior after the leader, but rather of it coming within <nseconds> of the
 # leader.
 .getProbabilityInNSecondsMatrix = function(data, nseconds = 3) {
-	behL = names(table(data$behavior[-length(data$behavior)])); #TODO not notabeh #TODO should work w/ behvec of len 1
-	behF = names(table(data$behavior)); #TODO not notabeh #TODO should work w/ behvec of len 1
+	behL = names(table(data$behavior[-length(data$behavior)]));
+	behF = names(table(data$behavior));
 	probMat = matrix(nrow=length(behL), ncol=length(behF), dimnames=list(behL, behF));
 	for (leader in rownames(probMat)) {
 		for (follower in colnames(probMat)) {
@@ -1980,7 +1978,6 @@ lighten = function(color, addN = 30) {
 #####################################################################################################
 
 # Validates the behaviorsToPlotAndColors provided to .behavioralDensityGraph() or .behavioralDensityGraphs()
-# TODO validBehNames not currently used - at least throw a warning!
 .validateColorKey = function(behcolors, validBehNames = NULL) {
 	if (dim(behcolors)[2] != 2) stop("behaviorsToPlotAndColors must have 2 columns!");
 	if (sum(!(behcolors[,2] %in% colors()) & !(grepl("^#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]$", behcolors[,2]))) != 0) {
