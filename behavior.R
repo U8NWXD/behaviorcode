@@ -38,6 +38,118 @@ source("~/Desktop/Katrina/behavior_code/powerBootstrap2Independent.R")
 
 .EMPTY_LOG = data.frame(time = NA, behavior = "no behaviors performed", subject = NA, type = NA, pair_time = NA, duration = NA)
 
+#' Behavior Logs
+#'
+#' This function creates behavior log objects, the basic data structure for TODO NameOfPackage,
+#' which represent all the behavior during a single assay of one subject or of several subjects.
+#'
+#' Behavior log objects can either be created from six vectors (\code{time}, \code{behavior},
+#' \code{subject}, \code{type}, \code{pair_time}, and \code{duration}) or from a single data frame
+#' (\code{dataframe}). If no arguments are provided, an "empty" data frame is created.
+#'
+#' TODO add schtuff about attributes to code and to comment.
+#' @param time numeric vector giving the time (in seconds after the assay start) each behavior occurred
+#' @param behavior character vector of behavior names that gives the sequence of behaviors
+#' @param subject character vector of subject names that gives the subject for each behavior in \code{behavior}
+#' @param type character vector of behavior types. Composed only of values \code{"start"} for the beginnings of
+#'   durational behaviors, \code{"stop"} for the ends of durational behaviors, and \code{"neither"} for
+#'   behaviors that are not durational.
+#' @param pair_time numeric vector that gives the \code{time} of the end of a behavior whose \code{type} is \code{"start"},
+#'   the \code{time} of the beginning of a behavior whose \code{type} is \code{"stop"}, or \code{NA} for behaviors whose
+#'   \code{type} is \code{"neither"}.
+#' @param duration numeric vector giving the duration (in seconds) of behaviors whose \code{type} is either
+#'   \code{"start"} or \code{"stop"}. Should have value \code{NA} for behaviors whose \code{type} is \code{"neither"}.
+#' @param dataframe A data frame whose columns are \code{time}, \code{behavior}, \code{subject}, \code{type},
+#'   \code{pair_time}, and \code{duration}, in that order.
+#' @return A \code{behavior.log} object, which can be treated as a data frame with columns \code{time}, \code{behavior},
+#'   \code{subject}, \code{type}, \code{pair_time}, and \code{duration}.
+#' @keywords behavior.log behavior log scorelog
+#' @export
+#' @examples
+#' subject1 <- behavior.log(time = c(1.2, 2.5, 7), behavior = c("approach female", "court female", "court female"),
+#'                          subject = rep("male", 3), type = c("neither", "start", "stop"),
+#' pair_time = c(NA, 7, 2.5), duration = c(NA, 4.5, 4.5));
+# TODO warn abt unpaired starts/stops and if there is pairtime but no dur or vice-versa. ALSO, maybe make it possible to construct
+# a thang that calcs durations instantly? just a thought. or provide type = "neither" pair_time = NA etc to copy into all rows?
+# TODO check that pair_times are all in time!!
+behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NULL,
+						pair_time = NULL, duration = NULL, dataframe = NULL) {
+	notNull = !(c(is.null(time), is.null(behavior), is.null(subject), is.null(type),
+	    		  is.null(pair_time), is.null(duration), is.null(dataframe)))
+	if (notNull[1] && !sum(notNull[2:7])) {
+		warning("Only one argument provided. Assuming this is dataframe and not time.");
+		dataframe = time;
+		time = NULL;
+		notNull = c(rep(F, 6), T)
+	}
+	
+	if (!is.null(dataframe)) {
+		if (sum(notNull[1:6])) {
+			warning("dataframe was provided; ignoring extra args...", immediate. = T)
+		}
+		if (!is.data.frame(dataframe)) stop("dataframe, if provided, must be a data frame.");
+		if (length(names(dataframe)) != 6 || 
+		    sum(names(dataframe) != c('time', 'behavior', 'subject', 'type', 'pair_time', 'duration'))) {
+			stop("Malformed dataframe.\n", 
+				 "dataframe must have columns 'time', 'behavior', 'subject', 'type', 'pair_time', 'duration.");
+		}
+		logAsDataFrame = dataframe;
+	} else if (sum(notNull)) {
+		nevents = length(time);
+		if (nevents != length(behavior) || nevents != length(subject) || nevents != length(type) ||
+			nevents != length(pair_time) || nevents != length(duration)) {
+			stop("time, behavior, subject, type, pair_time, and duration must all be the same length.");
+		}
+		logAsDataFrame = data.frame(time = time, behavior = behavior, subject = subject,
+									type = type, pair_time = pair_time, duration = duration);
+	} else {
+		logAsDataFrame = .EMPTY_LOG;
+	}
+	
+	if (.EMPTY_LOG$behavior %in% logAsDataFrame$behavior) {
+		if (length(logAsDataFrame$behavior) > 1) {
+			stop('"', .EMPTY_LOG$behavior, '" is a reserved behavior name for empty logs.');
+		} else if (sum(!is.na(logAsDataFrame[,c(1,3,4,5,6)]))) {
+			warning('Empty logs must have all NA fields except behavior.', immediate. = T);
+			logAsDataFrame[,c(1,3,4,5,6)] <- NA;
+		}
+	} else {
+		if (class(logAsDataFrame$time) != "numeric") {
+			warning("time should be a numeric vector", immediate. = T)
+			logAsDataFrame$time <- as.numeric(logAsDataFrame$time)
+		}
+		if (class(logAsDataFrame$behavior) != "character") {
+			warning("behavior should be a character vector", immediate. = T)
+			logAsDataFrame$behavior <- as.character(logAsDataFrame$behavior)
+		}
+		if (class(logAsDataFrame$subject) != "character") {
+			warning("subject should be a character vector", immediate. = T)
+			logAsDataFrame$subject <- as.character(logAsDataFrame$subject)
+		}
+		if (class(logAsDataFrame$type) != "character") {
+			warning("type should be a character vector", immediate. = T)
+			logAsDataFrame$type <- as.character(logAsDataFrame$type)
+		}
+		if (sum(!is.na(logAsDataFrame$pair_time)) && class(logAsDataFrame$pair_time) != "numeric") {
+			warning("pair_time should be a numeric vector", immediate. = T)
+			logAsDataFrame$pair_time <- as.numeric(logAsDataFrame$pair_time)
+		}
+		if (sum(!is.na(logAsDataFrame$duration)) && class(logAsDataFrame$duration) != "numeric") {
+			warning("duration should be a numeric vector", immediate. = T)
+			logAsDataFrame$duration <- as.numeric(logAsDataFrame$duration)
+		}
+		if (sum(!(names(table(logAsDataFrame$type)) %in% c("start", "stop", "neither")))) {
+			stop('type must be either "start", "stop", or "neither" for all logs.')
+		}
+		if (sum(c(is.na(logAsDataFrame$time), is.na(logAsDataFrame$behavior),
+				  is.na(logAsDataFrame$subject), is.na(logAsDataFrame$type)))) {
+			stop('NAs not allowed in time, behavior, subject, or type.')
+		}
+	}
+	
+	class(logAsDataFrame) <- c("behavior.log", "data.frame");
+	return(logAsDataFrame);
+}
 
 .convertType = function(loglist) {
 	nonasintype = function(log) {
@@ -51,7 +163,7 @@ source("~/Desktop/Katrina/behavior_code/powerBootstrap2Independent.R")
 ## TINY HELPERS                                                                                    ##
 #####################################################################################################
 
-lighten = function(color, addN = 30) {
+.lighten = function(color, addN = 30) {
 	rgbtable = t(col2rgb(color));
 	tmp = rgbtable + addN;
 	tmp[tmp > 255] <- 255
@@ -138,9 +250,30 @@ lighten = function(color, addN = 30) {
 # If groups = TRUE, will recurse through directories. Use with one folder for control animals,
 # one folder for experimental condition 1, etc.
 # Advanced: Assay start can be FALSE to turn off assay starts, or NULL or a vector of default assay starts
+
+#' Scorevideo Data Input
+#'
+#' Reads a set of scorevideo output logs and creates a list with a data frame for each log.
+#'
+#' TODO add details
+#' @param folderPath the name of the folder where the scorevideo logs are to be read from.
+#'   This should contain no other .txt files. If the data set has only one experimental group
+#'   at one timepoint, all the logs should be in this folder; otherwise, the folder should
+#'   contain one folder of logs for each group at each timepoint.
+#' @param groups logical. Is there more than one experimental group and/or more than one timepoint?
+#' @param assayStart character vector giving the name(s) of mark(s) that represent an assay
+#'   start. A value of \code{FALSE} indicates that assay starts were not marked or were the same
+#'   as the start of video. The default value, \code{NA}, causes the user to be prompted to provide
+#'   this information.
+#' @return A list of \code{\link{behavior.log}}s, with one \code{behavior.log} for each scorevideo logfile.
+#' @keywords scorevideo readlog read scorelog
+#' @export
+#' @examples
+#' my_data <- .getDataBatch("myExperimentData/", groups = TRUE, assayStart = c("Assay Start", "Assay start", "Female Introduced"))
+#'
+#' my_data <- .getDataBatch("myExperimentData/", groups = FALSE, assayStart = FALSE)
 .getDataBatch = function (folderPath, groups = FALSE, assayStart = NA) {
-	filenames = if (groups) {paste(folderPath,list.files(folderPath, pattern = "txt$", recursive = TRUE),sep = "");}
-	            else {paste(folderPath,list.files(folderPath, pattern = "txt$"),sep = "");}
+	filenames = paste(folderPath,list.files(folderPath, pattern = "txt$", recursive = groups),sep = "");
 	data = list();
 	if (!is.null(assayStart) && is.na(assayStart)) assayStart = if (.getYesOrNo("Did you mark assay starts in your score logs? ")) NULL else FALSE;
 	for (f in 1:length(filenames)) {
