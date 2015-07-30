@@ -253,9 +253,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 
 #' Scorevideo Data Input
 #'
-#' Reads a set of scorevideo output logs and creates a list with a data frame for each log.
-#'
-#' TODO add details
+#' Reads a set of scorevideo output logs and converts them to a list of \code{\link{behavior.log}}s.
 #' @param folderPath the name of the folder where the scorevideo logs are to be read from.
 #'   This should contain no other .txt files. If the data set has only one experimental group
 #'   at one timepoint, all the logs should be in this folder; otherwise, the folder should
@@ -269,9 +267,9 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 #' @keywords scorevideo readlog read scorelog
 #' @export
 #' @examples
-#' my_data <- .getDataBatch("myExperimentData/", groups = TRUE, assayStart = c("Assay Start", "Assay start", "Female Introduced"))
+#' my_data <- getDataBatch("myExperimentData/", groups = TRUE, assayStart = c("Assay Start", "Assay start", "Female Introduced"))
 #'
-#' my_data <- .getDataBatch("myExperimentData/", groups = FALSE, assayStart = FALSE)
+#' my_data <- getDataBatch("myExperimentData/", groups = FALSE, assayStart = FALSE)
 .getDataBatch = function (folderPath, groups = FALSE, assayStart = NA) {
 	filenames = paste(folderPath,list.files(folderPath, pattern = "txt$", recursive = groups),sep = "");
 	data = list();
@@ -539,10 +537,22 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	return(df);
 }
 
-# Provides an interactive interface to stitch logs together that come from the same
-# subject. Uses regexes to identify subject - the regex used becomes the name of the
-# log. This allows conservation of folder structure!
-# If logOutPref is provided, the stitched-together logs are written out as tables.
+#' Log Stitcher
+#'
+#' Takes a list of \code{\link{behavior.log}}s and concatenates logs from the same assay.
+#'
+#' Repeatedly prompts the user to enter a regular expression that matches all the logs from
+#' an assay. If the data has different groups/timepoints in different folders, it is recommended
+#' to type out that group name as part of the regular expression so that group/timepoint separation
+#' is preserved.
+#' @param data the list of \code{behavior.log}s
+#' @param logOutPref the folder path + prefix where the concatenated logs should be saved as tables. A
+#'   value of \code{NULL} results in the logs not being saved outside of R.
+#' @return The concatenated list of \code{behavior.log}s, the names of which are the user input.
+#' @keywords stitch logstitcher combine
+#' @export
+#' @examples
+#' my_data <- stitchLogsTogether(my_data)
 .stitchLogsTogether = function(data, logOutPref = NULL) {
 	cat("Log names:\n");
 	print(names(data));
@@ -762,15 +772,41 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	return(pairLog);
 }
 
-# Divides logs into groups by the folder they came from; asks the user which are experimental
-# groups and which are timepoints, then sorts the logs so they are in the correct order for later
-# between-group comparisons.
-# pairLogsFn can be provided if you have data from more than one timepoint. It should be a function
-# that takes arguments (subject, followupGroup) where subject is the log name of a baseline log
-# and followupGroup is a character vector of the names of all the logs in a followup timepoint. The
-# function should return the name of the single log from the followup timepoint that corresponds to
-# the baseline log. No error checking is performed on this function. If pairLogsFn is not provided,
-# the user can manually pair logs (but it's a pain)
+
+#' Pair Groups and Timepoints
+#'
+#' Asks the user which folders of logs corresponded to which experimental groups and timepoints,
+#' then pairs logs belonging to the same subject across different timepoints.
+#' 
+#' @param data the list of \code{\link{behavior.log}}s
+#' @param pairLogsFn A function that takes arguments \code{(subject, followupGroup)} where
+#'   \code{subject} is a log name from the baseline timepoint and \code{followupGroup} is a
+#'   character vector of log names from any single followup timepoint. The function returns
+#'   the name from \code{followupGroup} of the log that corresponds to \code{subject}. NO error
+#'   checking is performed on this function, so make sure it is correct!
+#'
+#'   A value of \code{NULL} results in the user being prompted to pair logs individually, which
+#'   works, but is rather tedious.
+#' @return \code{data} sorted by experimental group/timepoint, with paired logs in the same order
+#'   at each timepoint. Additionally, each log gains the attribute \code{group.pairing} which is a
+#'   matrix giving th names of timepoints and groups as well as the folder names that correspond to
+#'   each group-timepoint pair.
+#' @keywords pair pairgroups sort sortlogs groups timepoints
+#' @export
+#' @examples
+#' myPairLogsFn = function(subject, followupGroup) {
+#'	   subjectID = gsub("^.*/([0-9]*)_.*$", "/\\1_", subject);
+#'	   pairLog = grep(subjectID, followupGroup, value = T);
+#'	   if (length(pairLog) > 1) {
+#'		   warning("MORE THAN ONE MATCH", immediate. = T);
+#'		   pairLog = pairLog[1];
+#'	   } else if (length(pairLog) < 1) {
+#'		   warning("NO MATCH", immediate. = T);
+#'		   pairLog = "";
+#'	   }
+#'	   return(pairLog);
+#' }
+#' my_data <- pairGroups(my_data, myPairLogsFn)
 .pairGroups = function(data, pairLogsFn = NULL) {
 	groupwiseData = .sepGroups(data);
 	groupNames = groupwiseData$groupNames;
@@ -918,8 +954,6 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 #   behaviors can start in one bout and end in another bout.
 # minNumBehaviors - remove behaviors that do not occur at least this many times.
 # toExclude - remove all behaviors in this character vector.
-# splitPot - option specifically for Scott's PGF2a data to separate "inside POT" by subject into
-#   into "male IN POT" and "female IN POT"
 # renameStartStop - for durational behaviors, append "start" to the behavioral description at
 #   the start of the behavior, and "stop" to the behavioral description at the end of the behavior.
 # zeroBeh - Changes time=0 in all logs from being the start of the assay to being the first
@@ -989,11 +1023,57 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	return(data);
 }
 
-# lapply's .filterData with the selected options to a list of score logs.
-# The option renameSubjects searches all the logs for any two behaviors that have identical names
-#   but different subjects. If any such behaviors are found, they are replaced by "subject old_behavior_name"
-#   to disambiguate. 
-# renameSubjects is here because we want to rename the same behaviors in the same way across all logs.
+
+#' Filter and Edit Data
+#'
+#' Filter \code{\link{behavior.log}}s to either clean data or enable a specific analysis.
+#' 
+#' This function has many, many options; generally it is recommended to only use one at a time. The
+#' default values for all options result in no change being made to the data.
+#' @param data the list of \code{\link{behavior.log}}s
+#' @param renameSubjects logical; should behaviors to be checked to make sure there are no two
+#'   behaviors with the same name but performed by different subjects? Renames ambiguous behaviors
+#'   to be unambiguous. Default is \code{FALSE}.
+#' @param startTime,endTime if provided, eliminates behaviors that occur before \code{startTime} or
+#'   after \code{endTime}. Default is \code{NA}.
+#' @param subjects character vector of subject names that should be included in downstream analyses.
+#'   Behaviors performed by subjects not in this vector are eliminated. Default is \code{NULL}.
+#' @param startOnly Should durational behaviors be converted into non-durational behaviors? A value
+#'   of \code{TRUE} makes all durational behaviors non-durational, while a character vector makes
+#'   durational behaviors in the character vector non-durational. Default is \code{NULL}.
+#' @param boutInterval If provided, behavior logs are separated into "bouts" of behavior separated by
+#'   periods of no behavior. This parameter gives the minimum time elapsed with no behavior (in seconds)
+#'   to consider the next behavior the start of a new bout. Default is \code{NULL}
+#'
+#'   Durational behaviors are considered to be continuous behavior and thus even if they last for more time than
+#'   \code{boutInterval} their start and stop are not separated into two different bouts. However, if
+#'   you have state pseudo-"behaviors" that can/should have their start and stop separated (e.g.
+#'   "inside pot" or "near female") you can give their names as character vector \code{stateBehaviors} to
+#'   allow separation into different bouts.
+#' @param minNumBehaviors numeric - remove behaviors that occur fewer than \code{minNumBehaviors} times in a log.
+#'   These infrequent behaviors are NOT removed from all logs in \code{data}; rather, they are removed
+#'   only from logs in which they are infrequent. This might mess up downstream analyses, so be careful!
+#'   Default is \code{NULL}.
+#' @param toExclude character vector giving the names of behaviors to eliminate. These behaviors are eliminated
+#'   from ALL logs.
+#' @param renameStartStop logical; should durational behaviors be renamed into a "start" behavior and
+#'   an "end" behavior? If \code{TRUE}, "start" is appended to the \code{behavior} field at
+#'   the start of each durational behavior, and "stop" at the end of the behavior. Generally not
+#'   recommended.
+#' @param zeroBeh Aligns logs by the first occurance of \code{zeroBeh} by changing the \code{time} field
+#'   so the first occurance of \code{zeroBeh} is at time 0 in all logs. If \code{zeroBeh} never occurs in
+#'   a given log, the entire log is in negative time, with 0 at the assay end (if available) or the last behavior
+#'   (if not available). If \code{zeroBeh} is provided in the same call as \code{startTime} and/or
+#'   \code{endTime}, the log is first trimmed to \code{[startTime, endTime]} and THEN rezeroed.
+#'
+#'   If you want to align logs by the nth occurance of \code{zeroBeh} instead of the first one, you can
+#'   pass in parameter \code{zeroBehN} to specify which occurance should be used.
+#' @return \code{data} filtered according to the parameters provided, or unaltered if no parameters
+#'   were provided.
+#' @keywords pair pairgroups sort sortlogs groups timepoints
+#' @export
+#' @examples
+#' # TODO write examples
 .filterDataList = function(data, renameSubjects = F, ...) {
 	if (renameSubjects) {
 		behaviors <- .behnames(data);
@@ -1011,8 +1091,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	return(lapply(data, function(d) {.filterData(d, ...)}));
 }
 
-# Removes empty score logs from <data>. BE CAREFUL WITH THIS - it might mess up all kinds
-# of things by changing the number and order of logs.
+# Sets empty score logs in <data> to be .EMPTY_LOG.
 .fixNALogs = function(data) {
 	emptyLogs = which(unlist(lapply(data, function(d){!is.data.frame(d)})))
 	if (length(emptyLogs) == 0) return(data)
@@ -1163,6 +1242,16 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	return(tab[names(tab) != .EMPTY_LOG$behavior])
 }
 
+#' Behavior Names
+#'
+#' Returns a character vector of the names of behaviors in a dataset.
+#' 
+#' @param data a list of \code{\link{behavior.log}}s
+#' @return a character vector giving the behavior names from \code{data}
+#' @keywords behnames behavior names
+#' @export
+#' @examples
+#' behaviors = .behnames(my_data)
 .behnames = function(data) {
 	behnames = names(table(unlist(lapply(data, function(f) {f$behavior}))));
 	return(behnames[behnames != .EMPTY_LOG$behavior])
