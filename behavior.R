@@ -284,16 +284,9 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 		names(data)[f] = gsub(folderPath, "", filenames[f]);
 	}
 	
-	# .printFindDupBehaviors(data);
 	data <- .fixNALogs(data);
-	# print(lapply(data, function(f) {names(table(f$behavior))}));
-	
-	# cat("Behaviors found:\n");
-	# .printFindDupBehaviors(data);
-	# cat('There may be some behaviors in the list above that should be combined (for example, "Female Follows" and "female follows").\n');
-	# if (.getYesOrNo("Are there any behaviors in the list that should be combined? ")) {
-		data <- .promptToElimDups(data);
-	# }
+
+	data <- .promptToElimDups(data);
 	
 	if(.getYesOrNo("Were all of your assays the same length of time? ")) {
 		userInput = readline("Please enter the length of your assay in seconds.\n> ");
@@ -2441,7 +2434,8 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 			stop("Hist breaks do not match!")
 		}
 	}
-	return(list(x = as.numeric(dimnames(mat)[[2]]), y=apply(mat, 2, mean), matrix = mat));
+	mat_foravgs = mat[apply(mat, 1, sum) != 0,]; # TODO test
+	return(list(x = as.numeric(dimnames(mat)[[2]]), y=apply(mat_foravgs, 2, mean), matrix = mat));
 }
 
 # Helper function for .behavioralDensityGraph()
@@ -2472,7 +2466,8 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 			dimnames(mat)[[2]] <- p$x;
 		}
 	}
-	return(list(x = as.numeric(dimnames(mat)[[2]]), y=apply(mat, 2, mean), matrix = mat));
+	mat_foravgs = mat[apply(mat, 1, sum) != 0,]; # TODO test
+	return(list(x = as.numeric(dimnames(mat)[[2]]), y=apply(mat_foravgs, 2, mean), matrix = mat));
 }
 
 # Returns a vector giving the distances between occurances of <centerBeh> and <varBeh> in data frame <data>.
@@ -2740,6 +2735,11 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	return(ssBehs);
 }
 
+.getSubjectsForBeh = function(data, behavior) {
+	subjects = names(table(unlist(lapply(data, function(d){d$subject[d$behavior == beh]}))))
+	return(subjects);
+}
+
 # Separates the logs in <data> by group and makes a multicolor raster plot of each one. The plots for
 # each group are saved to files starting with <outfilePrefix>. The color key is also saved to a separate
 # file with the same prefix. Parameters in the ... are passed on to .makeMulticolorRasterPlot().
@@ -2854,11 +2854,13 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 				times = dataFrame$time[dataFrame$behavior == beh];
 				ybottom = n - 0.5 + (sep / 2);
 				ytop = n + 0.5 - (sep / 2);
-				if (staggerSubjects && dataFrame$subject[dataFrame$behavior == beh][1] %in% c("male", "female")) {
-					if (dataFrame$subject[dataFrame$behavior == beh][1] == "male") {
+				if (staggerSubjects) { # TODO test
+					expsubj = .getSubjectsForBeh(beh);
+					if (length(expsubj) > 1) stop("More than one experimental subject provided in logs for ", beh);
+					if (expsubj == "male") {
 						ybottom = n;
 						# ytop = n + .45;
-					} else {
+					} else if (expsubj == "female") {
 						ytop = n;
 						# ybottom = n - .45;
 					}
