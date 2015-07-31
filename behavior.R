@@ -982,7 +982,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	if (!is.null(subjects)) {
 		data <- data[data$subject %in% subjects,]
 		if (length(data$behavior) == 0) {
-			warning(paste("No behaviors found for subject", subjects), immediate. = T)
+			warning(paste("No behaviors found for subject ", subjects, ".\n", sep = ''), immediate. = T)
 			return(.EMPTY_LOG)
 		}
 	}
@@ -2045,69 +2045,61 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 #	weird - hacky fix for drawing markov chains weighted by time, where smaller numbers should correspond to thicker lines. Probably don't use this?
 #	singleCharLables - puts labels inside the circles that are large enough to hold a single 24-pt character. Default is all labels outside.
 #	byTotal - was byTotal on or off when creating the probability matrix? (used in line weighting)#
-.buildDotFile = function (probMatrix, originalDataVec, file='', title='untitled', fontsize=24, minValForLine = 0, weird = FALSE,
-							singleCharLabels = FALSE, byTotal = FALSE, nodesToExclude = character(0)) {
-	# write top line to file
-	cat('digraph', title, '\n', '	{\n', file=file);
-		
-	# # get behavior frequencies
-	if (is.numeric(originalDataVec)) {freqs = originalDataVec;}
-	else if (is.character(originalDataVec)) {freqs = table(originalDataVec);}
-	else {stop("DATA VEC IS WRONG IN .buildDotFile!!!!!!!");}	
+.buildDotFile = function(probMats, behfreqs, colors = "blue", file = '', title = 'untitled', fontsize = 24,
+						 minValForLine = 0, singleCharLabels = F, byTotal = F, nodesToExclude = character(0)) {
+	if (!is.list(probMats)) probMats = list(pm = probMats)
+	if (length(probMats) != length(colors)) stop("probMats must be the same length as colors.")
+	cat('digraph', title, '\n', '	{\n', file = file);
 	
-	#print(freqs);print(probMatrix)
-	# # check that behaviors are in same order in freqs and probMatrix
-	if (!(sum(rownames(probMatrix)==names(freqs)) == length(freqs))) {stop('NAMES DONT MATCH, GO FIND AUSTIN!!!')}
+	behfreqs = behfreqs[!(names(behfreqs) %in% nodesToExclude) & behfreqs > 0];
+	behs = names(behfreqs)
 	
-	# TODO BUG probmats are no longer always-square. this needs to be dealt with here. And elsewhere??
-   	#toRemove = which(apply(probMatrix, 1, sum) == 0);
-   	toRemove = which(apply(probMatrix, 1, sum) == 0 | dimnames(probMatrix)[[1]] %in% nodesToExclude);
-	if(length(toRemove)) {
-		probMatrix = probMatrix[-toRemove,-toRemove];
-		freqs = freqs[-toRemove];
-    }
-	# # compute proportions of behaviors for relative node size
-	for (beh in 1:length(freqs))
-	{
-#		if (names(freqs)[beh] %in% c("[","]")) {next;}
-		prop = freqs[beh] / sum(freqs) * 10; #print(file)
+	.dot.makeNodes(behfreqs, file, singleCharLabels, fontsize)
+	
+	probMats = lapply(probMats, function(pm) {pm[rownames(pm) %in% behs, colnames(pm) %in% behs]});
+	
+	for (i in 1:length(probMats)) {
+		.dot.drawArrows(probMats[[i]], colors[i], file, byTotal, minValForLine);
+	}
+
+	cat('	}', file=file, append=T);
+}
+
+.dot.makeNodes = function(behfreqs, file, singleCharLabels, fontsize) {
+	behs = names(behfreqs)
+	for (beh in behs) {
+		prop = behfreqs[beh] / sum(behfreqs) * 10;
 		if (!singleCharLabels || prop < 0.7) { # 0.7 is the magic size for single characters in 24pt font
-			cat('		', gsub('[^A-Za-z1-9]', '', names(freqs)[beh]), ' [label="", xlabel="', gsub(' ', '', names(freqs)[beh]),'", width=', prop, ', height=', prop, ', fontsize=', fontsize, '];\n', file=file, append=T, sep='');
+			cat('		', gsub('[^A-Za-z1-9]', '', beh), ' [label="", xlabel="', gsub(' ', '', beh),
+			    '", width=', prop, ', height=', prop, ', fontsize=', fontsize, '];\n', file=file, append=T, sep='');
 		} else {
-			cat('		', gsub('[^A-Za-z1-9]', '', names(freqs)[beh]), ' [width=', prop, ', height=', prop, ', fontsize=', fontsize, '];\n', file=file, append=T, sep='');
+			cat('		', gsub('[^A-Za-z1-9]', '', beh), ' [width=', prop, ', height=', prop, ', fontsize=', fontsize, '];\n', file=file, append=T, sep='');
 		}
 	}
-	# loop through probMatrix to get probabilities
-	# probMatrix=probMatrix*10;
-	for (row in 1:nrow(probMatrix))
+}
+
+.dot.drawArrows = function(probMat, color, file, byTotal, minValForLine) {
+	for (row in 1:nrow(probMat))
 	{
-		for (col in 1:ncol(probMatrix))
+		for (col in 1:ncol(probMat))
 		{
-			val = if (byTotal) {(probMatrix[row,col] / sum(probMatrix)) * 100}
-				  else if (is.nan(probMatrix[row,1])) {-1} 
-				  # else if (sum(probMatrix[row,])) {(probMatrix[row,col] / sum(probMatrix[row,])) * 10}
-				  else if (sum(probMatrix[row,])) {(probMatrix[row,col]) * 10}
-				  else if (probMatrix[row,col] == 0) 0
+			val = if (byTotal) {(probMat[row,col] / sum(probMat)) * 100}
+				  else if (is.nan(probMat[row,1])) {-1} 
+				  else if (sum(probMat[row,])) {(probMat[row,col]) * 10}
+				  else if (probMat[row,col] == 0) 0
 				  else stop("divide by 0 error");
 			prob = if(byTotal) val / 100 else val / 10; 
-			if (weird) {val = 10 * (1 - (probMatrix[row,col] / max(probMatrix[row,])));} #FIX THIS !!!TODO
 			if (prob > minValForLine)
 			{
-				leader = rownames(probMatrix)[row];
-				follower = colnames(probMatrix)[col];#print(paste(leader, follower, sep = ','));
+				leader = rownames(probMat)[row];
+				follower = colnames(probMat)[col];
 				if (leader == "STOP") {next;}
-#				if (follower %in% c("[","]")) {next;}
 		
 				cat('		', gsub('[^A-Za-z1-9]', '', leader), ' -> ', gsub('[^A-Za-z1-9]', '', follower),
-				    ' [label="", style="setlinewidth(', val, ')", arrowsize=1];','\n' ,sep='', file=file, append=T);	
+				    ' [label="", style="setlinewidth(', val, ')",  color=', color,', arrowsize=1];','\n' ,sep='', file=file, append=T);	
 		 	}
 		}
 	}
-	
-	# write last line of file
-	cat('	}', file=file, append=T);
-	
-	return(NULL)
 }
 
 # Takes a data frame, converts the descriptions to single letters using key (or using
