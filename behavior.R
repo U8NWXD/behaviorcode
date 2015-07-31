@@ -2102,6 +2102,24 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	}
 }
 
+.getProbMatsBySubj = function(data, subjects, ...) {
+	allPMsEtc = list(all = .groupLevelProbMats(data));
+	for (subj in subjects) {
+		allPMsEtc = c(allPMsEtc, list(.groupLevelProbMats(.filterDataList(data, subjects = subj), ...)))
+		names(allPMsEtc)[length(allPMsEtc)] <- subj[1];
+	}
+	
+	groupwisePMs = list();
+	for (group in 1:length(allPMsEtc[[1]])) {
+		groupwisePMs = c(groupwisePMs, list(lapply(allPMsEtc, function(singleSubjDat){singleSubjDat[[group]]$probMat})))
+	}
+	names(groupwisePMs) = names(allPMsEtc[[1]])
+	
+	behcounts = lapply(allPMsEtc[[1]], function(out){out$counts});
+	
+	return(list(probMats = groupwisePMs, counts = behcounts));
+}
+
 # Takes a data frame, converts the descriptions to single letters using key (or using
 # a smart algorithm to assign letters if no key is provided), and returns a list of the
 # data frame and the key used. A key should be a list whose names are the behavior names
