@@ -2045,7 +2045,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 #	weird - hacky fix for drawing markov chains weighted by time, where smaller numbers should correspond to thicker lines. Probably don't use this?
 #	singleCharLables - puts labels inside the circles that are large enough to hold a single 24-pt character. Default is all labels outside.
 #	byTotal - was byTotal on or off when creating the probability matrix? (used in line weighting)#
-.buildDotFile = function(behsubj, subjcolors, probMats, behfreqs, colors = "blue", behcolors = NA, file = '', title = 'untitled', fontsize = 24,
+.buildDotFile = function(probMats, behfreqs, colors = "black", behsubj, subjcolors, file = '', title = 'untitled', fontsize = 24,
 						 minValForLine = 0, singleCharLabels = F, byTotal = F, nodesToExclude = character(0)) {
 	if (!is.list(probMats)) probMats = list(pm = probMats)
 	if (length(probMats) != length(colors)) stop("probMats must be the same length as colors.")
@@ -2056,7 +2056,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	
 	.dot.makeClusters(behs, behsubj, subjcolors, file, fontsize)
 	
-	.dot.makeNodes(behfreqs, behcolors, file, singleCharLabels, fontsize)
+	.dot.makeNodes(behfreqs, file, singleCharLabels, fontsize)
 	
 	probMats = lapply(probMats, function(pm) {pm[rownames(pm) %in% behs, colnames(pm) %in% behs]});
 	
@@ -2068,14 +2068,13 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 }
 
 .dot.makeClusters = function(behs, behsubj, subjcolors, file, fontsize) {
-	print("CLUST")
 	clusterNum = 0;
 	for (subj in names(table(behsubj))) {
 		print(subj)
 		subjbehs = names(behsubj)[behsubj == subj & !is.na(behsubj) & names(behsubj) %in% behs];
 		print(subjbehs)
 		if (!length(subjbehs)) next;
-		cat('\t\tsubgraph cluster_', clusterNum, ' {\n	\t\tstyle=filled;\n\t\t\tcolor=', subjcolors[subj,1],
+		cat('\t\tsubgraph cluster_', clusterNum, ' {\n\t\t\tstyle=filled;\n\t\t\tcolor=', subjcolors[subj,1],
 			';\n\t\t\tnode [color=', subjcolors[subj,2], '];\n\t\t\tlabel = "', subj, '";\n\t\t\tfontsize = ',
 			fontsize * 1.5, ';\n', file = file, append = T, sep = '');
 		for (beh in subjbehs) {
@@ -2086,13 +2085,13 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	}
 }
 
-.dot.makeNodes = function(behfreqs, behcolors, file, singleCharLabels, fontsize) {
+.dot.makeNodes = function(behfreqs, file, singleCharLabels, fontsize) {
 	behs = names(behfreqs)
 	for (beh in behs) {
 		prop = behfreqs[beh] / sum(behfreqs) * 10;
 		# prop=0.7 is the magic size for single characters in 24pt font
 		cat('		', gsub('[^A-Za-z1-9]', '', beh), ' [',
-		    if (!singleCharLabels || prop < 0.7) paste('label="", xlabel="', gsub(' ', '', beh), '", ', sep = '') else '',
+			'label="', beh, '", fixedsize=true, ',
 		    'width=', prop, ', height=', prop, ', fontsize=', fontsize,
 		    ', style=filled, fillcolor=white',
 		    '];\n', file=file, append=T, sep='');
