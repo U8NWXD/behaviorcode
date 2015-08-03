@@ -2116,7 +2116,9 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 				if (leader == "STOP") {next;}
 		
 				cat('		', gsub('[^A-Za-z1-9]', '', leader), ' -> ', gsub('[^A-Za-z1-9]', '', follower),
-				    ' [label="", style="setlinewidth(', val, ')",  color=', color,', arrowsize=1];','\n' ,sep='', file=file, append=T);	
+				    ' [label="", style="setlinewidth(', val, ')",  color=', color,',',
+				    ' constraint=', if (probMat[row,col] == max(probMat[row,])) "true" else "false", ',',
+				    ' arrowsize=1];','\n' ,sep='', file=file, append=T);	
 		 	}
 		}
 	}
