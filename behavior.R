@@ -1229,10 +1229,12 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 
 # Calls .replaceBeh on every data frame of a data list.
 .replaceBehAll = function(data, toReplace, replacement) {
-	for (i in 1:length(data)) {
-		data[[i]] <- .replaceBeh(data[[i]], toReplace, replacement);
-	}
-	return(data);
+	return(lapply(data, function(log){.replaceBeh(log, toReplace, replacement)}));
+}
+
+.setSubject = function(data, behaviors, subject) {
+	fn = function(log) {log$subject[log$behavior %in% behaviors] <- subject; return(log)};
+	return(lapply(data, fn))
 }
 
 # Returns a table with names of all the behaviors in the logs in <data>, and counts of
@@ -2124,7 +2126,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	}
 }
 
-.getProbMatsBySubj = function(data, subjects, ...) {
+.getProbMatsBySubj = function(data, subjects = c("male", "female"), noDupAll = T, ...) {
 	allPMsEtc = list(all = .groupLevelProbMats(data));
 	for (subj in subjects) {
 		allPMsEtc = c(allPMsEtc, list(.groupLevelProbMats(.filterDataList(data, subjects = subj), ...)))
@@ -2135,12 +2137,53 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	for (group in 1:length(allPMsEtc[[1]])) {
 		groupwisePMs = c(groupwisePMs, list(lapply(allPMsEtc, function(singleSubjDat){singleSubjDat[[group]]$probMat})))
 	}
-	names(groupwisePMs) = names(allPMsEtc[[1]])
+	names(groupwisePMs) = names(allPMsEtc[[1]]);
+	
+	
+	if (!is.null(subjects) && noDupAll) {
+		for (gri in 1:length(groupwisePMs)) {
+			for (subi in 2:length(groupwisePMs[[gri]])) { # TODO will crash if there are no subjects. # TODO TODO TODO fix noooooowwwww priority A1 1A NOW
+				rowsToZero = which(rownames(groupwisePMs[[gri]][[1]]) %in% rownames(groupwisePMs[[gri]][[subi]]));
+				colsToZero = which(colnames(groupwisePMs[[gri]][[1]]) %in% colnames(groupwisePMs[[gri]][[subi]]));
+				groupwisePMs[[gri]][[1]][rowsToZero, colsToZero] <- 0;
+			}
+		}
+	}
+
 	
 	behcounts = lapply(allPMsEtc[[1]], function(out){out$counts});
 	
 	return(list(probMats = groupwisePMs, counts = behcounts));
 }
+
+.getSubjVecsEtc = function(data, subjects = NULL) { # TODO please renameeeeee
+	behnames = .behnames(.filterDataList(data, renameStartStop = T));
+	clusterAssignments = apply(rbind(behnames), 2, function(beh){.getSubjectsForBeh(.filterDataList(natpgfspawndat_nopeck, renameStartStop = T), beh)})
+	names(clusterAssignments) = behnames;
+	if (is.list(clusterAssignments)) {
+		multi = which(unlist(lapply(clusterAssignments, function(behsubj){length(behsubj) > 1})));
+		warning("Behavior(s) ", paste('"', names(multi), '" ', sep = ''),
+		        'have multiple subjects in your data. They will not be included as part of any subject.', immediate. = T)
+		clusterAssignments[multi] <- NA;
+		clusterAssignments = unlist(clusterAssignments);
+	}
+	
+	if (is.null(subjects)) subjects = names(table(clusterAssignments))
+	else clusterAssignments[!(clusterAssignments %in% subjects)] <- NA;
+	
+	if (length(subjects) == 2 && "male" %in% subjects && "female" %in% subjects) {
+		colormat = matrix(data = c("pink", "lightblue", "red", "blue"), nrow = 2, dimnames = list(c("female", "male"), NULL))
+	} else {
+		stop("I don't know what colors to use.") # TODO fixxxxx
+	}
+	
+	return(list(clusters = clusterAssignments, colorMat = colormat))
+}
+# option to just pull out squares of orig. mat.
+# option to do aggr clust and repro clust
+
+#behsubj is a vector of subjects where the names are the behaviors and the values are "male" "female" NA etc.
+# subjcolors is an nx2 matrix with rownames subjects, col 1 subj cluster background colors, and col 2 subj node colors.
 
 # Takes a data frame, converts the descriptions to single letters using key (or using
 # a smart algorithm to assign letters if no key is provided), and returns a list of the
@@ -2239,6 +2282,16 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	cleanerDataForPlot <- .filterDataList(data, renameStartStop=T);
 	probMatData <- .groupLevelProbMats(cleanerDataForPlot, byTotal=byTotal);
 	.makeDotPlotsFromProbMas(probMatData, fileprefix, byTotal=byTotal, minValForLine=minValForLine, singleCharLabels=singleLetterLabels, nodesToExclude = nodesToExclude);
+}
+
+.makeGroupDotPlotsClust = function(data, fileprefix, subjects = c("male", "female"), byTotal = FALSE, indivMarkovChains = T, ...) {
+	data = .filterDataList(data, renameStartStop=T);
+	probMatsBySubj = .getProbMatsBySubj(data, subjects = if(indivMarkovChains) subjects else NULL, byTotal = byTotal);
+	subjectVectorsEtc = .getSubjVecsEtc(data, subjects);
+	for (i in 1:length(probMatsBySubj$probMats)) {
+		.buildDotFile(probMatsBySubj$probMats[[i]], probMatsBySubj$counts[[i]], colors = "black", #c("black", "blue", "red"),
+						subjectVectorsEtc$clusters, subjectVectorsEtc$colorMat, file = paste(fileprefix, names(probMatsBySubj$probMats)[[i]], ".dot", sep = ""), ...);
+	}
 }
 
 
