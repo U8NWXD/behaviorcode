@@ -27,7 +27,8 @@
 2. If you have more than one log belonging to the same assay (for example, if you have a
    long video that got split up into chunks), call
 	> my_data <- .stitchLogsTogether(my_data)
-   and follow the prompts to combine all the logs for each assay.
+   and follow the prompts to combine all the logs for each assay. This ONLY works if you
+   marked assay starts!
 
 3. Sort your data into groups by calling
 	> my_data <- .pairGroups(my_data)
@@ -84,7 +85,7 @@
    Example function call:
 	> .compareBasicStats(my_data, "~/Desktop/myExperiment");
 
-   If there are fewer than <minNumLogs> observations for a given behavior, the stats will
+   If there are fewer than <minNumLogsForComparison> observations for a given behavior, the stats will
    be skipped with a warning. The default for this parameter is 3, but you can raise it or
    lower it.
    
@@ -111,7 +112,7 @@
 	> .compareEntropy(my_data, "~/Desktop/myExperiment")
    These functions have mostly the same options as .calcBasicStats. It's also
    potentially desirable to call them on .filterDataList(my_data, startOnly = T). Just
-   like .calcBasicStats(), they output .csv's of raw data and statistics.
+   like .compareBasicStats(), they output .csv's of raw data and statistics.
 
    If you want to have the probability of each transition be (count transition) / (total
    num transitions), rather than the default (count transition) / (count leader), add the
@@ -150,10 +151,8 @@
    You will need to have GraphViz installed to open and view your Markov chains.
 
 8. Make a color key. To do this, call
-   	> my_color_key <- .buildColorKey(names(.findDupBehaviors(my_data)))
-   and follow the prompts. This will make a color key that is suitable for raster plots; to
-   make one suitable for behavioral density graphs, call
-	> my_color_key <- .buildColorKey(names(.findDupBehaviors(.filterDataList(my_data, renameStartStop = T))))
+   	> my_color_key <- .buildColorKey(.behnames(my_data))
+   and follow the prompts.
 
 9. Make raster plots. To do this, call
         > .makeMulticolorRasterPlots(my_data, "~/Desktop/myExperiment", my_color_key)

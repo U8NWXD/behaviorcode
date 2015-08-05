@@ -1,7 +1,7 @@
 library(stringr);
 options(stringsAsFactors = FALSE);
-source("~/Desktop/Katrina/behavior_code/bootstrap_rewrite2.R");
-source("~/Desktop/Katrina/behavior_code/powerBootstrap2Independent.R")
+source("~/Desktop/Katrina Summer 2015/behavior_code/bootstrap_rewrite2.R");
+source("~/Desktop/Katrina Summer 2015/behavior_code/powerBootstrap2Independent.R")
 #use color=blue in .dot output script to make separate sets of lines for 1st follower, 2nd, etc.
 # Find a way to represent AB -> C, ABC -> D instead of only A -> B probabilities
 # collapse statistics across animals. Arrows only allowed from subj to different subj.
@@ -2142,7 +2142,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	
 	if (!is.null(subjects) && noDupAll) {
 		for (gri in 1:length(groupwisePMs)) {
-			for (subi in 2:length(groupwisePMs[[gri]])) { # TODO will crash if there are no subjects. # TODO TODO TODO fix noooooowwwww priority A1 1A NOW
+			for (subi in 2:length(groupwisePMs[[gri]])) {
 				rowsToZero = which(rownames(groupwisePMs[[gri]][[1]]) %in% rownames(groupwisePMs[[gri]][[subi]]));
 				colsToZero = which(colnames(groupwisePMs[[gri]][[1]]) %in% colnames(groupwisePMs[[gri]][[subi]]));
 				groupwisePMs[[gri]][[1]][rowsToZero, colsToZero] <- 0;
@@ -2156,9 +2156,9 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	return(list(probMats = groupwisePMs, counts = behcounts));
 }
 
-.getSubjVecsEtc = function(data, subjects = NULL) { # TODO please renameeeeee
+.getSubjVecsEtc = function(data, subjects = NULL, subjcolors = NULL) { # TODO please renameeeeee
 	behnames = .behnames(.filterDataList(data, renameStartStop = T));
-	clusterAssignments = apply(rbind(behnames), 2, function(beh){.getSubjectsForBeh(.filterDataList(natpgfspawndat_nopeck, renameStartStop = T), beh)})
+	clusterAssignments = apply(rbind(behnames), 2, function(beh){.getSubjectsForBeh(.filterDataList(data, renameStartStop = T), beh)});
 	names(clusterAssignments) = behnames;
 	if (is.list(clusterAssignments)) {
 		multi = which(unlist(lapply(clusterAssignments, function(behsubj){length(behsubj) > 1})));
@@ -2170,8 +2170,12 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	
 	if (is.null(subjects)) subjects = names(table(clusterAssignments))
 	else clusterAssignments[!(clusterAssignments %in% subjects)] <- NA;
+	 print(clusterAssignments)
 	
-	if (length(subjects) == 2 && "male" %in% subjects && "female" %in% subjects) {
+	if (!is.null(subjcolors)) {
+		colormat = cbind(.lighten(subjcolors, 70), subjcolors); # TODO doesnt work graphviz won't take this color format fixxxxxxxxxxxxx
+		rownames(colormat) = subjects;
+	} else if (length(subjects) == 2 && "male" %in% subjects && "female" %in% subjects) {
 		colormat = matrix(data = c("pink", "lightblue", "red", "blue"), nrow = 2, dimnames = list(c("female", "male"), NULL))
 	} else {
 		stop("I don't know what colors to use.") # TODO fixxxxx
@@ -2284,12 +2288,12 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	.makeDotPlotsFromProbMas(probMatData, fileprefix, byTotal=byTotal, minValForLine=minValForLine, singleCharLabels=singleLetterLabels, nodesToExclude = nodesToExclude);
 }
 
-.makeGroupDotPlotsClust = function(data, fileprefix, subjects = c("male", "female"), byTotal = FALSE, indivMarkovChains = T, ...) {
+.makeGroupDotPlotsClust = function(data, fileprefix, subjects = c("male", "female"), colors = "black", byTotal = FALSE, indivMarkovChains = T, ...) {
 	data = .filterDataList(data, renameStartStop=T);
 	probMatsBySubj = .getProbMatsBySubj(data, subjects = if(indivMarkovChains) subjects else NULL, byTotal = byTotal);
-	subjectVectorsEtc = .getSubjVecsEtc(data, subjects);
+	subjectVectorsEtc = .getSubjVecsEtc(data, subjects, colors);
 	for (i in 1:length(probMatsBySubj$probMats)) {
-		.buildDotFile(probMatsBySubj$probMats[[i]], probMatsBySubj$counts[[i]], colors = "black", #c("black", "blue", "red"),
+		.buildDotFile(probMatsBySubj$probMats[[i]], probMatsBySubj$counts[[i]], if (indivMarkovChains) colors else 'black',
 						subjectVectorsEtc$clusters, subjectVectorsEtc$colorMat, file = paste(fileprefix, names(probMatsBySubj$probMats)[[i]], ".dot", sep = ""), ...);
 	}
 }
