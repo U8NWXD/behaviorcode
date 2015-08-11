@@ -2179,31 +2179,35 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 #####################################################################################################
 
 #TODO move this elsewhere
-.branchingDiagram = function(data, centerbeh, k, file = '', fontsize = 24, title = 'untitled') {
-	 contexts = .getAllAllContexts(centerbeh, data, kbefore = k);
+.branchingDiagram = function(data, centerbeh, kb, ka = 0, file = '', fontsize = 24, title = 'untitled', minTimesToDrawNode = 1, minLine = 1) {
+	 contexts = .getAllAllContexts(centerbeh, data, kbefore = kb, kafter = ka);
 	 
 	 cat('digraph', title, '\n', '	{\n', file = file);
 	 
-	 for (col in (k + 2):2) {
-	 	numbehfreqs = behfreqs = table(contexts[,col]);
-	 	names(numbehfreqs) <- paste(names(numbehfreqs), k + 2 - col);
+	 for (col in ncol(contexts):2) {
+	 	behfreqs = table(contexts[,col]);
+	 	numbehfreqs = behfreqs = behfreqs[behfreqs >= minTimesToDrawNode]
+	 	names(numbehfreqs) <- gsub('-', '_', paste(names(numbehfreqs), kb + 2 - col))
 	 	.dot.makeNodes(numbehfreqs, file, F, fontsize);
 	 	# print(numbehfreqs)
-	 	if (col < k + 2) {
+	 	if (col < ncol(contexts)) {
 	 		for (i in 1:length(behfreqs)) {
 	 			followers = table(contexts[contexts[,col] == names(behfreqs)[i],col + 1]);
-	 			names(followers) <- paste(names(followers), k + 1 - col);
-	 			followers = followers / nrow(contexts) * 30;
+	 			followers = followers[names(followers) %in% names(oldBehFreqs)]; # so you dont draw an arrow to a node that's not there
+	 			names(followers) <- gsub('-', '_', paste(names(followers), kb + 1 - col));
+	 			followers = followers[followers >= minLine]
+	 			followers = followers / nrow(contexts) * 50;
 	 			# print(i)
 	 			# print(followers)
 	 			leader = names(numbehfreqs)[i]
 	 			for (follow in names(followers)) {
-	 				cat('		', gsub('[^A-Za-z1-9]', '', leader), ' -> ', gsub('[^A-Za-z1-9]', '', follow),
+	 				cat('		', gsub('[^A-Za-z1-9_]', '', leader), ' -> ', gsub('[^A-Za-z1-9_]', '', follow),
 				    	' [label="", style="setlinewidth(', followers[follow], ')",',
 				    	' arrowsize=1];','\n' ,sep='', file=file, append=T);
 	 			}
 	 		}
 	 	}
+	 	oldBehFreqs = behfreqs;
 	 }
 	 
 	 cat('	}', file=file, append=T);
@@ -2268,7 +2272,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	for (beh in behs) {
 		prop = behfreqs[beh] / sum(behfreqs) * 10;
 		# prop=0.7 is the magic size for single characters in 24pt font
-		cat('		', gsub('[^A-Za-z1-9]', '', beh), ' [',
+		cat('		', gsub('[^A-Za-z1-9_]', '', beh), ' [',
 			'label="', beh, '", fixedsize=true, ',
 		    'width=', prop, ', height=', prop, ', fontsize=', fontsize,
 		    ', style=filled, fillcolor=white',
