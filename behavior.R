@@ -814,6 +814,19 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	return(pairLog);
 }
 
+.pairLogsElena = function(subject, followupGroup) {
+	subjectID = gsub('^[^/]*/logs?j?([^sj][^-_.]*[-_][^-_.]*([-_][^-_.]*([-_][0-9]+)?)?).*$', '\\1', subject)
+	pairLog = grep(subjectID, followupGroup, value = T);
+	if (length(pairLog) > 1) {
+		warning("MORE THAN ONE MATCH", immediate. = T);
+		pairLog = pairLog[1];
+	} else if (length(pairLog) < 1) {
+		warning("NO MATCH", immediate. = T);
+		pairLog = "";
+	}
+	return(pairLog);
+}
+
 
 # TODO write a clust func like this oneeeeee
 # colors = 'ask' (default) or 'auto' or paletteFn() or c('red','green','darkgoldenrod2')
@@ -1442,6 +1455,44 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	return(my_data);
 }
 
+.cleanWAYUPpgf2a = function(my_data) {
+	my_data = .cleanUpPGF2A(cmpForScottDat);
+	my_data = .replaceBehAll(my_data, 'Female flees')
+}
+
+.cleanUpPGF2AScott = function(dat) {
+	clean <- .replaceBehAll(dat, "bite", "male bitesrams");
+	clean <- .replaceBehAll(clean, "male BITES", "male bitesrams");
+	clean <- .replaceBehAll(clean, "male bites/rams", "male bitesrams");
+	clean <- .replaceBehAll(clean, "Male bites-rams", "male bitesrams");
+	clean <- .replaceBehAll(clean, "male chase", "male chases");
+	clean <- .replaceBehAll(clean, "chase", "male chases");
+	clean <- .replaceBehAll(clean, "FLEE", "female flees");
+	clean <- .replaceBehAll(clean, "flee", "female flees");
+	clean <- .replaceBehAll(clean, "female peck", "female pecks");
+	clean <- .replaceBehAll(clean, "male peck", "male pecks");
+	clean <- .replaceBehAll(clean, "female FOLLOW", "female follows");
+	clean <- .replaceBehAll(clean, "female follow", "female follows");
+	clean <- .replaceBehAll(clean, "follow", "female follows");
+	clean <- .replaceBehAll(clean, "inside pot", "male in pot");
+	clean <- .replaceBehAll(clean, "Male in Pot", "male in pot");
+	clean <- .replaceBehAll(clean, "inside POT", "female in pot");
+	clean <- .replaceBehAll(clean, "male IN POT", "male in pot");
+	clean <- .replaceBehAll(clean, "female IN POT", "female in pot");
+	clean <- .replaceBehAll(clean, "female inside pot", "female in pot");
+	clean <- .replaceBehAll(clean, "male inside pot", "male in pot");
+	clean <- .replaceBehAll(clean, "lead", "lead");
+	clean <- .replaceBehAll(clean, "male lead", "lead");
+	clean <- .replaceBehAll(clean, "male quiver", "quiver");
+	clean <- .replaceBehAll(clean, "male quivers", "quiver");
+	clean <- .replaceBehAll(clean, "QUIVER", "quiver");
+	clean <- .replaceBehAll(clean, "spawning", "circling");
+	clean <- .filterDataList(clean, toExclude = c("female approach", 'male approach', "female bite","female forages","male darts"))
+	clean <- .filterDataList(clean, startOnly = c("female pecks","male pecks","lead", "quiver", "female flees", "female follows","lead","male chases","quiver"));
+	return(clean);
+}
+
+
 .cleanUpAllie = function(my_data) {
 	dat <- .replaceBehAll(my_data, "approach", "Approach");
 	dat <- .replaceBehAll(dat, "build", "Build");
@@ -1625,11 +1676,13 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 # WITHIN EACH GROUP, the difference between each pair of timepoints with <paired_tests>;
 # FOR EACH PAIR OF TIME POINTS, the differences between those timepoints for each pair of groups with <tests>.
 # Tests are run via a call to .runStatsTwoGroups(), which gets parameters passed through the ...s.
-.runStats = function(dataByGroup, groupPairingMat, outfilePrefix,
+# comparisons is in c('all', 'groups', 'timepoints', 'diffs')
+.runStats = function(dataByGroup, groupPairingMat, outfilePrefix, comparisons = 'all',
 					 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)),
 					 paired_tests = list(bootstrapPAIRED = list(f = .bootstrapPairedWrapper)), ...) {
 	if (is.null(groupPairingMat)) stop("No group pairing matrix found. Please run .pairGroups() on your data before calculating stats.")
 	if (length(groupPairingMat) != length(dataByGroup)) stop("Number of groups in groupPairingMat and dataByGroup do not match.");	
+	comparisons = .autocomplete(comparisons, c('all', 'groups', 'timepoints', 'diffs'))
 	groupNames = dimnames(groupPairingMat)[[1]];
 	timepointNames = dimnames(groupPairingMat)[[2]];
 	
@@ -1649,7 +1702,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 		}
 	} else {
 		# compare groups @ each timepoint
-		if (length(groupNames) > 1) {
+		if (length(groupNames) > 1 && comparisons %in% c('all', 'groups')) {
 			for (timepoint in timepointNames) {
 				cat("Comparing groups at timepoint ", timepoint, "...\n", sep = '');
 				.runStats(dataByGroup = dataByGroup[groupPairingMat[,timepoint]],
@@ -1667,7 +1720,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 				opTP = if (length(timepointNames) > 2) paste(outfilePrefix, "_cmp", timepoint1, timepoint2, sep = '') else outfilePrefix;
 				
 				# run paired test on each group
-				if (!is.null(paired_tests)){
+				if (!is.null(paired_tests) && comparisons %in% c('all', 'timepoints')){
 					if (length(groupNames) > 1) {
 						for (group in groupNames) {
 							cat("  Group ", group, "...\n", sep = '');
@@ -1680,18 +1733,20 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 				}
 				
 				# compare differences between groups
-				if (length(groupNames) > 1) {
+				if (length(groupNames) > 1 && comparisons %in% c('all', 'diffs', 'timepoints')) { # TODO test comparisons param
 					diffData = list();
 					for (group in groupNames) {
 						diffMat = dataByGroup[[groupPairingMat[group, timepoint2]]] - dataByGroup[[groupPairingMat[group, timepoint1]]];
 						diffData = c(diffData, list(diffMat));
 						write.csv(diffMat, file = paste(opTP, group, 'diffdata.csv', sep = '_'))
 					}
-					newNames = paste(groupNames, '_', timepoint2, "Minus", timepoint1, sep = '')
-					names(diffData) = newNames;
-					.runStats(dataByGroup = diffData,
-							  groupPairingMat = matrix(newNames, ncol = 1, dimnames = list(newNames, "")),
-							  outfilePrefix = gsub("cmp", "cmpdiff", opTP), tests = tests, ...);
+					if (comparisons %in% c('all', 'diffs')){
+						newNames = paste(groupNames, '_', timepoint2, "Minus", timepoint1, sep = '')
+						names(diffData) = newNames;
+						.runStats(dataByGroup = diffData,
+								  groupPairingMat = matrix(newNames, ncol = 1, dimnames = list(newNames, "")),
+								  outfilePrefix = gsub("cmp", "cmpdiff", opTP), tests = tests, ...); # TODO prefix reforms!!
+					}
 				}
 			}
 		}
@@ -2122,6 +2177,40 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 #####################################################################################################
 ## MARKOV CHAINS                                                                                   ##
 #####################################################################################################
+
+#TODO move this elsewhere
+.branchingDiagram = function(data, centerbeh, k, file = '', fontsize = 24, title = 'untitled') {
+	 contexts = .getAllAllContexts(centerbeh, data, kbefore = k);
+	 
+	 cat('digraph', title, '\n', '	{\n', file = file);
+	 
+	 for (col in (k + 2):2) {
+	 	numbehfreqs = behfreqs = table(contexts[,col]);
+	 	names(numbehfreqs) <- paste(names(numbehfreqs), k + 2 - col);
+	 	.dot.makeNodes(numbehfreqs, file, F, fontsize);
+	 	# print(numbehfreqs)
+	 	if (col < k + 2) {
+	 		for (i in 1:length(behfreqs)) {
+	 			followers = table(contexts[contexts[,col] == names(behfreqs)[i],col + 1]);
+	 			names(followers) <- paste(names(followers), k + 1 - col);
+	 			followers = followers / nrow(contexts) * 30;
+	 			# print(i)
+	 			# print(followers)
+	 			leader = names(numbehfreqs)[i]
+	 			for (follow in names(followers)) {
+	 				cat('		', gsub('[^A-Za-z1-9]', '', leader), ' -> ', gsub('[^A-Za-z1-9]', '', follow),
+				    	' [label="", style="setlinewidth(', followers[follow], ')",',
+				    	' arrowsize=1];','\n' ,sep='', file=file, append=T);
+	 			}
+	 		}
+	 	}
+	 }
+	 
+	 cat('	}', file=file, append=T);
+}
+
+
+
 
 # Source: behavior_syntax.R
 # Given a probability matrix and a data vector, writes a dot file to <file> (default is to console)
@@ -3364,6 +3453,13 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	return(alldata);
 }
 
+.getAllAllContexts = function(behaviorName, data, k=NULL, kbefore=0, kafter=0) {
+	matlist = lapply(data, function(log) {.getAllContextsMat(behaviorName, log, k, kbefore, kafter)});
+	mat = NULL;
+	for (i in 1:length(matlist)) mat = rbind(mat, matlist[[i]]);
+	return(mat);
+}
+
 # TODO figure out how to preserve time numbers, etc in 3D data structure. list beh=current, time=, subj=, type=, .......
 # TODO sort. Try do.call() stdlib function.
 .getAllContextsMat = function(behaviorName, data, k=NULL, kbefore=0, kafter=0) {
@@ -3373,14 +3469,17 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	}
 	indicesVector = which(data$behavior == behaviorName);
 	indicesVector = indicesVector[indicesVector > kbefore & indicesVector <= (length(data$behavior) - kafter)];
-	if (length(indicesVector) == 0) stop(paste("Error: Zero occurances of", behaviorName, "within margins in data provided to .getAllContexts"));
+	if (length(indicesVector) == 0) {
+		warning(paste("Error: Zero occurances of", behaviorName, "within margins in data provided to .getAllContexts"));
+		return(NULL);
+	}
 	if (length(indicesVector) < 3) warning(paste("Only", length(indicesVector), "occurances of", behaviorName, "in data provided to .getAllContexts"));
 	df = data.frame(centerTimeNum = data$time[indicesVector]);
 	for (i in (-kbefore):kafter) {
 		df = cbind(df, data$behavior[indicesVector + i]);
 		dimnames(df)[[2]][length(dimnames(df)[[2]])] <- paste("n", if(i>=0){"+"}else{""}, as.character(i), sep="");
 	}
-	print(df);
+	# print(df);
 	centerCol = which(dimnames(df)[[2]] == "n+0");
 	# df = df[order(df[,centerCol + 1], df[,centerCol + 2], df[,centerCol + 3]),]      but tailored to actual num of cols.
 	return(df);
