@@ -270,7 +270,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 #' my_data <- getDataBatch("myExperimentData/", groups = TRUE, assayStart = c("Assay Start", "Assay start", "Female Introduced"))
 #'
 #' my_data <- getDataBatch("myExperimentData/", groups = FALSE, assayStart = FALSE)
-.getDataBatch = function (folderPath, groups = FALSE, assayStart = NA) {
+.getDataBatch = function (folderPath, groups = TRUE, assayStart = NA) {
 	filenames = paste(folderPath,list.files(folderPath, pattern = "txt$", recursive = groups),sep = "");
 	data = list();
 	if (!is.null(assayStart) && is.na(assayStart)) assayStart = if (.getYesOrNo("Did you mark assay starts in your score logs? ")) NULL else FALSE;
@@ -537,6 +537,38 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	return(df);
 }
 
+
+.stitchLogsAustin = function(data, logOutPref = NULL) {
+	for (logname in names(data)) {
+		regex = gsub("(^.*/log[0-9][0-9][0-9][0-9][0-9][0-9]_B[567]).*$", "\\1", logname);
+		matchingNames = which(grepl(regex, names(data)));
+		if (length(matchingNames) > 0) {
+			cat("  Combining logs", paste(' "', names(data)[matchingNames], '"', sep = ''), ":\n", sep = '');
+			# print(names(data)[matchingNames]);
+			#if (.getYesOrNo("  Is this correct? ")) {
+				if (!.logsOverlap(data[matchingNames]) || .getYesOrNo("Proceed anyway? ")) {
+					newSubDat = data[[matchingNames[1]]];
+					if (length(matchingNames) > 1) {
+						for (i in 2:length(matchingNames)) newSubDat = rbind(newSubDat, data[[matchingNames[i]]]);
+					}
+					
+					newSubDat = .sortByTime(newSubDat);
+					data = data[-matchingNames];
+					data[[length(data) + 1]] <- newSubDat;
+					names(data)[length(data)] <- regex;
+				}
+			#}
+		}
+	}
+	
+	if (!is.null(logOutPref)) {
+		for (i in 1:length(data)) {
+			write.table(data[[i]], file = paste(logOutPref, names(data)[i], sep = ""), sep = "\t");
+		}
+	}
+	return(data);
+}
+
 #' Log Stitcher
 #'
 #' Takes a list of \code{\link{behavior.log}}s and concatenates logs from the same assay.
@@ -757,21 +789,72 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 
 # pairLogsFn for Austin's gene expression / ascent data
 .pairLogsAustin = function(subject, followupGroup) {
-	date = gsub('^.*/log([0-9]*)_B[567].*$', '\\1', subject);
-	tank = gsub('^.*/log[0-9]*_B([567]).*$', '\\1', subject);
-	followupdate = as.character(as.numeric(date) + 100); # needs assays to be 1 day apart, not starting on December 31
-	searchTerm = paste("/log", if (as.numeric(followupdate) >= 100000) '' else '0', followupdate, '_B', tank, sep = '');
-	pairLog = grep(searchTerm, followupGroup, value = T);
-	if (length(pairLog) > 1) {
+	sameDaySearchTerm = gsub('^.*/(log[0-9]*_B[567]).*$', '\\1', subject);
+	sameDayPairLog = grep(sameDaySearchTerm, followupGroup, value = T);
+	if (length(sameDayPairLog) > 1) {
 		warning("MORE THAN ONE MATCH", immediate. = T);
-		pairLog = pairLog[1];
-	} else if (length(pairLog) < 1) {
+		pairLog = sameDayPairLog[1];
+	} else if (length(sameDayPairLog) == 1) {
+		pairLog = sameDayPairLog;
+	} else {
+		date = gsub('^.*/log([0-9]*)_B[567].*$', '\\1', subject);
+		tank = gsub('^.*/log[0-9]*_B([567]).*$', '\\1', subject);
+		followupdate = as.character(as.numeric(date) + 100); # needs assays to be 1 day apart, not starting on December 31
+		searchTerm = paste("/log", if (as.numeric(followupdate) >= 100000) '' else '0', followupdate, '_B', tank, sep = '');
+		pairLog = grep(searchTerm, followupGroup, value = T);
+		if (length(pairLog) > 1) {
+			warning("MORE THAN ONE MATCH", immediate. = T);
+			pairLog = pairLog[1];
+		}
+	}
+	if (length(pairLog) < 1) {
 		warning("NO MATCH", immediate. = T);
 		pairLog = "";
 	}
 	return(pairLog);
 }
 
+
+# TODO write a clust func like this oneeeeee
+# colors = 'ask' (default) or 'auto' or paletteFn() or c('red','green','darkgoldenrod2')
+
+# TODO polish
+.prettyBoxplot = function(dataList, colors, outfile = NULL, paired = F, notch = F, tiff.height = 480, tiff.width = 560, ...) {
+	if (length(colors) == 1) colors = rep(colors, length(dataList));
+	
+	groupNames = names(dataList);
+	if (length(groupNames) < 26) {
+		alphaGroupNames = paste(letters[1:length(groupNames)], groupNames);
+	} else {
+		stop('More than 26 groups. The code may need to be modified.');
+	}
+	
+	groupVec = character();
+	for (i in 1:length(dataList)) {
+		groupVec = c(groupVec, rep(alphaGroupNames[i], length(dataList[[i]])));
+	}
+	
+	
+	if (!is.null(outfile)) tiff(outfile, width = tiff.width, height = tiff.height, type = 'quartz');
+	verboseBoxplot(unlist(dataList), groupVec, border = colors, names = groupNames, notch = notch, ...);
+	
+	if (paired) {
+		if (sum(unlist(lapply(dataList, length)) != length(dataList[[1]]))) stop('groups not same length and you said it was paired');
+		for (i in 1:(length(dataList) - 1)) {
+			group1 = dataList[[i]];
+			group2 = dataList[[i + 1]];
+			if (sum(table(group1) > 1) || sum(table(group2) > 1)) {
+				warning('Some points are staggered and the lines are low-key in the wrong place now sorry', immediate. = T);
+			}
+			segments(x0 = i, x1 = i + 1, y0 = group1, y1 = group2, col = 'grey50', lwd = 2);
+		}
+	}
+	
+	for (i in 1:length(dataList)) {
+		pointsStaggered(i, dataList[[i]], colors[[i]]);
+	}
+	if (!is.null(outfile)) dev.off();
+}
 
 #' Pair Groups and Timepoints
 #'
@@ -1427,7 +1510,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	}
 	
 	durTMat = durAMat = NULL;
-	if (!is.null(durBehNames)) {
+	if (!is.null(durBehNames) && length(durBehNames) > 0) {
 		durTMat = matrix(nrow = length(names(tables)), ncol = length(durBehNames), dimnames = list(names(tables), paste(durBehNames, ": Duration Total")));
 		durAMat = matrix(nrow = length(names(tables)), ncol = length(durBehNames), dimnames = list(names(tables), paste(durBehNames, ": Duration Average")));
 		for (i in 1:length(names(tables))) {
@@ -2047,10 +2130,14 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 #	weird - hacky fix for drawing markov chains weighted by time, where smaller numbers should correspond to thicker lines. Probably don't use this?
 #	singleCharLables - puts labels inside the circles that are large enough to hold a single 24-pt character. Default is all labels outside.
 #	byTotal - was byTotal on or off when creating the probability matrix? (used in line weighting)#
-.buildDotFile = function(probMats, behfreqs, colors = "black", behsubj, subjcolors, file = '', title = 'untitled', fontsize = 24,
+.buildDotFile = function(probMats, behfreqs, colors = "black", behsubj=character(0), subjcolors=NULL, file = '', title = 'untitled', fontsize = 24,
 						 minValForLine = 0, singleCharLabels = F, byTotal = F, nodesToExclude = character(0)) {
 	if (!is.list(probMats)) probMats = list(pm = probMats)
-	if (length(probMats) != length(colors)) stop("probMats must be the same length as colors.")
+	if (length(probMats) != length(colors)) {
+		print(probMats);
+		print(colors);
+		stop("probMats must be the same length as colors.")
+	}
 	cat('digraph', title, '\n', '	{\n', file = file);
 	
 	behfreqs = behfreqs[!(names(behfreqs) %in% nodesToExclude) & behfreqs > 0];
@@ -2072,9 +2159,9 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 .dot.makeClusters = function(behs, behsubj, subjcolors, file, fontsize) {
 	clusterNum = 0;
 	for (subj in names(table(behsubj))) {
-		print(subj)
+		#print(subj)
 		subjbehs = names(behsubj)[behsubj == subj & !is.na(behsubj) & names(behsubj) %in% behs];
-		print(subjbehs)
+		#print(subjbehs)
 		if (!length(subjbehs)) next;
 		cat('\t\tsubgraph cluster_', clusterNum, ' {\n\t\t\tstyle=filled;\n\t\t\tcolor=', subjcolors[subj,1],
 			';\n\t\t\tnode [color=', subjcolors[subj,2], '];\n\t\t\tlabel = "', subj, '";\n\t\t\tfontsize = ',
@@ -2119,7 +2206,8 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 		
 				cat('		', gsub('[^A-Za-z1-9]', '', leader), ' -> ', gsub('[^A-Za-z1-9]', '', follower),
 				    ' [label="", style="setlinewidth(', val, ')",  color=', color,',',
-				    ' constraint=', if (probMat[row,col] == max(probMat[row,])) "true" else "false", ',',
+				    #' constraint=', if (probMat[row,col] == max(probMat[row,])) "true" else "false", ',',
+				    ' constraint=', if (probMat[row,col] == max(probMat[row,]) || probMat[row,col] == max(probMat[row,][probMat[row,] < max(probMat[row,])])) "true" else "false", ',',
 				    ' arrowsize=1];','\n' ,sep='', file=file, append=T);	
 		 	}
 		}
@@ -2156,7 +2244,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	return(list(probMats = groupwisePMs, counts = behcounts));
 }
 
-.getSubjVecsEtc = function(data, subjects = NULL, subjcolors = NULL) { # TODO please renameeeeee
+.getSubjVecsEtc = function(data, subjects = NULL, subjcolors = NULL, lightSubjColors = NULL) { # TODO please renameeeeee
 	behnames = .behnames(.filterDataList(data, renameStartStop = T));
 	clusterAssignments = apply(rbind(behnames), 2, function(beh){.getSubjectsForBeh(.filterDataList(data, renameStartStop = T), beh)});
 	names(clusterAssignments) = behnames;
@@ -2172,8 +2260,8 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	else clusterAssignments[!(clusterAssignments %in% subjects)] <- NA;
 	 print(clusterAssignments)
 	
-	if (!is.null(subjcolors)) {
-		colormat = cbind(.lighten(subjcolors, 70), subjcolors); # TODO doesnt work graphviz won't take this color format fixxxxxxxxxxxxx
+	if (!is.null(subjcolors) && !is.null(lightSubjColors)) {
+		colormat = cbind(lightSubjColors, subjcolors); # TODO doesnt work graphviz won't take this color format fixxxxxxxxxxxxx
 		rownames(colormat) = subjects;
 	} else if (length(subjects) == 2 && "male" %in% subjects && "female" %in% subjects) {
 		colormat = matrix(data = c("pink", "lightblue", "red", "blue"), nrow = 2, dimnames = list(c("female", "male"), NULL))
@@ -2288,12 +2376,12 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	.makeDotPlotsFromProbMas(probMatData, fileprefix, byTotal=byTotal, minValForLine=minValForLine, singleCharLabels=singleLetterLabels, nodesToExclude = nodesToExclude);
 }
 
-.makeGroupDotPlotsClust = function(data, fileprefix, subjects = c("male", "female"), colors = "black", byTotal = FALSE, indivMarkovChains = T, ...) {
+.makeGroupDotPlotsClust = function(data, fileprefix, subjects = c("male", "female"), colors = "black", lightcolors = "black", byTotal = FALSE, indivMarkovChains = T, ...) {
 	data = .filterDataList(data, renameStartStop=T);
 	probMatsBySubj = .getProbMatsBySubj(data, subjects = if(indivMarkovChains) subjects else NULL, byTotal = byTotal);
-	subjectVectorsEtc = .getSubjVecsEtc(data, subjects, colors);
+	subjectVectorsEtc = .getSubjVecsEtc(data, subjects, colors, lightcolors);
 	for (i in 1:length(probMatsBySubj$probMats)) {
-		.buildDotFile(probMatsBySubj$probMats[[i]], probMatsBySubj$counts[[i]], if (indivMarkovChains) colors else 'black',
+		.buildDotFile(probMatsBySubj$probMats[[i]], probMatsBySubj$counts[[i]], if (indivMarkovChains) c('black', colors) else 'black',
 						subjectVectorsEtc$clusters, subjectVectorsEtc$colorMat, file = paste(fileprefix, names(probMatsBySubj$probMats)[[i]], ".dot", sep = ""), ...);
 	}
 }
@@ -3313,6 +3401,20 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 		contexts = paste(contexts, data$behavior[indicesVector + i], sep = ' | ');
 	}
 	return(contexts);
+}
+
+
+
+.getDistBehsTP = function(probMat) {
+	# pm must be square
+	distMat = matrix(nrow = nrow(probMat), ncol = ncol(probMat), dimnames = dimnames(probMat))
+	for (i in 1:(nrow(probMat) - 1)) {
+		for (j in (i + 1):nrow(probMat)) {
+			distMat[j,i] = 1 - max(probMat[i,j], probMat[j,i]);
+		}
+	}
+	distMat = as.dist(distMat);
+	return(distMat)
 }
 
 

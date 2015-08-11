@@ -1,6 +1,36 @@
 library(dynamicTreeCut)
 library(WGCNA)
 
+# logLabels should be c('ND', 'ND', 'D', 'D', 'ND', 'ASC', 'D', 'ND')
+# or c('DOM1 (0 fish killed)', 'DOM2 (3 fish killed)', 'DOM2 (12 fish killed)') or the like. basically the labels for the dendro.
+.clustersEtc = function(logList, clusterOn = 'counts', logLabels = NULL, hclust.method = 'complete', cutree.minClusterSize = NA, colors = NULL) {
+	if (is.na(cutree.minClusterSize)) {
+		cutree.minClusterSize = max(length(logList) / 6, 3);
+	}
+	if (is.null(colors)) colors = c('darkgrey', 'red', 'green', 'blue', 'orange', 'purple', 'darkgreen', 'gold')
+	else colors = c('darkgrey', colors)
+	
+	
+	if (clusterOn == 'counts') {
+		dataMat = .extractBasicStats(logList, .behnames(logList), NULL)[[1]]
+	} else stop('THIS FUNCTION KNOWS NOTHING OF THESE "', clusterOn, '" YOU SPEAK OF');
+	
+	if (!is.null(logLabels)) colnames(dataMat) <- logLabels;
+	
+	corMat = cor(dataMat);
+	cluster = hclust(as.dist(1 - corMat), method = hclust.method);
+	moduleNumbers = cutreeDynamic(cluster, minClusterSize = cutree.minClusterSize, distM = 1 - corMat, verbose = 0)
+	if (max(moduleNumbers) < length(colors)) moduleColors = colors[moduleNumbers + 1]
+	else {
+		warning('Not enough colors. The names will be ugly now sorry.', immediate. = T)
+		moduleColors = c('darkgrey', rainbow(max(moduleNumbers)))[moduleNumbers + 1];
+	}
+	plotDendroAndColors(cluster, moduleColors);
+	return(list(data = dataMat, correlations = corMat, dendrogram = cluster, module.assignments = moduleNumbers, module.colors = moduleColors, call = match.call()))
+}
+
+
+
 
 
 .generateLotsOfDendrograms = function(dataMatrices, outPref) {
