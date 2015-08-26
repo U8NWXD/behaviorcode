@@ -1673,7 +1673,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	matsByGroup = list();
 	for (group in groupwiseLogs$groupNames) {
 		matsByGroup[[group]] <- groupMatrixFxn(groupwiseLogs$groupData[[group]], groupwiseLogs$behnames, ...);
-		if (!is.null(outfilePrefix)) write.csv(matsByGroup[[group]], file = paste(outfilePrefix, group, "data.csv", sep = '_'));
+		if (!is.null(outfilePrefix)) write.csv(matsByGroup[[group]], file = paste(outfilePrefix, '_data_', group, ".csv", sep = ''));
 	}
 	return(matsByGroup);
 }
@@ -1746,14 +1746,25 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 # FOR EACH PAIR OF TIME POINTS, the differences between those timepoints for each pair of groups with <tests>.
 # Tests are run via a call to .runStatsTwoGroups(), which gets parameters passed through the ...s.
 # comparisons is in c('all', 'groups', 'timepoints', 'diffs')
+# TODO decomposeeeeeeeeeee
 .runStats = function(dataByGroup, groupPairingMat, outfilePrefix, comparisons = 'all', askaboutpower = T,
 					 tests = list(power = list(func = .powerWrapper), t.test = t.test, mann.whitney = wilcox.test, bootstrap = list(func = .bootstrapWrapper)),
 					 paired_tests = list(t.test = .pairedTTest, mann.whitney = .pairedMannWhitney, bootstrap = list(f = .bootstrapPairedWrapper)), ...) {
 	if (is.null(groupPairingMat)) stop("No group pairing matrix found. Please run .pairGroups() on your data before calculating stats.")
 	if (length(groupPairingMat) != length(dataByGroup)) stop("Number of groups in groupPairingMat and dataByGroup do not match.");
 	comparisons = .autocomplete(comparisons, c('all', 'groups', 'timepoints', 'diffs'))
-	
-	alltestnames = c(if (comparisons %in% c('all', 'groups', 'diffs')) names(tests) else NULL, if (comparisons %in% c('all', 'timepoints')) names(paired_tests) else NULL)
+
+	groupNames = dimnames(groupPairingMat)[[1]];
+	timepointNames = dimnames(groupPairingMat)[[2]];
+	# -----STARTNEW
+	if (length(timepointNames) == 1) comparisons = if (comparisons %in% c('all', 'groups')) 'groups' else 'none';
+	if (length(groupNames) == 1) comparisons = if (comparisons %in% c('all', 'timepoints')) 'timepoints' else 'none';
+	cmpGroups = comparisons %in% c('all', 'groups');
+	cmpTimepoints = comparisons %in% c('all', 'timepoints');
+	cmpDiffs = comparisons %in% c('all', 'diffs');
+	# --------ENDNEW
+		
+	alltestnames = c(if (cmpGroups || cmpDiffs) names(tests) else NULL, if (cmpTimepoints) names(paired_tests) else NULL)
 	if (askaboutpower && sum(grepl('[pP]ower', alltestnames))) {
 		cat("I'm going to run a power test on your data to make sure you have enough statistical power to detect significant differences. ")
 		cat("This takes sort of a long time, but it's important to do so you don't get spurious/invalid results. However, if you've already run a power")
@@ -1764,75 +1775,81 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 		}
 	} #TODO option to run power test only on nonsignificant tests.
 	
-	groupNames = dimnames(groupPairingMat)[[1]];
-	timepointNames = dimnames(groupPairingMat)[[2]];
 	
-	if (!length(tests) && length(groupNames) > 1 && comparisons != 'timepoints') warning('No unpaired tests provided to .runStats()', immediate. = T);
-	if (!length(paired_tests) && length(timepointNames) > 1 && comparisons %in% c('all', 'timepoints') &&
+	if (!length(tests) && (cmpGroups || cmpDiffs)) warning('No unpaired tests provided to .runStats()', immediate. = T);
+	if (!length(paired_tests) && cmpTimepoints &&
 		!('latencyTest' %in% names(list(...)) && list(...)$latencyTest)) warning('No paired tests provided to .runStats()', immediate. = T);
 	if (!length(tests) && !length(paired_tests)) return();
 
+	# ------
+	if (cmpGroups & !dir.exists(paste(outfilePrefix, '_groups'))) dir.create(paste(outfilePrefix, '_groups', sep = ''))
+	if (cmpTimepoints & !dir.exists(paste(outfilePrefix, '_timepoints'))) dir.create(paste(outfilePrefix, '_timepoints', sep = ''))
+	if (cmpDiffs & !dir.exists(paste(outfilePrefix, '_diffs'))) dir.create(paste(outfilePrefix, '_diffs', sep = ''))
 	
-	if (length(timepointNames) == 1) { # only one timepoint. compare groups directly.
-		if (length(groupNames) == 1) {
-			.runStatsTwoGroups(dataByGroup, outfilePrefix, ...)
-		} else {
+	if (!(cmpGroups | cmpTimepoints | cmpDiffs)) {
+		.runStatsTwoGroups(dataByGroup, outfilePrefix, ...);
+		return();
+	}
+	
+	if (cmpGroups) {
+		for (timepoint in timepointNames) {
+			if (length(timepointNames) > 1) cat("Comparing groups at timepoint ", timepoint, "...\n", sep = '');
+				  
 			for (i in 1:(length(groupNames) - 1)) {
 				group1 = groupNames[i];
 				for (j in (i + 1):length(groupNames)) {
 					group2 = groupNames[j];
-					if (length(groupNames) > 2) cat("Comparing ", group1, " and ", group2, "...\n", sep = '');
-					op = if (length(groupNames) > 2) paste(outfilePrefix, "_cmp", group1, group2, sep = '') else outfilePrefix;
-					.runStatsTwoGroups(dataByGroup[groupPairingMat[c(group1, group2), 1]], op, tests = tests, ...);
+					if (length(groupNames) > 2) cat("\tComparing ", group1, " and ", group2, "...\n", sep = '');
+					op = paste(outfilePrefix, '_groups/', if (length(timepointNames) > 1) timepoint else '', '_',
+							   if (length(groupNames) > 2) paste(group1, group2, sep = '') else '', sep = '');
+					.runStatsTwoGroups(dataByGroup[groupPairingMat[c(group1, group2), timepoint]], op, tests = tests, ...);
 				}
 			}
 		}
-	} else {
-		# compare groups @ each timepoint
-		if (length(groupNames) > 1 && comparisons %in% c('all', 'groups')) {
-			for (timepoint in timepointNames) {
-				cat("Comparing groups at timepoint ", timepoint, "...\n", sep = '');
-				.runStats(dataByGroup = dataByGroup[groupPairingMat[,timepoint]],
-						  groupPairingMat = matrix(groupPairingMat[,timepoint], ncol = 1, dimnames = list(groupNames, "")),
-						  outfilePrefix = paste(outfilePrefix, timepoint, sep = '_'), tests = tests, askaboutpower = F, ...);
+	}
+	
+	if (cmpTimepoints) {
+		for (group in groupNames) {
+			if (length(groupNames) > 1) cat("Comparing timepoints for group ", group, "...\n", sep = '');
+			
+			for (i in 1:(length(timepointNames) - 1)) {
+				timepoint1 = timepointNames[i];
+				for (j in (i + 1):length(timepointNames)) {
+					timepoint2 = timepointNames[j];
+					if (length(timepointNames) > 2) cat("\tComparing ", timepoint1, " and ", timepoint2, "...\n", sep = '');
+					op = paste(outfilePrefix, '_timepoints/', if (length(groupNames) > 1) group else '', '_',
+							   if (length(timepointNames) > 2) paste(timepoint1, timepoint2, sep = '') else '', sep = '');
+					.runStatsTwoGroups(dataByGroup[c(groupPairingMat[group, timepoint1], groupPairingMat[group, timepoint2])], op, tests = paired_tests, ...);
+				}
 			}
 		}
-		
-		# cmp every pair of timepoints
+	}
+	
+	if (cmpDiffs || cmpTimepoints) {
 		for (i in 1:(length(timepointNames) - 1)) {
 			timepoint1 = timepointNames[i];
 			for (j in (i + 1):length(timepointNames)) {
-				timepoint2 = timepointNames[j];
-				if (length(timepointNames) > 2) cat("Comparing ", timepoint1, " and ", timepoint2, "...\n", sep = '');
-				opTP = if (length(timepointNames) > 2) paste(outfilePrefix, "_cmp", timepoint1, timepoint2, sep = '') else outfilePrefix;
-				
-				# run paired test on each group
-				if (!is.null(paired_tests) && comparisons %in% c('all', 'timepoints')){
-					if (length(groupNames) > 1) {
-						for (group in groupNames) {
-							cat("  Group ", group, "...\n", sep = '');
-							op = paste(opTP, group, sep = '_');
-							.runStatsTwoGroups(dataByGroup[c(groupPairingMat[group, timepoint1], groupPairingMat[group, timepoint2])], op, tests = paired_tests, ...);
-						}
-					} else {
-						.runStatsTwoGroups(dataByGroup[c(groupPairingMat[1, timepoint1], groupPairingMat[1, timepoint2])], opTP, tests = paired_tests, ...);
-					}
+				timepoint2 = timepointNames[j];				
+				diffData = list();
+				for (group in groupNames) {
+					diffMat = dataByGroup[[groupPairingMat[group, timepoint2]]] - dataByGroup[[groupPairingMat[group, timepoint1]]];
+					diffData = c(diffData, list(diffMat));
+					write.csv(diffMat, file = paste(outfilePrefix, '_diffs_', group, '_', timepoint1, timepoint2, '.csv', sep = ''))
 				}
 				
-				# compare differences between groups
-				if (length(groupNames) > 1 && comparisons %in% c('all', 'diffs', 'timepoints')) {
-					diffData = list();
-					for (group in groupNames) {
-						diffMat = dataByGroup[[groupPairingMat[group, timepoint2]]] - dataByGroup[[groupPairingMat[group, timepoint1]]];
-						diffData = c(diffData, list(diffMat));
-						write.csv(diffMat, file = paste(opTP, group, 'diffdata.csv', sep = '_'))
-					}
-					if (comparisons %in% c('all', 'diffs')){
-						newNames = paste(groupNames, '_', timepoint2, "Minus", timepoint1, sep = '')
-						names(diffData) = newNames;
-						.runStats(dataByGroup = diffData,
-								  groupPairingMat = matrix(newNames, ncol = 1, dimnames = list(newNames, "")),
-								  outfilePrefix = gsub("cmp", "cmpdiff", opTP), tests = tests, askaboutpower = F, ...); # TODO prefix reforms!!
+				if (cmpDiffs) {
+					if (length(timepointNames) > 2) cat("Comparing differences between ", timepoint1, ' and ', timepoint2, '...\n', sep = '');
+					op = paste(outfilePrefix, '_diffs/', timepoint1, timepoint2, sep = '')
+					names(diffData) = groupNames;
+					
+					for (i in 1:(length(groupNames) - 1)) {
+						group1 = groupNames[i];
+						for (j in (i + 1):length(groupNames)) {
+							group2 = groupNames[j];
+							if (length(groupNames) > 2) cat("\tComparing ", group1, " and ", group2, "...\n", sep = '');
+							opG = paste(op, '_', if (length(groupNames) > 2) paste(group1, group2, sep = '') else '', sep = '');
+							.runStatsTwoGroups(diffData[c(group1, group2)], opG, tests = tests, ...);
+						}
 					}
 				}
 			}
