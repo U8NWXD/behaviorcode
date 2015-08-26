@@ -828,11 +828,45 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 }
 
 
-# TODO write a clust func like this oneeeeee
-# colors = 'ask' (default) or 'auto' or paletteFn() or c('red','green','darkgoldenrod2')
 
-# TODO polish
-.prettyBoxplot = function(dataList, colors, outfile = NULL, paired = F, notch = F, tiff.height = 480, tiff.width = 560, ...) {
+#' Boxplot With Points
+#'
+#' Plots multiple boxplots, one for each group, with points overlaid.
+#' 
+#' @param dataList A \code{list} of the data to be plotted for each group. For example,
+#'   \code{list(group1 = c(3,4,5.1,7), group2 = c(1,2.1,4,5))}. The name of each entry of the
+#'   list will be used as a label for that boxplot, and the groups will be plotted left-to-right
+#'   in the order they appear in the list.
+#' @param colors The color of the boxplots. If a single color, every boxplot is that color; otherwise,
+#'   it should be a vector the same length as dataList, with the colors of each group in the same order
+#'   as the groups.
+#' @param outfile The filename to which the plot should be saved as a .tiff file. A value of \code{NULL}
+#'   results in the plot being output to the active plotting window.
+#' @param paired logical; are the data for each boxplot observations of the same group at different timepoints?
+#'   A value of \code{TRUE} draws grey lines between the groups to show how each data point changes from
+#'   timepoint to timepoint. The data must then be in the SAME ORDER in \code{dataList}.
+#' @return \code{data} sorted by experimental group/timepoint, with paired logs in the same order
+#'   at each timepoint. Additionally, each log gains the attribute \code{group.pairing} which is a
+#'   matrix giving th names of timepoints and groups as well as the folder names that correspond to
+#'   each group-timepoint pair.
+#' @keywords pair pairgroups sort sortlogs groups timepoints
+#' @export
+#' @examples
+#' myPairLogsFn = function(subject, followupGroup) {
+#'	   subjectID = gsub("^.*/([0-9]*)_.*$", "/\\1_", subject);
+#'	   pairLog = grep(subjectID, followupGroup, value = T);
+#'	   if (length(pairLog) > 1) {
+#'		   warning("MORE THAN ONE MATCH", immediate. = T);
+#'		   pairLog = pairLog[1];
+#'	   } else if (length(pairLog) < 1) {
+#'		   warning("NO MATCH", immediate. = T);
+#'		   pairLog = "";
+#'	   }
+#'	   return(pairLog);
+#' }
+#' my_data <- pairGroups(my_data, myPairLogsFn)
+# TODO polishhhh
+.prettyBoxplot = function(dataList, colors = 'black', outfile = NULL, paired = F, notch = F, pointsspace = .05, tiff.height = 480, tiff.width = 560, ...) {
 	if (length(colors) == 1) colors = rep(colors, length(dataList));
 	
 	groupNames = names(dataList);
@@ -864,9 +898,21 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	}
 	
 	for (i in 1:length(dataList)) {
-		pointsStaggered(i, dataList[[i]], colors[[i]]);
+		pointsStaggered(i, dataList[[i]], colors[[i]], pointsspace);
 	}
 	if (!is.null(outfile)) dev.off();
+}
+
+.prettyBoxplotNoList = function(x, y, names = NULL, ...) {
+	modules = names(table(y));
+	listToUse = list();
+	for (mod in modules) {
+		tmp = list(z = x[y == mod]);
+		names(tmp) = mod;
+		listToUse = c(listToUse, tmp);
+	}
+	if(!is.null(names)) names(listToUse) <- names;
+	.prettyBoxplot(listToUse, ...)
 }
 
 #' Pair Groups and Timepoints
@@ -994,7 +1040,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 .getCountAttribute = function(behavior, data, warn = T) {
 	counts = rep(NA, length(data));
 	for (i in 1:length(data)) {
-		counts[i] = sum(data[[i]]$behavior == behavior);
+		counts[i] = sum(data[[i]]$behavior %in% behavior);
 	}
 	numNot0s = sum(counts != 0);
 	if (numNot0s == 0) stop("No occurances of \"", behavior, "\" found.")
@@ -1005,7 +1051,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 .getLatencyAttribute = function(behavior, data, n = 1) {
 	latencies = rep(NA, length(data));
 	for (i in 1:length(data)) {
-		behOccurances = data[[i]]$time[data[[i]]$behavior == behavior];
+		behOccurances = data[[i]]$time[data[[i]]$behavior %in% behavior];
 		if (length(behOccurances) >= n) latencies[i] <- behOccurances[n];
 	}
 	numNotNAs = sum(!is.na(latencies));
@@ -1017,7 +1063,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 .getTotalDurAttribute = function(behavior, data) {
 	durations = rep(0, length(data));
 	for (i in 1:length(data)) {
-		behOccurances = data[[i]][data[[i]]$behavior == behavior,];
+		behOccurances = data[[i]][data[[i]]$behavior %in% behavior,];
 		if (length(behOccurances$duration) > 0) {
 			if (sum(behOccurances$type == "neither") > 0) stop("Behavior \"", behavior, "\" is not durational.");
 			durations[i] = sum(behOccurances$duration[which(behOccurances$type == "start")]);
@@ -1357,7 +1403,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 
 # Makes <leader> into a durational behavior with stops at each occurance of <follower> in the log <data>.
 # If <rename>, follower occurances are renamed to <leader>. (recommended)
-.makeDurationalBehavior = function (data, leader, follower) {
+.makeDurationalBehavior = function (data, leader, follower, removeExtra = F) {
 	if (leader == follower) stop("Leader cannot be the same as follower.");
 	leaderIndices = which(data$behavior == leader);
 	followerIndices = which(data$behavior == follower);
@@ -1380,6 +1426,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 			stop("Two occurances of follower before first occurance of leader.");
 		}
 	}
+	if (removeExtra) toRemove = numeric(0);
 	for (i in 1:length(leaderIndices)) {
 		thisLeader = leaderIndices[i];
 		nextLeader = if (i == length(leaderIndices)) length(data$behavior) + 1 else leaderIndices[i+1];
@@ -1388,25 +1435,34 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 			if (i == length(leaderIndices)) {
 				warning("Leader at the end of log without a follower.", immediate. = T);
 			} else {
-				stop("Two occurances of leader in a row (indices ", thisLeader, " and ", nextLeader, ")");
+				if (removeExtra) {
+					warning("Two occurances of leader in a row (indices ", thisLeader, " and ", nextLeader, ")", immediate. = T);
+					toRemove <- c(toRemove, thisLeader);
+				} else stop("Two occurances of leader in a row (indices ", thisLeader, " and ", nextLeader, ")");
 			}
 		} else if (length(followers) > 1) {
-			stop("Two occurances of follower in a row (indices ", followers[1], " and ", followers[2], ")");
+			if (removeExtra) {
+				warning("Two occurances of follower in a row (indices ", followers[1], " and ", followers[2], ")", immediate. = T);
+				toRemove = c(toRemove, followers[-1])
+			} else stop("Two occurances of follower in a row (indices ", followers[1], " and ", followers[2], ")");
 		} else {
 			data$pair_time[thisLeader] <- data$time[followers];
 			data$pair_time[followers] <- data$time[thisLeader];
 			data$duration[c(thisLeader, followers)] <- data$time[followers] - data$time[thisLeader];
 		}
 	}
-
+	
+	if (removeExtra && length(toRemove)) {
+		data = data[-toRemove,]
+	}
 	return(data);
 }
 
 # Calls .makeDurationalBehavior on every log in <data>.
-.makeDurationalBehaviorAll = function(data, leader, follower) {
+.makeDurationalBehaviorAll = function(data, leader, follower, removeExtra = F) {
 	indexList = 1:length(data);
 	names(indexList) <- names(data);
-	return(lapply(indexList, function(i){print(names(data)[i]); return(.makeDurationalBehavior(data[[i]], leader, follower))}));
+	return(lapply(indexList, function(i){print(names(data)[i]); return(.makeDurationalBehavior(data[[i]], leader, follower, removeExtra))}));
 }
 
 
@@ -1598,8 +1654,13 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	latsByGroup = .getGroupMats(data, latMats, outfilePrefix = paste(outfilePrefix, "latencies", sep = "_"),
 								renameStartStop = FALSE, durBehNames = .startStopBehs(data))
 	if (is.null(latTests)) latTests = list(coxph = list(f = .coxphWrapper, assayLength = attributes(data[[1]])$assay.length));
-	.runStats(dataByGroup = latsByGroup, attributes(data[[1]])$group.pairing, outfilePrefix = paste(outfilePrefix, "latencies", sep = "_"),
-			  tests = latTests, paired_tests = NULL, latencyTest = T, print = F);
+	if ('comparisons' %in% names(list(...))) {
+		.runStats(dataByGroup = latsByGroup, attributes(data[[1]])$group.pairing, outfilePrefix = paste(outfilePrefix, "latencies", sep = "_"),
+				  tests = latTests, comparisons = list(...)$comparisons, paired_tests = NULL, latencyTest = T, print = F);
+	} else {
+		.runStats(dataByGroup = latsByGroup, attributes(data[[1]])$group.pairing, outfilePrefix = paste(outfilePrefix, "latencies", sep = "_"),
+				  tests = latTests, comparisons = 'groups', paired_tests = NULL, latencyTest = T, print = F);
+	}
 }
 
 # Calls groupMatrixFxn() on the logs belonging to each group in logList, then returns the resulting matrices
@@ -1650,7 +1711,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	if (!("Func" %in% names(argList))) argList$Func <- 'mean';
 	if(!("trials" %in% names(argList))) argList$trials <- 10000;
 	bs = powerBootstrap2Independent(ctrl = argList$x, exp = argList$y, Func = argList$Func, trials = argList$trials, verbose = F,
-										outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "power.jpg", sep = "_"));
+										plotFile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "power.jpg", sep = "_"));
 	return(list(p.value = bs$power));
 }
 
@@ -1671,20 +1732,46 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	return(list(p.value = as.data.frame(coef(summary(testout)))$Pr));
 }
 
+.pairedTTest = function(x,y) {
+	return(t.test(x,y, paired = T));
+}
+
+.pairedMannWhitney = function(x,y) {
+	return(wilcox.test(x,y, paired = T));
+}
+
 # Uses the groupPairingMat to parse dataByGroup and compare:
 # WITHIN EACH TIMEPOINT, the data for each pair of groups with <tests>;
 # WITHIN EACH GROUP, the difference between each pair of timepoints with <paired_tests>;
 # FOR EACH PAIR OF TIME POINTS, the differences between those timepoints for each pair of groups with <tests>.
 # Tests are run via a call to .runStatsTwoGroups(), which gets parameters passed through the ...s.
 # comparisons is in c('all', 'groups', 'timepoints', 'diffs')
-.runStats = function(dataByGroup, groupPairingMat, outfilePrefix, comparisons = 'all',
-					 tests = list(t.test = t.test, wilcox = wilcox.test, bootstrap = list(func = .bootstrapWrapper)),
-					 paired_tests = list(bootstrapPAIRED = list(f = .bootstrapPairedWrapper)), ...) {
+.runStats = function(dataByGroup, groupPairingMat, outfilePrefix, comparisons = 'all', askaboutpower = T,
+					 tests = list(power = list(func = .powerWrapper), t.test = t.test, mann.whitney = wilcox.test, bootstrap = list(func = .bootstrapWrapper)),
+					 paired_tests = list(t.test = .pairedTTest, mann.whitney = .pairedMannWhitney, bootstrap = list(f = .bootstrapPairedWrapper)), ...) {
 	if (is.null(groupPairingMat)) stop("No group pairing matrix found. Please run .pairGroups() on your data before calculating stats.")
-	if (length(groupPairingMat) != length(dataByGroup)) stop("Number of groups in groupPairingMat and dataByGroup do not match.");	
+	if (length(groupPairingMat) != length(dataByGroup)) stop("Number of groups in groupPairingMat and dataByGroup do not match.");
 	comparisons = .autocomplete(comparisons, c('all', 'groups', 'timepoints', 'diffs'))
+	
+	alltestnames = c(if (comparisons %in% c('all', 'groups', 'diffs')) names(tests) else NULL, if (comparisons %in% c('all', 'timepoints')) names(paired_tests) else NULL)
+	if (askaboutpower && sum(grepl('[pP]ower', alltestnames))) {
+		cat("I'm going to run a power test on your data to make sure you have enough statistical power to detect significant differences. ")
+		cat("This takes sort of a long time, but it's important to do so you don't get spurious/invalid results. However, if you've already run a power")
+		cat(" test on this data, you can choose to skip it to save time.")
+		if (!.getYesOrNo('Do you want to run the power test (HIGHLY RECOMMENDED)? ')) {
+			tests = tests[!grepl('[Pp]ower', names(tests))];
+			paired_tests = paired_tests[!grepl('[Pp]ower', names(paired_tests))];
+		}
+	} #TODO option to run power test only on nonsignificant tests.
+	
 	groupNames = dimnames(groupPairingMat)[[1]];
 	timepointNames = dimnames(groupPairingMat)[[2]];
+	
+	if (!length(tests) && length(groupNames) > 1 && comparisons != 'timepoints') warning('No unpaired tests provided to .runStats()', immediate. = T);
+	if (!length(paired_tests) && length(timepointNames) > 1 && comparisons %in% c('all', 'timepoints') &&
+		!('latencyTest' %in% names(list(...)) && list(...)$latencyTest)) warning('No paired tests provided to .runStats()', immediate. = T);
+	if (!length(tests) && !length(paired_tests)) return();
+
 	
 	if (length(timepointNames) == 1) { # only one timepoint. compare groups directly.
 		if (length(groupNames) == 1) {
@@ -1707,7 +1794,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 				cat("Comparing groups at timepoint ", timepoint, "...\n", sep = '');
 				.runStats(dataByGroup = dataByGroup[groupPairingMat[,timepoint]],
 						  groupPairingMat = matrix(groupPairingMat[,timepoint], ncol = 1, dimnames = list(groupNames, "")),
-						  outfilePrefix = paste(outfilePrefix, timepoint, sep = '_'), tests = tests, ...);
+						  outfilePrefix = paste(outfilePrefix, timepoint, sep = '_'), tests = tests, askaboutpower = F, ...);
 			}
 		}
 		
@@ -1733,7 +1820,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 				}
 				
 				# compare differences between groups
-				if (length(groupNames) > 1 && comparisons %in% c('all', 'diffs', 'timepoints')) { # TODO test comparisons param
+				if (length(groupNames) > 1 && comparisons %in% c('all', 'diffs', 'timepoints')) {
 					diffData = list();
 					for (group in groupNames) {
 						diffMat = dataByGroup[[groupPairingMat[group, timepoint2]]] - dataByGroup[[groupPairingMat[group, timepoint1]]];
@@ -1745,7 +1832,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 						names(diffData) = newNames;
 						.runStats(dataByGroup = diffData,
 								  groupPairingMat = matrix(newNames, ncol = 1, dimnames = list(newNames, "")),
-								  outfilePrefix = gsub("cmp", "cmpdiff", opTP), tests = tests, ...); # TODO prefix reforms!!
+								  outfilePrefix = gsub("cmp", "cmpdiff", opTP), tests = tests, askaboutpower = F, ...); # TODO prefix reforms!!
 					}
 				}
 			}
@@ -1831,7 +1918,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 			}
 		}
 		potentiallySignificant = rep(F, length(df[,1]));
-		for (testName in names(tests)) potentiallySignificant = potentiallySignificant | ((!is.na(df[,testName])) & (df[,testName] < .05));
+		for (testName in names(tests)[!grepl('[pP]ower', names(tests))]) potentiallySignificant = potentiallySignificant | ((!is.na(df[,testName])) & (df[,testName] < .05));
 		if (sum(potentiallySignificant)) {
 			cat("Potentially significant results (p < .05):\n");
 			print(df[potentiallySignificant,])
@@ -2285,12 +2372,12 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	{
 		for (col in 1:ncol(probMat))
 		{
-			val = if (byTotal) {(probMat[row,col] / sum(probMat)) * 100}
+			val = if (byTotal) {(probMat[row,col] / sum(probMat)) * 40}
 				  else if (is.nan(probMat[row,1])) {-1} 
 				  else if (sum(probMat[row,])) {(probMat[row,col]) * 10}
 				  else if (probMat[row,col] == 0) 0
 				  else stop("divide by 0 error");
-			prob = if(byTotal) val / 100 else val / 10; 
+			prob = if(byTotal) val / 40 else val / 10; 
 			if (prob > minValForLine)
 			{
 				leader = rownames(probMat)[row];
@@ -2307,10 +2394,10 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	}
 }
 
-.getProbMatsBySubj = function(data, subjects = c("male", "female"), noDupAll = T, ...) {
-	allPMsEtc = list(all = .groupLevelProbMats(data));
+.getProbMatsBySubj = function(data, subjects = c("male", "female"), noDupAll = T, byTotal = F, ...) {
+	allPMsEtc = list(all = .groupLevelProbMats(data, byTotal = byTotal, ...));
 	for (subj in subjects) {
-		allPMsEtc = c(allPMsEtc, list(.groupLevelProbMats(.filterDataList(data, subjects = subj), ...)))
+		allPMsEtc = c(allPMsEtc, list(.groupLevelProbMats(.filterDataList(data, subjects = subj), byTotal = byTotal, ...)))
 		names(allPMsEtc)[length(allPMsEtc)] <- subj[1];
 	}
 	
@@ -2474,7 +2561,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	probMatsBySubj = .getProbMatsBySubj(data, subjects = if(indivMarkovChains) subjects else NULL, byTotal = byTotal);
 	subjectVectorsEtc = .getSubjVecsEtc(data, subjects, colors, lightcolors);
 	for (i in 1:length(probMatsBySubj$probMats)) {
-		.buildDotFile(probMatsBySubj$probMats[[i]], probMatsBySubj$counts[[i]], if (indivMarkovChains) c('black', colors) else 'black',
+		.buildDotFile(probMatsBySubj$probMats[[i]], probMatsBySubj$counts[[i]], if (indivMarkovChains) c('black', colors) else 'black', byTotal = byTotal,
 						subjectVectorsEtc$clusters, subjectVectorsEtc$colorMat, file = paste(fileprefix, names(probMatsBySubj$probMats)[[i]], ".dot", sep = ""), ...);
 	}
 }
@@ -2487,7 +2574,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 # Validates the behaviorsToPlotAndColors provided to .behavioralDensityGraph() or .behavioralDensityGraphs()
 .validateColorKey = function(behcolors, validBehNames = NULL) {
 	if (dim(behcolors)[2] != 2) stop("behaviorsToPlotAndColors must have 2 columns!");
-	if (sum(!(behcolors[,2] %in% colors()) & !(grepl("^#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]$", behcolors[,2]))) != 0) {
+	if (sum(!(behcolors[,2] %in% colors()) & !(grepl("^#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]([0-9A-Fa-f][0-9A-Fa-f])?$", behcolors[,2]))) != 0) {
 		stop(paste('Invalid color in behaviorsToPlotAndColors: "', behcolors[!(behcolors[,2] %in% colors()), 2], '"\n', sep = ""));
 	}
 	if (!is.null(validBehNames) && sum(!(behcolors[,1] %in% validBehNames)) != 0) {
@@ -2730,7 +2817,9 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	
 	behHistograms = lapply(data$groupData, function(d){.makeBehHistograms(d, behaviorsToPlotAndColors[,1], centerBeh, lim, weightingStyle, ...)})
 	
-	if(is.null(ymax)) ymax = max(unlist(lapply(behHistograms, function(behHistList){unlist(lapply(behHistList, function(bh) {bh$y}))}))) * 1.1;
+	if(is.null(ymax)) ymax = max(unlist(lapply(behHistograms, function(behHistList){unlist(lapply(behHistList, function(bh) {bh$y[!is.nan(bh$y)]}))}))) * 1.1; # TODO fix NaNs
+	print(ymax)
+	# print(unlist(lapply(behHistograms, function(behHistList){unlist(lapply(behHistList, function(bh) {bh$y}))})))
 	
 	nHistograms = length(behHistograms);
 	if (!is.null(filename)) jpeg(filename = filename, width = 15, height = 5 * nHistograms, units = "in", quality = 100, res = 150, type = "quartz");
@@ -3179,7 +3268,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 # line is drawn behind the raster plot for each subject.
 .makeMulticolorRasterPlot = function (data, behaviorsToPlotAndColors, filename = NULL, plotTitle = NULL, wiggle = .2,
 									  durationalBehs = NULL, staggerSubjects = F, widthInInches = 12, rowHeightInInches = .3,
-									  horizontalLines = F, linesBetweenLogs = F, sep = 0, durBehBounds = NULL) {
+									  horizontalLines = F, linesBetweenLogs = F, sep = 0, durBehBounds = NULL, labelSpace = 150) {
 	if (!is.null(durationalBehs)) .checkDurationalBehs(durationalBehs, data, behaviorsToPlotAndColors);
 	plotHeight = rowHeightInInches * length(data) + par("mai")[1] + par("mai")[3];
 	# print(filename)
@@ -3245,7 +3334,8 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	title(xlab = "time (seconds)", main = plotTitle);
 	# title(xlab = "time (seconds)", ylab = "GSI", main = plotTitle); was for Scott
 	axis(2, at=1:num_subj, labels=subjects, tick=F, las=2);
-	axis(1, yaxp=c(mintime, maxtime, 10), col='white', col.ticks='black');
+	# axis(1, yaxp=c(mintime, maxtime, 10), col='white', col.ticks='black');
+	axis(1, at = unique(floor(mintime:(maxtime + labelSpace) / labelSpace) * labelSpace), col='white', col.ticks='black');
 	
 	nSsBehs = length(ssBehs);
 	if (nSsBehs > 0) {
@@ -3261,6 +3351,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 				# print(beh);
 				occurrences = data.frame(start = dataFrame$time[dataFrame$behavior == beh & dataFrame$type == "start"],
 										 duration = as.numeric(dataFrame$duration[dataFrame$behavior == beh & dataFrame$type == "start"]));
+				if (!nrow(occurrences)) next;
 				rect(xleft = occurrences$start, xright = occurrences$start + occurrences$duration,
 					 ybottom = n + durBehBounds[beh,]$bottomBound, ytop =  n + durBehBounds[beh,]$topBound,
 					 col = temp_behcolors[i,2], border = NA);
@@ -3486,6 +3577,12 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	# print(df);
 	centerCol = which(dimnames(df)[[2]] == "n+0");
 	# df = df[order(df[,centerCol + 1], df[,centerCol + 2], df[,centerCol + 3]),]      but tailored to actual num of cols.
+	
+	#REMOVE THESE LINES
+	df = df[grepl('Peck', df[,3]),]
+	#REMOVE THESE LINES
+	
+	
 	return(df);
 }
 
@@ -3520,9 +3617,27 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	return(distMat)
 }
 
+.thisWhileThatCount = function(log, this, that) {
+	# TODO this and that must be durational. CHECK.
+	thisStarts = which(log$behavior == this & log$type == 'start');
+	thisStops = which(log$behavior == this & log$type == 'stop');
+	if (length(thisStarts) != length(thisStops)) warning('BAD LENGTH.')
+	thats = which(log$behavior == that);
+	if (!length(thisStarts) || !length(thisStops) || !length(thats)) return(0);
+	# print(thisStarts)
+	# print(thisStops)
+	# print(thats)
+	count = 0;
+	for (i in 1:length(thisStarts)) {
+		if (sum(thats > thisStarts[i] & thats < thisStops[i])) count = count + 1;
+	}
+	return(count);
+}
 
-
-
+textScatterplot = function(x, y, letters, ptcolors = 'black', ...) {
+	verboseScatterplot(x, y, type = 'n', abline = T, ...);
+	text(x, y, labels = letters, col = ptcolors);
+}
 
 
 

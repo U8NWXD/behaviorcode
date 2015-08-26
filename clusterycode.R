@@ -3,7 +3,7 @@ library(WGCNA)
 
 # logLabels should be c('ND', 'ND', 'D', 'D', 'ND', 'ASC', 'D', 'ND')
 # or c('DOM1 (0 fish killed)', 'DOM2 (3 fish killed)', 'DOM2 (12 fish killed)') or the like. basically the labels for the dendro.
-.clustersEtc = function(logList, clusterOn = 'counts', logLabels = NULL, hclust.method = 'complete', cutree.minClusterSize = NA, colors = NULL) {
+.clustersEtc = function(logList, clusterOn = 'counts', logLabels = NULL, cor.use = 'all.obs', hclust.method = 'complete', cutree.minClusterSize = NA, colors = NULL) {
 	if (is.na(cutree.minClusterSize)) {
 		cutree.minClusterSize = max(length(logList) / 6, 3);
 	}
@@ -13,11 +13,13 @@ library(WGCNA)
 	
 	if (clusterOn == 'counts') {
 		dataMat = .extractBasicStats(logList, .behnames(logList), NULL)[[1]]
+	} else if (clusterOn %in% c('tps', 'TPs', 'transprobs', 'transitional probabilities')) {
+		dataMat = .makeTPMatrix(lapply(logList, function(d) {.getProbabilityMatrix(d$behavior, byTotal=F)}), .behnames(logList), FALSE)
 	} else stop('THIS FUNCTION KNOWS NOTHING OF THESE "', clusterOn, '" YOU SPEAK OF');
 	
 	if (!is.null(logLabels)) colnames(dataMat) <- logLabels;
 	
-	corMat = cor(dataMat);
+	corMat = cor(dataMat, use = cor.use);
 	cluster = hclust(as.dist(1 - corMat), method = hclust.method);
 	moduleNumbers = cutreeDynamic(cluster, minClusterSize = cutree.minClusterSize, distM = 1 - corMat, verbose = 0)
 	if (max(moduleNumbers) < length(colors)) moduleColors = colors[moduleNumbers + 1]
@@ -83,13 +85,13 @@ library(WGCNA)
 	# points(rep(4,length(data[gsub("/.*$", '', lognames) == "darkgrey"])), data[gsub("/.*$", '', lognames) == "darkgrey"], pch = 16, cex = 2, col = "grey35")
 }
 
-pointsStaggered = function(x, y, color) {
+pointsStaggered = function(x, y, color, pointsspace = .05) {
 	freqtable = table(y);
 	n = 1;
 	npointsPlotted = 0
 	while (sum(freqtable >= n)) {
 		toPlot = as.numeric(names(freqtable)[freqtable == n])
-		exes = x + (((1:n) - (n+1)/2) * .1);
+		exes = x + (((1:n) - (n+1)/2) * pointsspace * 2);
 		for (i in exes) {
 			points(rep(i, length(toPlot)), toPlot, pch = 16, cex = 2, col = color);
 			npointsPlotted = npointsPlotted + length(toPlot)
