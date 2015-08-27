@@ -906,6 +906,10 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	if (!is.null(outfile)) dev.off();
 }
 
+pointsStaggered = function(x, y, color, pointsspace = .05) {
+	points(x + .getOffsets(y, pointsspace), y, pch = 16, cex = 2, col = color);
+}
+
 .getOffsets = function(x, pointsspace) {
 	freqs = table(x)
 	reps = freqs[as.character(x)];

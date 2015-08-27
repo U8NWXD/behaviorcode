@@ -85,22 +85,6 @@ library(WGCNA)
 	# points(rep(4,length(data[gsub("/.*$", '', lognames) == "darkgrey"])), data[gsub("/.*$", '', lognames) == "darkgrey"], pch = 16, cex = 2, col = "grey35")
 }
 
-pointsStaggered = function(x, y, color, pointsspace = .05) {
-	freqtable = table(y);
-	n = 1;
-	npointsPlotted = 0
-	while (sum(freqtable >= n)) {
-		toPlot = as.numeric(names(freqtable)[freqtable == n])
-		exes = x + (((1:n) - (n+1)/2) * pointsspace * 2);
-		for (i in exes) {
-			points(rep(i, length(toPlot)), toPlot, pch = 16, cex = 2, col = color);
-			npointsPlotted = npointsPlotted + length(toPlot)
-		}
-		n = n+1;
-	}
-	# TODO use .getOffsets in this fxn. Also move it to behavior.R; why is it here???
-} 
-
 
 par(mfrow = c(4,1))
 par(oma = c(0, 1, 0, 0))
