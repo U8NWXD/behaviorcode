@@ -98,7 +98,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 		}
 		n = n+1;
 	}
-	print(npointsPlotted)
+	# TODO use .getOffsets in this fxn. Also move it to behavior.R; why is it here???
 } 
 
 

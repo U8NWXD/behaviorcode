@@ -866,16 +866,16 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 #' }
 #' my_data <- pairGroups(my_data, myPairLogsFn)
 # TODO polishhhh
-.prettyBoxplot = function(dataList, colors = 'black', outfile = NULL, paired = F, notch = F, pointsspace = .05, tiff.height = 480, tiff.width = 560, ...) {
+.prettyBoxplot = function(dataList, groupNames = NULL, colors = 'black', outfile = NULL, paired = F, notch = F, pointsspace = .05, tiff.height = 480, tiff.width = 560, ...) {
 	if (length(colors) == 1) colors = rep(colors, length(dataList));
 	
-	groupNames = names(dataList);
+	if (is.null(groupNames)) groupNames = names(dataList);
 	if (length(groupNames) < 26) {
 		alphaGroupNames = paste(letters[1:length(groupNames)], groupNames);
 	} else {
 		stop('More than 26 groups. The code may need to be modified.');
 	}
-	
+	# TODO what about NA NAssssssssssssss apparently this is also a problem for the pval test? try running rosadat
 	groupVec = character();
 	for (i in 1:length(dataList)) {
 		groupVec = c(groupVec, rep(alphaGroupNames[i], length(dataList[[i]])));
@@ -890,10 +890,13 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 		for (i in 1:(length(dataList) - 1)) {
 			group1 = dataList[[i]];
 			group2 = dataList[[i + 1]];
-			if (sum(table(group1) > 1) || sum(table(group2) > 1)) {
-				warning('Some points are staggered and the lines are low-key in the wrong place now sorry', immediate. = T);
-			}
-			segments(x0 = i, x1 = i + 1, y0 = group1, y1 = group2, col = 'grey50', lwd = 2);
+			offsets1 = .getOffsets(group1, pointsspace);
+			offsets2 = .getOffsets(group2, pointsspace);
+			# if (sum(table(group1) > 1) || sum(table(group2) > 1)) {
+				# warning('Some points are staggered and the lines are low-key in the wrong place now sorry', immediate. = T);
+			# }
+			keep = !(is.na(group1) | is.na(group2))
+			segments(x0 = i + offsets1[keep], x1 = i + 1 + offsets2[keep], y0 = group1[keep], y1 = group2[keep], col = 'grey50', lwd = 2);
 		}
 	}
 	
@@ -901,6 +904,19 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 		pointsStaggered(i, dataList[[i]], colors[[i]], pointsspace);
 	}
 	if (!is.null(outfile)) dev.off();
+}
+
+.getOffsets = function(x, pointsspace) {
+	freqs = table(x)
+	reps = freqs[as.character(x)];
+	vec = rep(0, length(x))
+	vec[is.na(reps)] <- NA;
+#	print(x); print(freqs); print(reps); print(max(reps[!is.na(reps)])); print(1:max(reps[!is.na(reps)])) # TODO this failssssss with any NAs in data so best decide what to do about that.
+	for (n in 1:max(reps[!is.na(reps)])) {
+		offsets = (((1:n) - (n+1)/2) * pointsspace)
+		vec[!is.na(reps) & reps == n] <- offsets;
+	}
+	return(vec)
 }
 
 .prettyBoxplotNoList = function(x, y, names = NULL, ...) {
@@ -914,6 +930,17 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	if(!is.null(names)) names(listToUse) <- names;
 	.prettyBoxplot(listToUse, ...)
 }
+
+.makeGroupCmpPlots = function(dataByGroup, names, outfilePrefix, paired, ...) {
+	for (row in rownames(dataByGroup[[1]])) {
+		dat = lapply(dataByGroup, function(mat){mat[row,]})
+		# countNotNAs = !(0 %in% unlist(lapply(dat, function(row){sum(!is.na(row))})))
+		if (!(0 %in% unlist(lapply(dat, function(row){sum(!is.na(row))})))) {
+			.prettyBoxplot(dat, groupNames = names, outfile = paste(outfilePrefix, '_', gsub(' ?:', '', row), '.tiff', sep = ''),
+						   paired = paired, xlab = if (paired) 'Timepoint' else 'Group', ylab = row, ...)
+		}
+	}
+} #TODO width if foldernames are too long so they all actually fittttttt
 
 #' Pair Groups and Timepoints
 #'
@@ -1661,7 +1688,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 		.runStats(dataByGroup = latsByGroup, attributes(data[[1]])$group.pairing, outfilePrefix = paste(outfilePrefix, "latencies", sep = "_"),
 				  tests = latTests, comparisons = 'groups', paired_tests = NULL, latencyTest = T, print = F);
 	}
-}
+} # TODO move latencies to their own place this is literally dumb.
 
 # Calls groupMatrixFxn() on the logs belonging to each group in logList, then returns the resulting matrices
 # (one for each group, with a column for each subject in the group) as a list. Parameters in the ... are
@@ -1686,7 +1713,8 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	# print(argList);
 	if(!("trials" %in% names(argList))) argList$trials <- 10000;
 	if (!("Func" %in% names(argList))) argList$Func <- 'mean';
-	bs = bootstrap2independent(argList$x, argList$y, dataDescriptor = argList$row,
+	if (!("plot" %in% names(argList))) argList$plot <- F;
+	bs = bootstrap2independent(argList$x, argList$y, dataDescriptor = argList$row, plot = argList$plot,
 	       						 outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"),
 	       						 groupNames = argList$groupNames, trials = argList$trials, printResults = FALSE, verbose = FALSE, Func = argList$Func);
 	# print(list(p = bs$p.value, dat = bs$data));
@@ -1699,9 +1727,10 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 .bootstrapPairedWrapper = function(argList) {
 	if(!("trials" %in% names(argList))) argList$trials <- 10000;
 	if (!("Func" %in% names(argList))) argList$Func <- 'mean';
+	if (!("plot" %in% names(argList))) argList$plot <- F;
 	sumVec = argList$x + argList$y;
 	if (sum(sumVec[!is.na(sumVec)]) == 0) return(list(p.value = NA));
-	bs = bootstrap2paired(argList$x, argList$y, dataDescriptor = argList$row,
+	bs = bootstrap2paired(argList$x, argList$y, dataDescriptor = argList$row, plot = argList$plot,
 	       						 outfile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "bootstrap.jpg", sep = "_"),
 	       						 conditionNames = argList$groupNames, trials = argList$trials, printResults = FALSE, verbose = FALSE, Func = argList$Func);
 	return(list(p.value = bs$p));
@@ -1710,7 +1739,8 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 .powerWrapper = function(argList) {
 	if (!("Func" %in% names(argList))) argList$Func <- 'mean';
 	if(!("trials" %in% names(argList))) argList$trials <- 10000;
-	bs = powerBootstrap2Independent(ctrl = argList$x, exp = argList$y, Func = argList$Func, trials = argList$trials, verbose = F,
+	if (!("plot" %in% names(argList))) argList$plot <- F;
+	bs = powerBootstrap2Independent(ctrl = argList$x, exp = argList$y, Func = argList$Func, trials = argList$trials, verbose = F, plot = argList$plot,
 										plotFile = paste(argList$outfilePrefix, gsub("[ :/]", "", argList$row), "power.jpg", sep = "_"));
 	return(list(p.value = bs$power));
 }
@@ -1747,9 +1777,11 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 # Tests are run via a call to .runStatsTwoGroups(), which gets parameters passed through the ...s.
 # comparisons is in c('all', 'groups', 'timepoints', 'diffs')
 # TODO decomposeeeeeeeeeee
+# TODO paired power test
+# TODO power tests are not part of "tests" parameter.
 .runStats = function(dataByGroup, groupPairingMat, outfilePrefix, comparisons = 'all', askaboutpower = T,
 					 tests = list(power = list(func = .powerWrapper), t.test = t.test, mann.whitney = wilcox.test, bootstrap = list(func = .bootstrapWrapper)),
-					 paired_tests = list(t.test = .pairedTTest, mann.whitney = .pairedMannWhitney, bootstrap = list(f = .bootstrapPairedWrapper)), ...) {
+					 paired_tests = list(t.test = .pairedTTest, mann.whitney = .pairedMannWhitney, bootstrap = list(f = .bootstrapPairedWrapper)), ...) { # TODO test with 1 gr and or 1 tp
 	if (is.null(groupPairingMat)) stop("No group pairing matrix found. Please run .pairGroups() on your data before calculating stats.")
 	if (length(groupPairingMat) != length(dataByGroup)) stop("Number of groups in groupPairingMat and dataByGroup do not match.");
 	comparisons = .autocomplete(comparisons, c('all', 'groups', 'timepoints', 'diffs'))
@@ -1757,34 +1789,36 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	groupNames = dimnames(groupPairingMat)[[1]];
 	timepointNames = dimnames(groupPairingMat)[[2]];
 	# -----STARTNEW
-	if (length(timepointNames) == 1) comparisons = if (comparisons %in% c('all', 'groups')) 'groups' else 'none';
-	if (length(groupNames) == 1) comparisons = if (comparisons %in% c('all', 'timepoints')) 'timepoints' else 'none';
 	cmpGroups = comparisons %in% c('all', 'groups');
 	cmpTimepoints = comparisons %in% c('all', 'timepoints');
 	cmpDiffs = comparisons %in% c('all', 'diffs');
+	if (length(timepointNames) == 1) cmpDiffs = cmpTimepoints = F;
+	if (length(groupNames) == 1) cmpDiffs = cmpGroups = F;
 	# --------ENDNEW
 		
 	alltestnames = c(if (cmpGroups || cmpDiffs) names(tests) else NULL, if (cmpTimepoints) names(paired_tests) else NULL)
 	if (askaboutpower && sum(grepl('[pP]ower', alltestnames))) {
 		cat("I'm going to run a power test on your data to make sure you have enough statistical power to detect significant differences. ")
 		cat("This takes sort of a long time, but it's important to do so you don't get spurious/invalid results. However, if you've already run a power")
-		cat(" test on this data, you can choose to skip it to save time.")
+		cat(" test on this data, you can choose to skip it to save time.\n")
 		if (!.getYesOrNo('Do you want to run the power test (HIGHLY RECOMMENDED)? ')) {
 			tests = tests[!grepl('[Pp]ower', names(tests))];
 			paired_tests = paired_tests[!grepl('[Pp]ower', names(paired_tests))];
 		}
 	} #TODO option to run power test only on nonsignificant tests.
-	
+	cat('By default, I skip statistical tests if you have fewer than 3 non-NA observations in a group. The p-value will show up as NA in the output. ')
+	cat('If you want to change this threshold, you can set the parameter minNumLogsForComparison to a different value. Regardless of this threshold, ')
+	cat('the p-value will also be NA for any comparison where all the non-NA observations for both groups are 0.\n')
 	
 	if (!length(tests) && (cmpGroups || cmpDiffs)) warning('No unpaired tests provided to .runStats()', immediate. = T);
 	if (!length(paired_tests) && cmpTimepoints &&
 		!('latencyTest' %in% names(list(...)) && list(...)$latencyTest)) warning('No paired tests provided to .runStats()', immediate. = T);
 	if (!length(tests) && !length(paired_tests)) return();
 
-	# ------
-	if (cmpGroups & !dir.exists(paste(outfilePrefix, '_groups'))) dir.create(paste(outfilePrefix, '_groups', sep = ''))
-	if (cmpTimepoints & !dir.exists(paste(outfilePrefix, '_timepoints'))) dir.create(paste(outfilePrefix, '_timepoints', sep = ''))
-	if (cmpDiffs & !dir.exists(paste(outfilePrefix, '_diffs'))) dir.create(paste(outfilePrefix, '_diffs', sep = ''))
+
+	if (cmpGroups & !dir.exists(paste(outfilePrefix, '_groups', sep = ''))) dir.create(paste(outfilePrefix, '_groups', sep = ''))
+	if (cmpTimepoints & !dir.exists(paste(outfilePrefix, '_timepoints', sep = ''))) dir.create(paste(outfilePrefix, '_timepoints', sep = ''))
+	if (cmpDiffs & !dir.exists(paste(outfilePrefix, '_diffs', sep = ''))) dir.create(paste(outfilePrefix, '_diffs', sep = ''))
 	
 	if (!(cmpGroups | cmpTimepoints | cmpDiffs)) {
 		.runStatsTwoGroups(dataByGroup, outfilePrefix, ...);
@@ -1794,7 +1828,8 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	if (cmpGroups) {
 		for (timepoint in timepointNames) {
 			if (length(timepointNames) > 1) cat("Comparing groups at timepoint ", timepoint, "...\n", sep = '');
-				  
+			.makeGroupCmpPlots(dataByGroup[groupPairingMat[, timepoint]], groupNames,
+							   paste(outfilePrefix, '_groups/', if (length(timepointNames) > 1) paste(timepoint, '_', sep = '') else '', 'plots', sep = ''), paired = F);
 			for (i in 1:(length(groupNames) - 1)) {
 				group1 = groupNames[i];
 				for (j in (i + 1):length(groupNames)) {
@@ -1806,12 +1841,14 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 				}
 			}
 		}
-	}
+	} # TODO option for ANOVA stuff
 	
 	if (cmpTimepoints) {
 		for (group in groupNames) {
 			if (length(groupNames) > 1) cat("Comparing timepoints for group ", group, "...\n", sep = '');
 			
+			.makeGroupCmpPlots(dataByGroup[as.vector(groupPairingMat[group,])], timepointNames,
+							   paste(outfilePrefix, '_timepoints/', if (length(groupNames) > 1) paste(group, '_', sep = '') else '', 'plots', sep = ''), paired = T);
 			for (i in 1:(length(timepointNames) - 1)) {
 				timepoint1 = timepointNames[i];
 				for (j in (i + 1):length(timepointNames)) {
@@ -1833,6 +1870,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 				diffData = list();
 				for (group in groupNames) {
 					diffMat = dataByGroup[[groupPairingMat[group, timepoint2]]] - dataByGroup[[groupPairingMat[group, timepoint1]]];
+					rownames(diffMat) <- paste('Change in', rownames(diffMat));
 					diffData = c(diffData, list(diffMat));
 					write.csv(diffMat, file = paste(outfilePrefix, '_diffs_', group, '_', timepoint1, timepoint2, '.csv', sep = ''))
 				}
@@ -1929,8 +1967,6 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 					}
 				}
 			} else {
-				warning(paste('Skipping "', row, '" (fewer than ', minNumLogsForComparison,
-							  ' observations; lower parameter minNumLogsForComparison to override this)', sep = ""), immediate.=T);
 				df[i, (offset + 1):(offset + length(tests))] <- NA;
 			}
 		}

@@ -185,10 +185,9 @@ bootstrap2paired = function(condition1, condition2, conditionNames = c('conditio
 		signs = sample(c(-1,1), numDiffs, replace = T)
 		pseudo_diffs = signs * diffs;
 		pseudo_stat_null = fxn(pseudo_diffs);
-		if (abs.diffs) pseudo_stat_null = abs(pseudo_stat_null);
 		statsNULL[trial] = pseudo_stat_null;
 	}
-	
+	if (abs.diffs) statsNULL = abs(statsNULL);
 	return(statsNULL);
 }
 
