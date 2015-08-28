@@ -17,7 +17,14 @@ library(WGCNA)
 		dataMat = .makeTPMatrix(lapply(logList, function(d) {.getProbabilityMatrix(d$behavior, byTotal=F)}), .behnames(logList), FALSE)
 	} else stop('THIS FUNCTION KNOWS NOTHING OF THESE "', clusterOn, '" YOU SPEAK OF');
 	
+	oldnames = colnames(dataMat)
 	if (!is.null(logLabels)) colnames(dataMat) <- logLabels;
+	allzero = which(apply(dataMat,2,sum) == 0);
+	if (length(allzero)) {
+		warning('Logs ', paste(oldnames[allzero], collapse = ' '), ' have all zero values, ',
+				'so they cannot be correlated. Removing them.', immediate. = T)
+		dataMat = dataMat[,-allzero]
+	}
 	
 	corMat = cor(dataMat, use = cor.use);
 	cluster = hclust(as.dist(1 - corMat), method = hclust.method);
@@ -86,10 +93,10 @@ library(WGCNA)
 }
 
 
-par(mfrow = c(4,1))
-par(oma = c(0, 1, 0, 0))
-.makeBoxplot(x$durations[1,], names(counts), ylab = "Time attending to females (s)")
-.makeBoxplot(x$durations[2,], names(counts), ylab = "Time attending to males (s)")
-.makeBoxplot(x$durations[4,], names(counts), ylab = "Time maintaining territory (s)")
-.makeBoxplot(counts, names(counts), ylab = "Total number of behaviors")
-dev.off()
+# # par(mfrow = c(4,1))
+# par(oma = c(0, 1, 0, 0))
+# .makeBoxplot(x$durations[1,], names(counts), ylab = "Time attending to females (s)")
+# .makeBoxplot(x$durations[2,], names(counts), ylab = "Time attending to males (s)")
+# .makeBoxplot(x$durations[4,], names(counts), ylab = "Time maintaining territory (s)")
+# .makeBoxplot(counts, names(counts), ylab = "Total number of behaviors")
+# dev.off()

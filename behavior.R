@@ -23,7 +23,6 @@ source("~/Desktop/Katrina Summer 2015/behavior_code/powerBootstrap2Independent.R
 
 # > eval(parse(text="tmp[order(tmp[,4], tmp[,3], tmp[,2], tmp[,6], tmp[,7]),]"))
 
-# TODO add some cluster info and such to the helpfile.
 
 # heatmap(cor(t(probma)), symm = TRUE)
 
@@ -540,13 +539,14 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 
 .stitchLogsAustin = function(data, logOutPref = NULL) {
 	for (logname in names(data)) {
-		regex = gsub("(^.*/log[0-9][0-9][0-9][0-9][0-9][0-9]_B[567]).*$", "\\1", logname);
+		regex = gsub("(^.*/log[0-9][0-9][0-9][0-9][0-9][0-9]_B[567]).*$", "\\1", logname); # get subject ID
 		matchingNames = which(grepl(regex, names(data)));
 		if (length(matchingNames) > 0) {
 			cat("  Combining logs", paste(' "', names(data)[matchingNames], '"', sep = ''), ":\n", sep = '');
 			# print(names(data)[matchingNames]);
-			#if (.getYesOrNo("  Is this correct? ")) {
-				if (!.logsOverlap(data[matchingNames]) || .getYesOrNo("Proceed anyway? ")) {
+			#if (.getYesOrNo("  Is this correct? ")) { # this could be uncommented to have user confirm pairing
+				if (!.logsOverlap(data[matchingNames]) || .getYesOrNo("Proceed anyway? ")) { # check logs don't overlap; if they do, allow user to override
+					# combine logs
 					newSubDat = data[[matchingNames[1]]];
 					if (length(matchingNames) > 1) {
 						for (i in 2:length(matchingNames)) newSubDat = rbind(newSubDat, data[[matchingNames[i]]]);
@@ -561,7 +561,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 		}
 	}
 	
-	if (!is.null(logOutPref)) {
+	if (!is.null(logOutPref)) { # save combined logs as file if logOutPref was given
 		for (i in 1:length(data)) {
 			write.table(data[[i]], file = paste(logOutPref, names(data)[i], sep = ""), sep = "\t");
 		}
@@ -875,7 +875,6 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	} else {
 		stop('More than 26 groups. The code may need to be modified.');
 	}
-	# TODO what about NA NAssssssssssssss apparently this is also a problem for the pval test? try running rosadat
 	groupVec = character();
 	for (i in 1:length(dataList)) {
 		groupVec = c(groupVec, rep(alphaGroupNames[i], length(dataList[[i]])));
@@ -915,7 +914,6 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	reps = freqs[as.character(x)];
 	vec = rep(0, length(x))
 	vec[is.na(reps)] <- NA;
-#	print(x); print(freqs); print(reps); print(max(reps[!is.na(reps)])); print(1:max(reps[!is.na(reps)])) # TODO this failssssss with any NAs in data so best decide what to do about that.
 	for (n in 1:max(reps[!is.na(reps)])) {
 		offsets = (((1:n) - (n+1)/2) * pointsspace)
 		vec[!is.na(reps) & reps == n] <- offsets;
@@ -1019,7 +1017,17 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	return(data[order(attribute, ...)]);
 }
 
+.dataFromTimepoint = function(data, timepoint){
+	groupPairMat = attributes(data[[1]])$group.pairing
+	return(data[gsub('(^[^/]*)/.*$', '\\1', names(data)) %in% groupPairMat[,timepoint]]) # TODO bad relies on folders
+}
+
 .orderSupplementalData = function(suppData, data, nameCol) {
+	groupPairMat = attributes(data[[1]])$group.pairing
+	if (ncol(groupPairMat) > 1) {
+		data <- data[gsub('(^[^/]*)/.*$', '\\1', names(data)) %in% groupPairMat[,1]] # TODO bad relies on folders
+	}
+	
 	if (is.character(nameCol)) nameCol = which(colnames(suppData) == nameCol);
 	suppData = suppData[,c(nameCol, (1:ncol(suppData))[-nameCol])]
 	toReturn = NULL;
@@ -1948,7 +1956,6 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 			average[[i]][allNARows] <- NA;
 			median[[i]][allNARows] <- NA;
 			stddev[[i]][allNARows] <- NA;
-			# TODO add median
 		}
 	}
 	rownames = dimnames(dataByGroup[[1]])[[1]];
@@ -2514,7 +2521,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	 print(clusterAssignments)
 	
 	if (!is.null(subjcolors) && !is.null(lightSubjColors)) {
-		colormat = cbind(lightSubjColors, subjcolors); # TODO doesnt work graphviz won't take this color format fixxxxxxxxxxxxx
+		colormat = cbind(lightSubjColors, subjcolors);
 		rownames(colormat) = subjects;
 	} else if (length(subjects) == 2 && "male" %in% subjects && "female" %in% subjects) {
 		colormat = matrix(data = c("pink", "lightblue", "red", "blue"), nrow = 2, dimnames = list(c("female", "male"), NULL))
@@ -3273,7 +3280,6 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 # sort.na.last and sort.decreasing are passed through to the call to order(). Additionally, the value
 # will be displayed on the y-axis along with sort.name, which should be something like "GSI", "Time in pot",
 # "Spawning count", "Quiver latency", etc.
-# TODO subjects separation (male/female)- make sure it is the same behs!!!!
 .makeMulticolorRasterPlots = function (data, outfilePrefix, behaviorsToPlotAndColors = NULL, durationalBehs = NULL,
 										sortAttribute = NULL, sort.name = "", sort.na.last = T, sort.decreasing = F, 
 										zeroBeh = NULL, zeroBeh.n = 1, ...) {
@@ -3375,7 +3381,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 				times = dataFrame$time[dataFrame$behavior == beh];
 				ybottom = n - 0.5 + (sep / 2);
 				ytop = n + 0.5 - (sep / 2);
-				if (staggerSubjects) { # TODO test
+				if (staggerSubjects) {
 					expsubj = .getSubjectsForBeh(beh);
 					if (length(expsubj) > 1) stop("More than one experimental subject provided in logs for ", beh);
 					if (expsubj == "male") {
@@ -3651,9 +3657,6 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	centerCol = which(dimnames(df)[[2]] == "n+0");
 	# df = df[order(df[,centerCol + 1], df[,centerCol + 2], df[,centerCol + 3]),]      but tailored to actual num of cols.
 	
-	#REMOVE THESE LINES
-	df = df[grepl('Peck', df[,3]),]
-	#REMOVE THESE LINES
 	
 	
 	return(df);
