@@ -935,6 +935,9 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	.prettyBoxplot(listToUse, ...)
 }
 
+# TODO standardize axes so cmp bw groups is on same axes at different timepoints, etc. actually tbh its too late at this point. um. ???
+# TODO figure out a way to get colors up in hereeeeeeeee
+# TODO this doesn't belong here but I forget if its already in this file or not. Make group an ATTRIBUTE for compatibility stuff.
 .makeGroupCmpPlots = function(dataByGroup, names, outfilePrefix, paired, ...) {
 	for (row in rownames(dataByGroup[[1]])) {
 		dat = lapply(dataByGroup, function(mat){mat[row,]})
@@ -995,6 +998,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	# add options to all cmp fxns about which comparisons to make TODO
 	
 }
+# TODO TODO TODO TODO make this run automatically in .getDataBatch if you only have one folder.
 
 
 #####################################################################################################
@@ -1013,6 +1017,17 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	if (length(data) != length(attribute)) stop("Bad sort attribute. Not the same length as data.");
 	if (is.character(attribute)) attribute = as.factor(attribute);
 	return(data[order(attribute, ...)]);
+}
+
+.orderSupplementalData = function(suppData, data, nameCol) {
+	if (is.character(nameCol)) nameCol = which(colnames(suppData) == nameCol);
+	suppData = suppData[,c(nameCol, (1:ncol(suppData))[-nameCol])]
+	toReturn = NULL;
+	for (col in 1:ncol(suppData)) {
+		toReturn = as.data.frame(cbind(toReturn, .getAttributeFromSupplementalData(suppData, data, col, nameCol = 1)))
+	}
+	colnames(toReturn) <- colnames(suppData)
+	return(toReturn);
 }
 
 # Extracts an attribute vector to use in sorting from a matrix or data frame of
@@ -1681,10 +1696,11 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 								renameStartStop = FALSE, durBehNames = .startStopBehs(data))
 	.runStats(dataByGroup = dataByGroup, attributes(data[[1]])$group.pairing, outfilePrefix = paste(outfilePrefix, "basicstats", sep = "_"), ...);
 	
+	# TODO make this work even if assays have different lengths
 	latMats = function(...) {return(.extractBasicStats(...)$latencies)}
 	latsByGroup = .getGroupMats(data, latMats, outfilePrefix = paste(outfilePrefix, "latencies", sep = "_"),
 								renameStartStop = FALSE, durBehNames = .startStopBehs(data))
-	if (is.null(latTests)) latTests = list(coxph = list(f = .coxphWrapper, assayLength = attributes(data[[1]])$assay.length));
+	if (is.null(latTests) && !is.na(attributes(data[[1]])$assay.length)) latTests = list(coxph = list(f = .coxphWrapper, assayLength = attributes(data[[1]])$assay.length));
 	if ('comparisons' %in% names(list(...))) {
 		.runStats(dataByGroup = latsByGroup, attributes(data[[1]])$group.pairing, outfilePrefix = paste(outfilePrefix, "latencies", sep = "_"),
 				  tests = latTests, comparisons = list(...)$comparisons, paired_tests = NULL, latencyTest = T, print = F);
@@ -3278,7 +3294,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	
 	if (!is.null(zeroBeh)) {
 		data <- .filterDataList(data, zeroBeh = zeroBeh, zeroBehN = zeroBeh.n);
-		behaviorsToPlotAndColors = rbind(behaviorsToPlotAndColors, c("assay start", "black"));
+		# behaviorsToPlotAndColors = rbind(behaviorsToPlotAndColors, c("assay start", "black"));
 	}
 	
 	
