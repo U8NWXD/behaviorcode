@@ -1012,7 +1012,9 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 # sorts in order of decreasing <attribute> and na.last = NA which removes NAs from the data.
 # Or na.last = T to put NAs last, or na.last = F to put them first.
 .sortByAttribute = function(data, attribute, ...) {
-	if (length(data) != length(attribute)) stop("Bad sort attribute. Not the same length as data.");
+	if (length(data) != length(attribute)) {
+		stop("Bad sort attribute. Not the same length as data.");
+	}
 	if (is.character(attribute)) attribute = as.factor(attribute);
 	return(data[order(attribute, ...)]);
 }
@@ -1324,7 +1326,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 # Renames behaviors to differentiate between starts and stops. If the behavior has already been renamed,
 # this function does nothing.
 .renameStartStop = function(data) {
-	toReplace = !(data$type == "neither") & !grepl(" st[oa][rp]t?$", data$behavior);
+	toReplace = !(data$type == "neither") & !grepl(" st[oa][rp]t?$", data$behavior) & !(data$behavior %in% c('START', 'STOP'));
 	data$behavior[toReplace] <- paste(data$behavior[toReplace], data$type[toReplace]);
 	return(data);
 }
@@ -1473,14 +1475,17 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 		return(data);
 	}
 	
+	if (removeExtra) toRemove = numeric(0);
 	if (length(followerIndices) >= 1 && followerIndices[1] < leaderIndices[1]) {
 		if (sum(followerIndices < leaderIndices[1]) == 1) {
 			warning("Follower at the beginning of log without a leader.", immediate. = T);
 		} else {
-			stop("Two occurances of follower before first occurance of leader.");
+			if (removeExtra) {
+				warning("Two occurances of follower before first occurance of leader.", immediate. = T);
+				toRemove = c(toRemove, followerIndices[followerIndices < leaderIndices[1]])
+			} else stop("Two occurances of follower before first occurance of leader.");
 		}
 	}
-	if (removeExtra) toRemove = numeric(0);
 	for (i in 1:length(leaderIndices)) {
 		thisLeader = leaderIndices[i];
 		nextLeader = if (i == length(leaderIndices)) length(data$behavior) + 1 else leaderIndices[i+1];
@@ -2347,8 +2352,9 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 
 #TODO move this elsewhere
 .branchingDiagram = function(data, centerbeh, kb, ka = 0, file = '', fontsize = 24, title = 'untitled', minTimesToDrawNode = 1, minLine = 1) {
+	 data = .filterDataList(data, renameStartStop = TRUE)
 	 contexts = .getAllAllContexts(centerbeh, data, kbefore = kb, kafter = ka);
-	 
+	 if (is.null(contexts)) stop('Bad centerbeh (never occurs)')
 	 cat('digraph', title, '\n', '	{\n', file = file);
 	 
 	 for (col in ncol(contexts):2) {
@@ -2691,7 +2697,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 		if (beh %in% colorkey[,1]) {
 			index = which(colorkey[,1] == beh);
 			color = colorkey[index,2]
-			newrows = cbind(paste(beh, c("start", "stop")), c(lighten(color, -50), lighten(color, 50)));
+			newrows = cbind(paste(beh, c("start", "stop")), c(.lighten(color, -50), .lighten(color, 50)));
 			colorkey = rbind(if (index > 1) colorkey[1:(index - 1),] else NULL,
 							 newrows,
 							 if (index < length(colorkey[,1])) colorkey[(index+1):length(colorkey[,1]),] else NULL)
