@@ -999,6 +999,72 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 # TODO TODO TODO TODO make this run automatically in .getDataBatch if you only have one folder.
 
 
+
+.pairStartStop = function(log, maxToleratedError = .001) {
+	startInds = which(log$type == 'start');
+	endTimes = round(log$time[startInds] + log$duration[startInds], 3);
+	stopInds = which(log$type == 'stop');
+	endInds = integer(length(startInds));
+	for (i in 1:length(endInds)) {
+		startIndex = startInds[i]
+		stopIndex = which(log$type == 'stop' & round(log$time, 3) == endTimes[i] & log$behavior == log$behavior[startIndex]);
+		if (length(stopIndex) < 1) {
+			stopIndex = which(log$type == 'stop' & round(log$time, 2) == round(endTimes[i],2) & log$behavior == log$behavior[startIndex]);
+			if (length(stopIndex) < 1) {
+				stopIndex = which(log$type == 'stop' & round(log$time, 1) == round(endTimes[i],1) & log$behavior == log$behavior[startIndex]);
+				if (length(stopIndex) < 1) {
+					stopIndex = which(log$type == 'stop' & round(log$time, 0) == round(endTimes[i],0) & log$behavior == log$behavior[startIndex]);
+				}
+			}
+		}
+		if (length(stopIndex) != 1) {
+			print(stopIndex)
+			print(endTimes[i])
+			print(log$time[log$type == 'stop' & log$behavior == log$behavior[startIndex]]);
+			stop('No unique match')
+		}
+		log$pair_time[startIndex] <- log$time[stopIndex];
+		log$pair_time[stopIndex] <- log$time[startIndex];
+		error = log$time[stopIndex] - log$time[startIndex] - log$duration[startIndex];
+		if (error > maxToleratedError) {
+			warning(round(error, ceiling(-log10(maxToleratedError))), ' second discrepancy in duration vs times.', immediate. = T)
+		}
+		log$duration[stopIndex] = log$duration[startIndex] = log$time[stopIndex] - log$time[startIndex];
+	}
+	log$duration[log$type == 'neither'] <- NA;
+	return(log);
+}
+
+.convertNoldusLog = function(rawlog, maxToleratedError = .001) {
+	time = rawlog$Time_Relative_sf;
+	behavior = rawlog$Behavior;
+	subject = rawlog$Subject;
+	type = gsub('point', 'neither', gsub('State ', '', rawlog$Event_Type));
+	pair_time = rep(NA, nrow(rawlog));
+	duration = rawlog$Duration_sf;
+	log = data.frame(time = time, behavior = behavior, subject = subject, type = type, pair_time = pair_time, duration = duration)
+	log = .pairStartStop(log, maxToleratedError);
+	attr(log, 'assay.start') <- list(mark = NA, time = 0);
+	# attr(log, 'assay.length') <- 900;
+	return(log);
+}
+
+# TODO polish
+.getLogsNoldus = function(csv_file, maxToleratedError = .001) {
+	rawLogFrame <- read.csv(csv_file, colClasses = c('character', 'character', 'character', 'numeric', 'character', 'character', 'numeric', 'numeric', 'numeric', 'character', 'character', 'character', 'character', 'character', 'character', 'character', 'character', 'character', 'character'))
+	#print(colnames(rawLogFrame))
+	logNames = names(table(rawLogFrame$Observation));
+	rawLogList = list();
+	for (i in 1:length(logNames)) {
+		logName = logNames[i];
+		rawLogList[[i]] <- rawLogFrame[rawLogFrame$Observation == logName,];
+	}
+	names(rawLogList) <- logNames;
+	return(lapply(rawLogList, .convertNoldusLog, maxToleratedError = maxToleratedError));
+}
+
+
+
 #####################################################################################################
 ## FILTERING, SORTING, AND EDITING DATA                                                            ##
 #####################################################################################################
