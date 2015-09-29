@@ -294,6 +294,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 		data = lapply(data, function(log){attr(log, 'assay.length') <- NA; return(log)})
 	}
 	
+	data <- .folderFromFolderStruct(data);
 	# TODO common errors check
 	cat("Data entry complete.\n")
 	return(.filterDataList(data, renameSubjects = TRUE));
@@ -1012,7 +1013,6 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	# --
 	# TODO keep track of ordered or not somehow. make ordered = F if you .sortLogs or something. or maybe just throw a warning if you see that there are >= 2 timepoints??
 	# ----
-	# add options to all cmp fxns about which comparisons to make TODO
 	
 }
 # TODO TODO TODO TODO make this run automatically in .getDataBatch if you only have one folder.
@@ -1106,13 +1106,13 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 
 .dataFromTimepoint = function(data, timepoint){
 	groupPairMat = attributes(data[[1]])$group.pairing
-	return(data[gsub('(^[^/]*)/.*$', '\\1', names(data)) %in% groupPairMat[,timepoint]]) # TODO bad relies on folders
+	return(data[.getFolderVec(data) %in% groupPairMat[,timepoint]])
 }
 
 .orderSupplementalData = function(suppData, data, nameCol) {
 	groupPairMat = attributes(data[[1]])$group.pairing
 	if (ncol(groupPairMat) > 1) {
-		data <- data[gsub('(^[^/]*)/.*$', '\\1', names(data)) %in% groupPairMat[,1]] # TODO bad relies on folders
+		data <- data[.getFolderVec(data) %in% groupPairMat[,1]]
 	}
 	
 	if (is.character(nameCol)) nameCol = which(colnames(suppData) == nameCol);
@@ -1737,6 +1737,23 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	return(list(groupNames = groupNames, groupData = groupData, behnames = behnames));
 }
 
+.getFolderVec = function(data) {
+	return(unlist(lapply(data, attr, 'folder')));
+}
+
+.sepGroups = function(data) { # TODO test with one group and with out-of-folder logs w/ other group
+	# return(list(groupNames = "Fish", groupData = list(Fish = data), behnames = names(.findDupBehaviors(data))));}
+	groupNamesVec = .getFolderVec(data);
+	groupNames = names(table(groupNamesVec));
+	groupData = list();
+	for (i in 1:length(groupNames)) {
+		groupData[[i]] = data[which(groupNamesVec == groupNames[i])];
+	}
+	names(groupData) <- groupNames;
+
+	return(list(groupNames = groupNames, groupData = groupData, behnames = .behnames(data)));
+}
+
 # Helper function for .calcBasicStats(). Loops through every data frame in the list <data> and gets the
 # count and latency of each behavior in <behnames>, and the total duration of each behavior in <durBehNames>.
 # If a behavior does not occur in a score log, the latency will be NA.
@@ -2251,7 +2268,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 		# print(apply(probMat, 1, sum));
 		# stop("Something is wrong about this probability matrix - the probabilities don't add up to 1. See Katrina for help.");
 	# } TODO restore check. IF a beh never occurs in a group, bad :(
-	write.csv(probMat, file = paste(outPref, "transitionalprobabilities", gsub("/.*$", '', names(data)[1]), "average.csv", sep = "_")); # TODO bad this is dependent on current group-sepping conditions :(
+	write.csv(probMat, file = paste(outPref, "transitionalprobabilities", .getFolderVec(data)[1], "average.csv", sep = "_"));
 	return(.makeTPMatrix(groupPMs, behnames, byTotal))
 }
 
@@ -3283,7 +3300,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	dir.create(outdir);
 	for (i in 1:length(data)) {
 		print(names(data[i]));
-		filename = paste(outdir, gsub("\\.txt", ".jpeg", gsub("(.*/)*", "", names(data)[i])), sep = "");
+		filename = paste(outdir, gsub("\\.txt", ".jpeg", gsub("/", "_", names(data)[i])), sep = "");
 		jpeg(filename = filename, width = 7.5, height = 10, units = "in",
 		     quality = 100, res = 300, type = "quartz");
 		.makeRasterPlot(data[[i]]);
