@@ -420,6 +420,25 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	}
 }
 
+# names must be set already
+.folderFromFolderStruct = function(logList) {
+	folderNames = gsub("((.+)/)?.+", "\\2", names(logList));
+	folderNames[folderNames == ""] <- "DefaultGroup";
+	for (i in 1:length(logList)) {
+		attr(logList[[i]], 'folder') <- folderNames[i];
+	}
+	return(logList);
+}
+
+# this is for testing only
+# gets rid of folder from log name to check for bugs
+unfolder = function(logList) {
+	logNames = names(logList);
+	logNames = gsub("(.+/)?(.+)", "\\2", logNames)
+	names(logList) <- logNames;
+	return(logList)
+}
+
 # Helper function for .getDataBatch()
 # Provides a nice user interface for merging duplicate behaviors. Returns <data> with the
 # dupped behaviors merged.
