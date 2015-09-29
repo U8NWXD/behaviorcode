@@ -425,6 +425,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 .folderFromFolderStruct = function(logList) {
 	folderNames = gsub("((.+)/)?.+", "\\2", names(logList));
 	folderNames[folderNames == ""] <- "DefaultGroup";
+	folderNames = gsub('/', '_', folderNames);
 	for (i in 1:length(logList)) {
 		attr(logList[[i]], 'folder') <- folderNames[i];
 	}
@@ -1719,24 +1720,6 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 #    $behnames, the behaviors that occur in any log.
 # In this implementation, score logs that did not come from a folder (either from grouped datasets
 #    or ungrouped datasets) are placed in "Default Group".
-.sepGroups = function(data) {
-	# return(list(groupNames = "Fish", groupData = list(Fish = data), behnames = names(.findDupBehaviors(data))));}
-	groupNames = names(table(gsub("((.+)/)?.+", "\\2", names(data))));
-	ungrouped = "" %in% groupNames
-	groupNames[groupNames == ""] <- "Default Group";
-	behnames = .behnames(data);
-	groupData = list();
-	for (i in 1:length(groupNames)) {
-		groupData[[i]] = data[grepl(paste("^", groupNames[i], "/", sep = ""), names(data))];
-		names(groupData)[i] <- groupNames[i];
-	}
-	if (ungrouped) {
-		defaultGroupIndex = groupNames[groupNames == "Default Group"];
-		groupData[[defaultGroupIndex]] = data[grepl("^[^/]*$", names(data))];
-	}
-	return(list(groupNames = groupNames, groupData = groupData, behnames = behnames));
-}
-
 .getFolderVec = function(data) {
 	return(unlist(lapply(data, attr, 'folder')));
 }
