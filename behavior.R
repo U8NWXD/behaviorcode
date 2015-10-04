@@ -298,14 +298,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 
 	data <- .promptToElimDups(data);
 	
-	if(.getYesOrNo("Were all of your assays the same length of time? ")) {
-		userInput = readline("Please enter the length of your assay in seconds.\n> ");
-		while (!grepl("^[0-9]*$", userInput)) userInput = readline("Unreadable time format.\nPlease enter the length of your assay in seconds.\n> ");
-		data = .filterDataList(data, endTime = as.numeric(userInput));
-		data = lapply(data, function(log){attr(log, 'assay.length') <- as.numeric(userInput); return(log)})
-	} else {
-		data = lapply(data, function(log){attr(log, 'assay.length') <- NA; return(log)})
-	}
+	data <- .promptForAssayLength(data);
 	
 	data <- .folderFromFolderStruct(data);
 	# TODO common errors check
@@ -496,6 +489,25 @@ unfolder = function(logList) {
 	}
 	data = .filterDataList(data, renameSubjects = T);
 	return(data);
+}
+
+.promptForAssayLength = function(logList) {
+	if(.getYesOrNo("Were all of your assays the same length of time? ")) {
+		assayLength = .getNumeric("Please enter the length of your assay in seconds: ", negative = F);
+		behsAfterEnd = unlist(lapply(logList, function(log){max(log$time)})) > assayLength
+		# ^^^ logical vec
+		if (sum(behsAfterEnd)) {
+			cat("The following logs have behaviors occur after the end of the assay:\n\t")
+			cat(names(logList)[behsAfterEnd], sep = '\n\t')
+			if (.getYesOrNo("Remove behaviors that occur after the end of the assay? ")) {
+				logList = .filterDataList(logList, endTime = assayLength);
+			}
+		}
+		logList = lapply(logList, function(log){attr(log, 'assay.length') <- assayLength; return(log)})
+	} else {
+		logList = lapply(logList, function(log){attr(log, 'assay.length') <- NA; return(log)})
+	}
+	return(logList)
 }
 
 # Source: ethograms_from_scorevideo.R
@@ -1078,14 +1090,12 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	log = data.frame(time = time, behavior = behavior, subject = subject, type = type, pair_time = pair_time, duration = duration)
 	log = .pairStartStop(log, maxToleratedError);
 	attr(log, 'assay.start') <- list(mark = NA, time = 0);
-	# attr(log, 'assay.length') <- 900;
 	return(log);
 }
 
 # TODO polish
 .getLogsNoldus = function(csv_file, maxToleratedError = .001) {
 	rawLogFrame <- read.csv(csv_file, colClasses = c('character', 'character', 'character', 'numeric', 'character', 'character', 'numeric', 'numeric', 'numeric', 'character', 'character', 'character', 'character', 'character', 'character', 'character', 'character', 'character', 'character'))
-	#print(colnames(rawLogFrame))
 	logNames = names(table(rawLogFrame$Observation));
 	rawLogList = list();
 	for (i in 1:length(logNames)) {
@@ -1093,9 +1103,21 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 		rawLogList[[i]] <- rawLogFrame[rawLogFrame$Observation == logName,];
 	}
 	names(rawLogList) <- logNames;
-	return(lapply(rawLogList, .convertNoldusLog, maxToleratedError = maxToleratedError));
+	convertedLogs = lapply(rawLogList, .convertNoldusLog, maxToleratedError = maxToleratedError);
+	convertedLogs = .getFoldersNoldus(convertedLogs, rawLogFrame)
+	convertedLogs = .promptForAssayLength(convertedLogs)
+	return(convertedLogs)
 }
 
+.getFoldersNoldus = function(logList, rawLogFrame) {
+	logNames = names(logList)
+	folderTable = unique(cbind(rawLogFrame$Observation, rawLogFrame$Assay));
+	folders = character(length(logNames));
+	for (i in 1:length(logNames)) {
+		attr(logList[[i]], 'folder') = folderTable[folderTable[,1] == logNames[i],2]
+	}
+	return(logList)
+}
 
 
 #####################################################################################################
