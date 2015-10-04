@@ -204,20 +204,27 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 # Prompts the user with <prompt> to enter an option from <choices>. Entering "l"
 # causes the choices to be listed. Uses .autocomplete() and removes quotes.
 # TODO USE this!!!!
-.getInputFromList = function(prompt, choices, caseSensitive = FALSE) {
-	menu = c(choices, "l");
-	reprompt = paste("Invalid input.", prompt);
+.getInputFromList = function(prompt, choices, quit = NULL, list = "l", printFn = print, reprompt = "Invalid input.",
+							 caseSensitive = FALSE, removeSpaces = FALSE) {
+	menu = if (!is.null(list)) c(choices, list) else choices;
+	menu = if (!is.null(quit)) c(menu, quit) else menu;
+	reprompt = paste(reprompt, prompt, sep = '\n');
 	
-	userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
-	userInput = .autocomplete(userInput, menu, caseSensitive);
-	while (!(userInput %in% choices)) {
-		if (userInput == "l") {
-			print(choices);
-			userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
+	userInput = readline(prompt);
+	repeat {
+		userInput = gsub('^["\']','', gsub('["\']$','', userInput));
+		if (removeSpaces) userInput = gsub(' ', '', userInput);
+		userInput = .autocomplete(userInput, menu, caseSensitive);
+		if (userInput %in% choices) {
+			break;
+		} else if (!is.null(list) && userInput == list) {
+			printFn(choices);
+			userInput = readline(prompt);
+		} else if (!is.null(quit) && userInput == quit) {
+			return(quit);
 		} else {
-			userInput = gsub('^["\']','', gsub('["\']$','', readline(reprompt)));
+			userInput = readline(reprompt);
 		}
-	    userInput = .autocomplete(userInput, menu, caseSensitive);		
 	}
 	return(userInput);
 }
@@ -376,31 +383,24 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	
 	if (!is.null(assayStart) && sum(markNames %in% assayStart) == 1) {
 		markIndex = which(markNames %in% assayStart);
-		return(list(time = .timeToSeconds(marks[[markIndex]][2]), name = markNames[markIndex], assayStart = assayStart));
 	} else {
-		prompt = if (is.null(assayStart)) {""}
+		promptMsg = if (is.null(assayStart)) {""}
 		else if (sum(markNames %in% assayStart) == 0) {paste('  No default assay start marks found.\n', sep = "")}
 		else {paste('  Two or more default mark names found.\n')}
-		prompt = paste(prompt, '  Mark names found:\n  "', paste(markNames, collapse = '" "'), '"\n', sep = "");
-		cat(prompt);
+		promptMsg = paste(promptMsg, '  Mark names found:\n  "', paste(markNames, collapse = '" "'), '"\n', sep = "");
+		cat(promptMsg);
 		prompt = '  Which mark is the assay start? (enter "q" to skip assay start for this log or press ESC to abort)\n  > ';
-		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
-		if (userInput == "q") return(list(time = 0, name = NA, assayStart = assayStart));
-		userInput = .autocomplete(userInput, markNames);
-		while (!(userInput %in% markNames)) {
-			userInput = gsub('^["\']','', gsub('["\']$','', readline('  Please enter a valid mark name or "q", or press ESC to abort: ')));
-			if (userInput == "q") return(list(time = 0, name = NA, assayStart = assayStart));
-			userInput = .autocomplete(userInput, markNames);
+		assayStartMark = .getInputFromList(prompt, markNames, quit = 'q')
+		if (assayStartMark == "q") return(list(time = 0, name = NA, assayStart = assayStart));
+
+		if (!assayStartMark %in% assayStart) {
+			addMark = .getYesOrNo(paste('  Do you want to save "', assayStartMark, '" as a default assay start mark? ', sep = ""))
+			if (addMark) assayStart = c(assayStart, assayStartMark);
 		}
 		
-		if (!userInput %in% assayStart) {
-			addMark = .getYesOrNo(paste('  Do you want to save "', userInput, '" as a default assay start mark? ', sep = ""))
-			if (addMark) assayStart = c(assayStart, userInput);
-		}
-		
-		markIndex = which(markNames == userInput);
-		return(list(time = .timeToSeconds(marks[[markIndex]][2]), name = markNames[markIndex], assayStart = assayStart));
+		markIndex = which(markNames == assayStartMark);
 	}
+	return(list(time = .timeToSeconds(marks[[markIndex]][2]), name = markNames[markIndex], assayStart = assayStart));
 }
 
 # Helper function for .getData()
@@ -460,33 +460,21 @@ unfolder = function(logList) {
 	
 	if (.getYesOrNo("Would you like to merge behaviors that have the same letters, but in a different case? (uppercase/lowercase)\n  > ")) {
 		data = lapply(data, function(log){log$behavior <- tolower(log$behavior); return(log)})
+		data = .filterDataList(data, renameSubjects = T);
 		.printFindDupBehaviors(data);
 	}
 	prompt = 'Please enter the name of a behavior that you would like to merge into another behavior, or "l" to print the current list of behaviors or "s" to save and quit.\n> '
-	userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
-	userInput = .autocomplete(userInput, c(.behnames(data), "s", "l"), caseSensitive = TRUE);
-	while (userInput != "s") {
-		if (userInput == "l") {
-			.printFindDupBehaviors(data);
-		} else if (userInput %in% .behnames(data)) { # TODO rewrite this to leverage pickFromList and repeat{if () break;}
-			prompt2 = paste('  What behavior do you want to merge "', userInput, '" with? (enter "q" to cancel)\n  > ', sep = "");
-			input2 = gsub('^["\']','', gsub('["\']$','', readline(prompt2)));
-			input2 = .autocomplete(input2, c(.behnames(data), "q"), caseSensitive = TRUE);
-			while (!(input2 %in% c(.behnames(data), "q"))) {
-				input2 = gsub('^["\']','', gsub('["\']$','', readline(prompt2)));
-				input2 = .autocomplete(input2, c(.behnames(data), "q"), caseSensitive = TRUE);
-			}
-			confirmPrompt = paste('  Are you sure you want to merge behavior "', userInput, '" into "', input2,'"? ', sep = "")
-			if (input2 != "q" && .getYesOrNo(confirmPrompt)) {
-				data = .replaceBehAll(data, userInput, input2);
-			}
-		} else {
-			cat("  That is not a valid behavior name.\n")
+	repeat {
+		beh1 = .getInputFromList(prompt, .behnames(data), quit = 's', printFn = function(x){.printFindDupBehaviors(data)}, caseSensitive = T)
+		if (beh1 == 's') break;
+		prompt2 = paste('  What behavior do you want to merge "', beh1, '" with? (enter "q" to cancel)\n  > ', sep = "");
+		beh2 = .getInputFromList(prompt2, .behnames(data)[.behnames(data) != beh1], quit = 'q', caseSensitive = T)
+		confirmPrompt = paste('  Are you sure you want to merge behavior "', beh1, '" into "', beh2,'"? ', sep = "")
+		if (beh2 != "q" && .getYesOrNo(confirmPrompt)) {
+			data = .replaceBehAll(data, beh1, beh2);
 		}
-
-		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
-		userInput = .autocomplete(userInput, c(.behnames(data), "s", "l"), caseSensitive = TRUE);
 	}
+	
 	data = .filterDataList(data, renameSubjects = T);
 	return(data);
 }
@@ -2837,16 +2825,9 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 }
 
 # Prompts the user to enter a color for <beh> and reprompts until they enter either a valid color or "none".
-.getColor = function(beh) {
+.getColorFor = function(beh) {
 	prompt = paste("  What color should \"", beh, '" be? (Enter "none" to not plot this behavior)\n  > ', sep = "");
-	userInput = gsub('^["\']','', gsub('["\']$','', gsub(' ', '', readline(prompt))));
-	userInput = .autocomplete(userInput, c("none", colors()));
-	while (!(userInput %in% c("none", colors()))) {
-		prompt = paste("  Please enter a valid color name or \"none\", or press ESC to quit. What color should \"", beh, "\" be?\n  > ", sep = "");
-		userInput = gsub('^["\']','', gsub('["\']$','', gsub(' ', '', readline(prompt))));
-		userInput = .autocomplete(userInput, c("none", colors()));
-	}
-	return(userInput);
+	return(.getInputFromList(prompt, colors(), quit = "none", list = NULL, removeSpaces = T, reprompt = "  Not a valid color."));
 }
 
 # Allows rows to be added to <colorkey>, removed from <colorkey>, or have their colors changed.
@@ -2856,7 +2837,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	userInput = .autocomplete(userInput, c("q", "p", validBehNames));
 	while (userInput != "q") {
 		if (userInput %in% validBehNames) {
-			color = .getColor(userInput);
+			color = .getColorFor(userInput);
 			if (color == "none" && userInput %in% colorkey[,1]) {
 				colorkey <- colorkey[-which(colorkey[,1] == userInput),];
 			} else if (userInput %in% colorkey[,1]) {
@@ -2925,7 +2906,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	} else {		
 		colorkey = NULL;
 		for (beh in validBehNames) {
-			color = .getColor(beh);
+			color = .getColorFor(beh);
 			if (color != "none") {
 				colorkey = rbind(colorkey, c(beh, color));
 			}
