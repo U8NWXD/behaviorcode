@@ -223,9 +223,22 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 }
 
 # Gets the user to input an integer answer to <prompt>.
-.getInteger = function(prompt) {
+.getInteger = function(prompt, negative = T) {
 	userInput = readline(prompt);
-	while(!grepl('^[0-9]*$', userInput)) userInput = readline("Please enter an integer: ");
+	reprompt = if(negative) "Please enter an integer: " else "Please enter a positive integer: "
+	regex = paste('^', if (negative) '(- *)?' else '', '[0-9]+(\\.0*)?$', sep = '');
+	while(!grepl(regex, userInput)) userInput = readline(reprompt);
+	userInput = gsub(' ', '', userInput);
+	return(as.numeric(userInput));
+}
+
+# Gets the user to input a numeric answer to <prompt>.
+.getNumeric = function(prompt, negative = T) {
+	userInput = readline(prompt);
+	reprompt = if(negative) "Please enter a number: " else "Please enter a positive number: "
+	regex = paste('^', if (negative) '(- *)?' else '', '[0-9]*(\\.[0-9]*)?$', sep = '');
+	while(!(grepl(regex, userInput) && grepl('[0-9]', userInput))) userInput = readline(reprompt);
+	userInput = gsub(' ', '', userInput);
 	return(as.numeric(userInput));
 }
 
@@ -684,7 +697,7 @@ unfolder = function(logList) {
 	cat('"\n');
 	
 	repeat {
-		ngroups = .getInteger("How many experimental groups were there? ");
+		ngroups = .getInteger("How many experimental groups were there? ", negative = F);
 		if (length(groupNames) %% ngroups) cat(length(groupNames), " is not a multiple of ", ngroups, ".\n")
 		else {
 			ntimepoints = length(groupNames) / ngroups;
