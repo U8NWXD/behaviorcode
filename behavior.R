@@ -229,6 +229,10 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	return(userInput);
 }
 
+.getString = function(prompt) {
+	return(gsub('^["\'](.*)["\']$', '\\1', readline(prompt)));
+}
+
 # Gets the user to input an integer answer to <prompt>.
 .getInteger = function(prompt, negative = T) {
 	userInput = readline(prompt);
@@ -247,6 +251,12 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	while(!(grepl(regex, userInput) && grepl('[0-9]', userInput))) userInput = readline(reprompt);
 	userInput = gsub(' ', '', userInput);
 	return(as.numeric(userInput));
+}
+
+# Prompts the user to enter a color for <beh> and reprompts until they enter either a valid color or "none".
+.getColorFor = function(beh) {
+	prompt = paste("  What color should \"", beh, '" be? (Enter "none" to not plot this behavior)\n  > ', sep = "");
+	return(.getInputFromList(prompt, colors(), quit = "none", list = NULL, removeSpaces = T, reprompt = "  Not a valid color."));
 }
 
 # "Autocompletes" <input> to be one of the strings in <choices> by looking to see if there
@@ -390,7 +400,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 		promptMsg = paste(promptMsg, '  Mark names found:\n  "', paste(markNames, collapse = '" "'), '"\n', sep = "");
 		cat(promptMsg);
 		prompt = '  Which mark is the assay start? (enter "q" to skip assay start for this log or press ESC to abort)\n  > ';
-		assayStartMark = .getInputFromList(prompt, markNames, quit = 'q')
+		assayStartMark = .getInputFromList(prompt, markNames, quit = 'q', reprompt = '  Mark not found.')
 		if (assayStartMark == "q") return(list(time = 0, name = NA, assayStart = assayStart));
 
 		if (!assayStartMark %in% assayStart) {
@@ -465,10 +475,11 @@ unfolder = function(logList) {
 	}
 	prompt = 'Please enter the name of a behavior that you would like to merge into another behavior, or "l" to print the current list of behaviors or "s" to save and quit.\n> '
 	repeat {
-		beh1 = .getInputFromList(prompt, .behnames(data), quit = 's', printFn = function(x){.printFindDupBehaviors(data)}, caseSensitive = T)
+		beh1 = .getInputFromList(prompt, .behnames(data), quit = 's', printFn = function(x){.printFindDupBehaviors(data)}, caseSensitive = T, reprompt = 'Behavior not found.')
 		if (beh1 == 's') break;
 		prompt2 = paste('  What behavior do you want to merge "', beh1, '" with? (enter "q" to cancel)\n  > ', sep = "");
-		beh2 = .getInputFromList(prompt2, .behnames(data)[.behnames(data) != beh1], quit = 'q', caseSensitive = T)
+		beh2 = .getInputFromList(prompt2, .behnames(data)[.behnames(data) != beh1], quit = 'q', reprompt = '  Behavior not found.',
+								 printFn = function(vec){print(vec[vec != beh1])}, caseSensitive = T)
 		confirmPrompt = paste('  Are you sure you want to merge behavior "', beh1, '" into "', beh2,'"? ', sep = "")
 		if (beh2 != "q" && .getYesOrNo(confirmPrompt)) {
 			data = .replaceBehAll(data, beh1, beh2);
@@ -698,7 +709,7 @@ unfolder = function(logList) {
 	
 	repeat {
 		ngroups = .getInteger("How many experimental groups were there? ", negative = F);
-		if (length(groupNames) %% ngroups) cat(length(groupNames), " is not a multiple of ", ngroups, ".\n")
+		if (length(groupNames) %% ngroups) cat(length(groupNames), " is not a multiple of ", ngroups, ".\n", sep = '')
 		else {
 			ntimepoints = length(groupNames) / ngroups;
 			if (.getYesOrNo(paste(ngroups, " groups at ", ntimepoints, " timepoints. Is this correct? ", sep = ''))) break;
@@ -714,10 +725,10 @@ unfolder = function(logList) {
 	groupPairingMat = matrix(nrow = ngroups, ncol = ntimepoints, dimnames = list(1:ngroups, 1:ntimepoints));	
 	repeat {
 		for (i in 1:ngroups) {
-			dimnames(groupPairingMat)[[1]][i] = gsub('^["\'](.*)["\']$', '\\1', readline("Please enter the name of a group (ie 'Control', 'Injected', etc.).\n  > "));
+			dimnames(groupPairingMat)[[1]][i] = .getString("Please enter the name of a group (ie 'Control', 'Injected', etc.).\n  > ");
 		}
 		for (i in 1:ntimepoints) {
-			dimnames(groupPairingMat)[[2]][i] = gsub('^["\'](.*)["\']$', '\\1', readline("Please enter the name of a timepoint (ie 'Baseline', 'Day 4', etc.).\n  > "));
+			dimnames(groupPairingMat)[[2]][i] = .getString("Please enter the name of a timepoint (ie 'Baseline', 'Day 4', etc.).\n  > ");
 		}
 		cat("Groups:\n  \"");
 		cat(dimnames(groupPairingMat)[[1]], sep = '" "');
@@ -2824,72 +2835,52 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	.plotColorKey(colorKey);
 }
 
-# Prompts the user to enter a color for <beh> and reprompts until they enter either a valid color or "none".
-.getColorFor = function(beh) {
-	prompt = paste("  What color should \"", beh, '" be? (Enter "none" to not plot this behavior)\n  > ', sep = "");
-	return(.getInputFromList(prompt, colors(), quit = "none", list = NULL, removeSpaces = T, reprompt = "  Not a valid color."));
-}
-
 # Allows rows to be added to <colorkey>, removed from <colorkey>, or have their colors changed.
 .editColorKey = function(colorkey, validBehNames) {
 	prompt = "Enter a behavior name to edit its color, \"p\" to print the current key, or \"q\" to quit color editor.\n  > ";
-	userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
-	userInput = .autocomplete(userInput, c("q", "p", validBehNames));
-	while (userInput != "q") {
-		if (userInput %in% validBehNames) {
-			color = .getColorFor(userInput);
-			if (color == "none" && userInput %in% colorkey[,1]) {
-				colorkey <- colorkey[-which(colorkey[,1] == userInput),];
-			} else if (userInput %in% colorkey[,1]) {
-				colorkey[which(colorkey[,1] == userInput), 2] <- color;
-			} else {
-				colorkey = rbind(colorkey, c(userInput, color));
-			}
-			.plotColorKey(colorkey);
-		} else if (userInput == "p") {
-			.printColorKey(colorkey, "  ");
+	repeat {
+		behavior = .getInputFromList(prompt, validBehNames, quit = "q", list = "p", printFn = function(x){.printColorKey(colorkey, "  ")});
+		if (behavior == 'q') break;
+		color = .getColorFor(behavior);
+		if (color == "none" && behavior %in% colorkey[,1]) {
+			colorkey <- colorkey[-which(colorkey[,1] == behavior),];
+		} else if (behavior %in% colorkey[,1]) {
+			colorkey[which(colorkey[,1] == behavior), 2] <- color;
+		} else {
+			colorkey = rbind(colorkey, c(behavior, color));
 		}
-		userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
-		userInput = .autocomplete(userInput, c("q", "p", colorkey[,1]))
+		.plotColorKey(colorkey);
 	}
 	return(colorkey);
 }
 
 # Allows the user to reorder <colorkey> by typing in the behaviors in a new order.
 .reorderColorKey = function(colorkey) {
-	prompt = "  Which behavior do you want in the very back? (type \"l\" to list remaining behaviors, or \"q\" to cancel reordering)\n  > ";
-	userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
-	userInput = .autocomplete(userInput, c("l", "q", colorkey[,1]));
-	prompt = "  Which behavior do you want next? (type \"l\" to list remaining behaviors, or \"q\" to cancel reordering)\n  > ";
 	newcolorkey = NULL;
 	behsleft = colorkey[,1];
-	while (length(behsleft) > 0) {
-		if (userInput %in% behsleft) {
-			newcolorkey = rbind(newcolorkey, colorkey[which(colorkey[,1] == userInput),]);
-			behsleft = behsleft[-which(behsleft == userInput)];
-		} else if (userInput == "l") {
-			cat('  "');
-			cat(behsleft, sep = '" "');
-			cat('"\n');
-		} else if (userInput == "q") {
+	prompt = "  Which behavior do you want in the very back? (type \"l\" to list remaining behaviors, or \"q\" to cancel reordering)\n  > ";
+	printFn = function(x) {
+		cat('  "');
+		cat(behsleft, sep = '" "');
+		cat('"\n');
+	}
+	
+	nextBeh = .getInputFromList(prompt, colorkey[,1], quit = 'q', printFn = printFn, reprompt = "  Not a valid behavior.");
+	prompt = "  Which behavior do you want next? (type \"l\" to list remaining behaviors, or \"q\" to cancel reordering)\n  > ";
+	repeat {
+		if (nextBeh == 'q') {
 			return(colorkey);
-		} else {
-			if (userInput %in% newcolorkey[,1]) {
-				cat("  Behavior \"", userInput, "\" was already added. ", sep = "");
-				if (.getYesOrNo("  Would you like to move it to the front? ")) {
-					newcolorkey = rbind(newcolorkey[-which(newcolorkey[,1] == userInput),], newcolorkey[which(newcolorkey[,1] == userInput),]);
-				}
-			} else {
-				cat("  Not a valid behavior.\n  Behaviors left:\n    \"");
-				cat(behsleft, sep = '" "');
-				cat('"\n');
+		} else if (nextBeh %in% behsleft) {
+			newcolorkey = rbind(newcolorkey, colorkey[which(colorkey[,1] == nextBeh),]);
+			behsleft = behsleft[-which(behsleft == nextBeh)];
+		} else { # nextBeh %in% newcolorkey[,1]
+			cat("  Behavior \"", nextBeh, "\" was already added. ", sep = "");
+			if (.getYesOrNo("  Would you like to move it to the front? ")) {
+				newcolorkey = rbind(newcolorkey[-which(newcolorkey[,1] == nextBeh),], newcolorkey[which(newcolorkey[,1] == nextBeh),]);
 			}
 		}
-		
-		if (length(behsleft > 0)) {
-			userInput = gsub('^["\']','', gsub('["\']$','', readline(prompt)));
-			userInput = .autocomplete(userInput, c("l", "q", colorkey[,1]));
-		}
+		if (length(behsleft) == 0) break;
+		nextBeh = .getInputFromList(prompt, colorkey[,1], quit = 'q', printFn = printFn, reprompt = "  Not a valid behavior.");
 	}
 	return(newcolorkey);
 }
