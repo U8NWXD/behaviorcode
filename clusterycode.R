@@ -3,7 +3,7 @@ library(WGCNA)
 
 # logLabels should be c('ND', 'ND', 'D', 'D', 'ND', 'ASC', 'D', 'ND')
 # or c('DOM1 (0 fish killed)', 'DOM2 (3 fish killed)', 'DOM2 (12 fish killed)') or the like. basically the labels for the dendro.
-.clustersEtc = function(logList, clusterOn = 'counts', logLabels = NULL, cor.use = 'all.obs', hclust.method = 'complete', cutree.minClusterSize = NA, colors = NULL) {
+.clustersEtc = function(logList, clusterOn = 'counts', logLabels = NULL, hclust.method = 'complete', cutree.minClusterSize = NA, colors = NULL) {
 	if (is.na(cutree.minClusterSize)) {
 		cutree.minClusterSize = max(length(logList) / 6, 3);
 	}
@@ -19,23 +19,23 @@ library(WGCNA)
 	
 	oldnames = colnames(dataMat)
 	if (!is.null(logLabels)) colnames(dataMat) <- logLabels;
-	allzero = which(apply(dataMat,2,sum) == 0);
-	if (length(allzero)) {
-		warning('Logs ', paste(oldnames[allzero], collapse = ' '), ' have all zero values, ',
-				'so they cannot be correlated. Removing them.', immediate. = T)
-		dataMat = dataMat[,-allzero]
-	}
+	# allzero = which(apply(dataMat,2,sum) == 0);
+	# if (length(allzero)) {
+		# warning('Logs ', paste(oldnames[allzero], collapse = ' '), ' have all zero values, ',
+				# 'so they cannot be correlated. Removing them.', immediate. = T)
+		# dataMat = dataMat[,-allzero]
+	# }
 	
-	corMat = cor(dataMat, use = cor.use);
-	cluster = hclust(as.dist(1 - corMat), method = hclust.method);
-	moduleNumbers = cutreeDynamic(cluster, minClusterSize = cutree.minClusterSize, distM = 1 - corMat, verbose = 0)
+	distMat = dist(t(dataMat), method = "euclidean");
+	cluster = hclust(distMat, method = hclust.method);
+	moduleNumbers = cutreeDynamic(cluster, minClusterSize = cutree.minClusterSize, distM = as.matrix(distMat), verbose = 0)
 	if (max(moduleNumbers) < length(colors)) moduleColors = colors[moduleNumbers + 1]
 	else {
 		warning('Not enough colors. The names will be ugly now sorry.', immediate. = T)
 		moduleColors = c('darkgrey', rainbow(max(moduleNumbers)))[moduleNumbers + 1];
 	}
 	plotDendroAndColors(cluster, moduleColors);
-	return(list(data = dataMat, correlations = corMat, dendrogram = cluster, module.assignments = moduleNumbers, module.colors = moduleColors, call = match.call()))
+	return(list(data = dataMat, distances = distMat, dendrogram = cluster, module.assignments = moduleNumbers, module.colors = moduleColors, call = match.call()))
 }
 
 
