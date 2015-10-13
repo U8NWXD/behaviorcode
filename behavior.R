@@ -493,7 +493,8 @@ unfolder = function(logList) {
 .promptForAssayLength = function(logList) {
 	if(.getYesOrNo("Were all of your assays the same length of time? ")) {
 		assayLength = .getNumeric("Please enter the length of your assay in seconds: ", negative = F);
-		behsAfterEnd = unlist(lapply(logList, function(log){max(log$time)})) > assayLength
+		behsAfterEnd = unlist(lapply(logList, function(log){max(log$time)})) > assayLength;
+		behsAfterEnd[is.na(behsAfterEnd)] <- F;
 		# ^^^ logical vec
 		if (sum(behsAfterEnd)) {
 			cat("The following logs have behaviors occur after the end of the assay:\n\t")
