@@ -717,9 +717,9 @@ unfolder = function(logList) {
 	}
 	
 	if (ntimepoints == 1) {
-		return(matrix(data = groupNames, nrow = ngroups, ncol = 1, dimnames = list(groupNames, "")));
+		return(matrix(data = groupNames, nrow = ngroups, ncol = 1, dimnames = list(groupNames, "Assay")));
 	} else if (ngroups == 1) {
-		return(matrix(data = groupNames, nrow = 1, ncol = ntimepoints, dimnames = list("", groupNames)))
+		return(matrix(data = groupNames, nrow = 1, ncol = ntimepoints, dimnames = list("Group", groupNames)))
 	}
 	
 	groupPairingMat = matrix(nrow = ngroups, ncol = ntimepoints, dimnames = list(1:ngroups, 1:ntimepoints));	
