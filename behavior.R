@@ -229,6 +229,12 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	return(userInput);
 }
 
+.getInputFromListPopup = function(prompt, choices, quit = NULL, list = "l", printFn = print, reprompt = "Invalid input.",
+							 caseSensitive = FALSE, removeSpaces = FALSE) {
+	menu = if (!is.null(quit)) c(choices, quit) else choices;
+	return(select.list(menu, title = prompt))
+} # see also file.choose()
+
 .getString = function(prompt) {
 	return(gsub('^["\'](.*)["\']$', '\\1', readline(prompt)));
 }
@@ -745,16 +751,30 @@ unfolder = function(logList) {
 		cat(groupNames, sep = '" "');
 		cat('"\n');
 		for (i in 1:ngroups) { for (j in 1:ntimepoints) {
-			prompt = paste("Which folder is group \"", dimnames(groupPairingMat)[[1]][i], '" at timepoint "',
-					 dimnames(groupPairingMat)[[2]][j],'"? ("l" to list unused folders)\n  > ', sep = '');
-			repeat {
+			gName = dimnames(groupPairingMat)[[1]][i];
+			tName = dimnames(groupPairingMat)[[2]][j];
+			prompt = paste("Which folder is group \"", gName, '" at timepoint "',
+					 	   tName,'"? ("l" to list unused folders)\n  > ', sep = '');
+			
+			groupThenTime = paste(gName, '.*', tName, sep = '')
+			timeThenGroup = paste(tName, '.*', gName, sep = '')
+			matches = grepl(groupThenTime, unusedGroupNames) | grepl(timeThenGroup, unusedGroupNames)
+			if (sum(matches) == 1) { # if you can
+				folder = unusedGroupNames[matches]
+				cat('Folder "', folder, '" matches group "', gName, '" at timepoint "', tName, '".\n', sep = '')
+				groupPairingMat[i,j] = folder;
+			} else {
 				groupPairingMat[i,j] = .getInputFromList(prompt, unusedGroupNames);
+			}
+			
+			repeat {
 				if (j > 1 && groupLengths[groupPairingMat[i,1]] != groupLengths[groupPairingMat[i,j]]) {
 					cat("WARNING: Folder ", groupPairingMat[i,j], " has ", groupLengths[groupPairingMat[i,j]],
 					    " logs, while timepoint ", dimnames(groupPairingMat)[[2]][1], " for that group (folder ",
 					    groupPairingMat[i,1], ") has ", groupLengths[groupPairingMat[i,1]], " logs.\n", sep = '');
 					if (.getYesOrNo("Use anyway? ")) break;
 				} else break;
+				groupPairingMat[i,j] = .getInputFromList(prompt, unusedGroupNames);
 			}
 			unusedGroupNames = unusedGroupNames[unusedGroupNames != groupPairingMat[i,j]];
 		}}
