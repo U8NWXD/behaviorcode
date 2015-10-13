@@ -745,6 +745,7 @@ unfolder = function(logList) {
 		if (.getYesOrNo("Is this correct? ")) break;
 	}
 	
+	haveCorrected = F
 	repeat {
 		unusedGroupNames = groupNames;
 		cat("\"");
@@ -759,7 +760,7 @@ unfolder = function(logList) {
 			groupThenTime = paste(gName, '.*', tName, sep = '')
 			timeThenGroup = paste(tName, '.*', gName, sep = '')
 			matches = grepl(groupThenTime, unusedGroupNames) | grepl(timeThenGroup, unusedGroupNames)
-			if (sum(matches) == 1) { # if you can
+			if (!haveCorrected && sum(matches) == 1) { # if you can
 				folder = unusedGroupNames[matches]
 				cat('Folder "', folder, '" matches group "', gName, '" at timepoint "', tName, '".\n', sep = '')
 				groupPairingMat[i,j] = folder;
@@ -780,6 +781,7 @@ unfolder = function(logList) {
 		}}
 		print(groupPairingMat);
 		if (.getYesOrNo("Is this correct? ")) break;
+		haveCorrected = T
 	}
 	
 	return(groupPairingMat);
