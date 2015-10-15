@@ -2137,6 +2137,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 						fxn = tests[[j]];
 						result = try(fxn(x=group1dat, y=group2dat), silent = T)
 						df[i, j + offset] <- if (class(result) == "try-error") NA else result$p.value
+						if (class(result) == "try-error") warning(result[[1]])
 					} else {
 						functionList = tests[[j]];
 						df[i, j + offset] <- functionList[[1]](c(functionList[-1], list(x = group1dat, y = group2dat, row = row,
