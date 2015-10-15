@@ -2055,6 +2055,8 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 					op = paste(outfilePrefix, '_diffs/', timepoint1, timepoint2, sep = '')
 					names(diffData) = groupNames;
 					
+					.makeGroupCmpPlots(diffData, groupNames, paste(op, 'plots', sep = ''), paired = F);
+					
 					for (i in 1:(length(groupNames) - 1)) {
 						group1 = groupNames[i];
 						for (j in (i + 1):length(groupNames)) {
