@@ -1,7 +1,7 @@
 library(stringr);
 options(stringsAsFactors = FALSE);
-source("~/Desktop/Katrina Summer 2015/behavior_code/bootstrap_rewrite2.R");
-source("~/Desktop/Katrina Summer 2015/behavior_code/powerBootstrap2Independent.R")
+#     source("~/Desktop/Katrina Summer 2015/behavior_code/bootstrap_rewrite2.R");
+#     source("~/Desktop/Katrina Summer 2015/behavior_code/powerBootstrap2Independent.R")
 #use color=blue in .dot output script to make separate sets of lines for 1st follower, 2nd, etc.
 # Find a way to represent AB -> C, ABC -> D instead of only A -> B probabilities
 # collapse statistics across animals. Arrows only allowed from subj to different subj.
