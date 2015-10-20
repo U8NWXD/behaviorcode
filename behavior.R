@@ -276,6 +276,15 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	else return(input);
 }
 
+.copyAttributes = function(fromLog, toLog) {
+	attributesToCopy = c("assay.start", "frames.per.second", "assay.length", "folder", "group.pairing", "notes");
+	for (attribute in attributesToCopy) {
+		if (attribute %in% names(attributes(fromLog)))
+			attr(toLog, attribute) <- attr(fromLog, attribute);
+	}
+	return(toLog);
+}
+
 #####################################################################################################
 ## READING DATA FROM SCORE LOGS                                                                    ##
 #####################################################################################################
@@ -350,9 +359,8 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	
 	asout = .getAssayStart(data0, assayStart, filename);
 	startTime = asout$time;
-	
 	notes = .getNotes(data0);
-	attr(df, 'notes') <- notes;
+	
 	
 	df = .parseFullLog(data0, desc_table, framesPerSecond);
 	if (!is.data.frame(df)) {
@@ -370,6 +378,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	df$pair_time <- df$pair_time - startTime;
 	attr(df, 'assay.start') <- list(mark = asout$name, time = startTime, rezeroed = F);
 	attr(df, 'frames.per.second') <- framesPerSecond;
+	attr(df, 'notes') <- notes;
 	
 	df$subject[is.na(df$subject)] <- "none";
 	
@@ -1385,7 +1394,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 			data = data[data$time >= startTime,];
 		} else {
 			warning("No behaviors before start time ", startTime, immediate. = T);
-			return(.EMPTY_LOG)
+			return(.copyAttributes(data, .EMPTY_LOG))
 		}
 	}
 	if (!is.na(endTime)) {
@@ -1393,14 +1402,14 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 			data = data[data$time <= endTime,];
 		} else {
 			warning("No behaviors before end time ", endTime, immediate. = T);
-			return(.EMPTY_LOG)
+			return(.copyAttributes(data, .EMPTY_LOG))
 		}
 	}
 	if (!is.null(subjects)) {
 		data <- data[data$subject %in% subjects,]
 		if (length(data$behavior) == 0) {
 			warning(paste("No behaviors found for subject ", subjects, ".\n", sep = ''), immediate. = T)
-			return(.EMPTY_LOG)
+			return(.copyAttributes(data, .EMPTY_LOG))
 		}
 	}
 	if (!is.null(startOnly)) {
@@ -1423,14 +1432,14 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 		data <- data[!(data$behavior %in% behaviorsToTrash),];
 		if(length(data$behavior) == 0) {
 			warning(paste("No behavior occurs", minNumBehaviors, "times."));
-			return(.EMPTY_LOG)
+			return(.copyAttributes(data, .EMPTY_LOG))
 		}
 	}
 	if (!is.null(toExclude)) {
 		data <- data[!(data$behavior %in% toExclude),];
 		if(length(data$behavior) == 0) {
 			warning("All behaviors in log are in toExclude.");
-			return(.EMPTY_LOG)
+			return(.copyAttributes(data, .EMPTY_LOG))
 		}
 	}
 	if (renameStartStop) {data = .renameStartStop(data);}
@@ -1514,7 +1523,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	if (length(emptyLogs) == 0) return(data)
 	else {
 		for (i in emptyLogs) {
-			data[[i]] <- .EMPTY_LOG;
+			data[[i]] <- .copyAttributes(data[[i]], .EMPTY_LOG);
 		}
 		return(data);
 	}
