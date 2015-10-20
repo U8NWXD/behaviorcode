@@ -276,6 +276,14 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 	else return(input);
 }
 
+# source: http://stackoverflow.com/questions/8986495/rhistory-and-saving-all-warnings
+saveWarningsToOutfile = function(expression, outfile) {
+	withCallingHandlers(expression, warning = function(w) {
+		cat("Warning in ", deparse(conditionCall(w), width.cutoff = 256L), ":\n", conditionMessage(w), "\n\n", file = outfile, append = T, sep = '')
+		invokeRestart("muffleWarning")
+	})
+}
+
 .copyAttributes = function(fromLog, toLog) {
 	attributesToCopy = c("assay.start", "frames.per.second", "assay.length", "folder", "group.pairing", "notes");
 	for (attribute in attributesToCopy) {
@@ -2006,7 +2014,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 }
 
 # A wrapper function for bootstrap2paired that makes it play well with .runStats
-# argList must contain assayLength (the length of assays), x, y, row, outfilePrefix,
+# argList must contain assayLength (the length of all assays TODO), x, y, row, outfilePrefix,
 #   groupNames
 # The function must be passed in in a list.
 .coxphWrapper = function(argList) {
@@ -2017,6 +2025,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	in.group1 = 1:length(data) <= length(x);
 	censored = is.na(data);
 	data[censored] <- argList$assayLength;
+	# 	data[censored] <- argList$assayLengths[censored];
 	survObj = Surv(data, !censored);
 	testout <- coxph(survObj ~ in.group1);
 	return(list(p.value = as.data.frame(coef(summary(testout)))$Pr));
