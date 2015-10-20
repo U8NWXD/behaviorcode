@@ -1,7 +1,7 @@
-library(stringr);
+require(stringr);
 options(stringsAsFactors = FALSE);
-source("~/Desktop/Katrina Summer 2015/behavior_code/bootstrap_rewrite2.R");
-source("~/Desktop/Katrina Summer 2015/behavior_code/powerBootstrap2Independent.R")
+# source("~/Desktop/Katrina Summer 2015/behavior_code/bootstrap_rewrite2.R");
+# source("~/Desktop/Katrina Summer 2015/behavior_code/powerBootstrap2Independent.R")
 #use color=blue in .dot output script to make separate sets of lines for 1st follower, 2nd, etc.
 # Find a way to represent AB -> C, ABC -> D instead of only A -> B probabilities
 # collapse statistics across animals. Arrows only allowed from subj to different subj.
@@ -2001,7 +2001,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 #   groupNames
 # The function must be passed in in a list.
 .coxphWrapper = function(argList) {
-	library(survival);
+	require(survival);
 	x = argList$x;
 	y = argList$y;
 	data = c(x,y);

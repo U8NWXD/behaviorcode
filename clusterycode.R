@@ -1,5 +1,5 @@
-library(dynamicTreeCut)
-library(WGCNA)
+require(dynamicTreeCut)
+require(WGCNA)
 
 # logLabels should be c('ND', 'ND', 'D', 'D', 'ND', 'ASC', 'D', 'ND')
 # or c('DOM1 (0 fish killed)', 'DOM2 (3 fish killed)', 'DOM2 (12 fish killed)') or the like. basically the labels for the dendro.
