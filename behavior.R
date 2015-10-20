@@ -496,6 +496,55 @@ unfolder = function(logList) {
 	return(data);
 }
 
+.getAssayLengthsByGroup = function(logList) {
+	unselectedLogs = names(logList)
+	repeat {
+		prompt = "Please select a group of logs that all have the same assay length."
+		cat(prompt, '\n')
+		group = select.list(unselectedLogs, multiple = T, title = prompt);
+		if (!length(group)) {
+			if (.getYesOrNo("Add an assay length for another group? ")) next
+			else break
+		}
+		cat("Logs selected:\n")
+		print(group)
+		
+		logIndices = which(names(logList) %in% group)
+		assayLength = .getNumeric("Please enter the assay length of this group in seconds: ", negative = F);
+		if (!.getYesOrNo(paste("Assay length is ", assayLength, ". Is this correct? ", sep = ''))) next
+		
+		behsAfterEnd = unlist(lapply(logList, function(log){max(log$time)})) > assayLength;
+		behsAfterEnd[is.na(behsAfterEnd)] <- F;
+		behsAfterEnd = behsAfterEnd & (1:length(behsAfterEnd) %in% logIndices);
+		remove = F;
+		if (sum(behsAfterEnd)) {
+			cat("The following logs have behaviors occur after the end of the assay:\n\t")
+			cat(names(logList)[behsAfterEnd], sep = '\n\t')
+			if (!.getYesOrNo('Proceed anyway? ')) next
+			remove = .getYesOrNo("Remove behaviors that occur after the end of the assay? ");
+		}
+		for (index in logIndices) {
+			if (remove && behsAfterEnd[index]) logList[[index]] <- .filterData(logList[[index]], endTime = assayLength);
+			attr(logList[[index]], 'assay.length') <- assayLength;
+		}
+		
+		unselectedLogs = unselectedLogs[!(unselectedLogs %in% group)];
+		if (!length(unselectedLogs)) break;
+		if (!.getYesOrNo("Add an assay length for another group? ")) break;
+	}
+	
+	if (!length(unselectedLogs)) {
+		cat("Assay length added for all logs.");
+	} else {
+		cat("No assay length selected for the following logs:\n")
+		print(unselectedLogs)
+		for (index in which(names(logList) %in% unselectedLogs)) {
+			attr(logList[[index]], 'assay.length') <- NA;
+		}
+	}
+	return(logList)
+}
+
 .promptForAssayLength = function(logList) {
 	if(.getYesOrNo("Were all of your assays the same length of time? ")) {
 		assayLength = .getNumeric("Please enter the length of your assay in seconds: ", negative = F);
@@ -510,8 +559,35 @@ unfolder = function(logList) {
 			}
 		}
 		logList = lapply(logList, function(log){attr(log, 'assay.length') <- assayLength; return(log)})
-	} else {
+	} else if (.getYesOrNo("Were each of your assays a different length of time (no groups that were all the same length)? ")){
+		cat("Please add the assay lengths later using a function that hasn't been written yet.\n") # TODO
 		logList = lapply(logList, function(log){attr(log, 'assay.length') <- NA; return(log)})
+	} else {
+		logList = .getAssayLengthsByGroup(logList)
+	}
+	return(logList)
+}
+
+.setAssayLengthFromVector = function(logList, assayLengths) {
+	if (length(logList) != length(assayLengths)) stop("Assay lengths vector has length ", length(assayLengths), " but there are ", length(logList), " logs.")
+	if (sum(assayLengths < 0, na.rm = T)) stop("Assay lengths vector contains negative values.")
+	if (sum(assayLengths == 0, na.rm = T)) warning("Assay lengths vector contains zeros.", immediate. = T)
+	
+	maxBehTimes = unlist(lapply(logList, function(log){max(log$time)}))
+	
+	remove = F
+	behsAfterEnd = maxBehTimes > assayLengths;
+	behsAfterEnd[is.na(behsAfterEnd)] <- F;
+	if (sum(behsAfterEnd)) {
+		cat("The following logs have behaviors occur after the end of the assay:\n\t")
+		cat(names(logList)[behsAfterEnd], sep = '\n\t')
+		if (.getYesOrNo("Remove behaviors that occur after the end of the assay? ")) {
+			remove = T
+		}
+	}
+	for (i in 1:length(logList)) {
+		if (remove && behsAfterEnd[i]) logList[[i]] <- .filterData(logList[[i]], endTime = assayLengths[i]);
+		attr(logList[[i]], 'assay.length') <- assayLengths[i];
 	}
 	return(logList)
 }
