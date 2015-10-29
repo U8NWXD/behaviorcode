@@ -262,7 +262,7 @@ behavior.log = function(time = NULL, behavior = NULL, subject = NULL, type = NUL
 # Prompts the user to enter a color for <beh> and reprompts until they enter either a valid color or "none".
 .getColorFor = function(beh) {
 	prompt = paste("  What color should \"", beh, '" be? (Enter "none" to not plot this behavior)\n  > ', sep = "");
-	return(.getInputFromList(prompt, colors(), quit = "none", list = NULL, removeSpaces = T, reprompt = "  Not a valid color."));
+	return(.getInputFromList(prompt, c(colors(), "transparent"), quit = "none", list = NULL, removeSpaces = T, reprompt = "  Not a valid color."));
 }
 
 # "Autocompletes" <input> to be one of the strings in <choices> by looking to see if there
@@ -2900,8 +2900,8 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 # Validates the behaviorsToPlotAndColors provided to .behavioralDensityGraph() or .behavioralDensityGraphs()
 .validateColorKey = function(behcolors, validBehNames = NULL) {
 	if (dim(behcolors)[2] != 2) stop("behaviorsToPlotAndColors must have 2 columns!");
-	if (sum(!(behcolors[,2] %in% colors()) & !(grepl("^#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]([0-9A-Fa-f][0-9A-Fa-f])?$", behcolors[,2]))) != 0) {
-		stop(paste('Invalid color in behaviorsToPlotAndColors: "', behcolors[!(behcolors[,2] %in% colors()), 2], '"\n', sep = ""));
+	if (sum(!(behcolors[,2] %in% c(colors(), "transparent")) & !(grepl("^#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]([0-9A-Fa-f][0-9A-Fa-f])?$", behcolors[,2]))) != 0) {
+		stop(paste('Invalid color in behaviorsToPlotAndColors: "', behcolors[!(behcolors[,2] %in% c(colors(), "transparent")), 2], '"\n', sep = ""));
 	}
 	if (!is.null(validBehNames) && sum(!(behcolors[,1] %in% validBehNames)) != 0) {
 		warning(paste('Behavior in behaviorsToPlotAndColors: "', behcolors[!(behcolors[,1] %in% validBehNames), 1], '" not found in any score log\n', sep = ""), immediate. = T);
@@ -3635,7 +3635,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	# axis(1, yaxp=c(mintime, maxtime, 10), col='white', col.ticks='black');
 	axis(1, at = unique(floor(mintime:(maxtime + labelSpace) / labelSpace) * labelSpace), col='white', col.ticks='black');
 	
-	nSsBehs = length(ssBehs);
+	nSsBehs = nrow(ssBehsAndColors);
 	if (nSsBehs > 0) {
 		if (is.null(durBehBounds)) durBehBounds = data.frame(bottomBound = ((0:(nSsBehs - 1)) * 2 * wiggle / nSsBehs) - wiggle, topBound = ((1:nSsBehs) * 2 * wiggle / nSsBehs) - wiggle);
 		# print(durBehBounds);
