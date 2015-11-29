@@ -3576,7 +3576,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	subjects = names(data);
 	num_subj = length(subjects);
 	maxtime = max(unlist(lapply(data[!.isEmpty(data)], function(d){max(d$time)})));
-	mintime = min(c(0, unlist(lapply(data[!.isEmpty(data)], function(d){min(d$time)}))));
+	mintime = min(c(0, unlist(lapply(data[!.isEmpty(data)], function(d){min(d$time[d$beh != 'assay start'])}))));
 	ssBehs = if(is.null(durationalBehs[1])) .startStopBehs(data) else durationalBehs;
 	
 	.validateColorKey(behaviorsToPlotAndColors);
@@ -3659,6 +3659,16 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	abline(v = 0, col='black');
 	
 	if (!is.null(filename)) dev.off();
+}
+
+catLogs = function(logs, newlogs, offset) {
+	for (i in 1:length(logs)) {
+		newLog = newlogs[[i]]
+		newLog$time <- newLog$time + offset
+		newLog = newLog[newLog$behavior != 'assay start',]
+		logs[[i]] = rbind(logs[[i]], newLog)
+	}
+	return(logs)
 }
 
 .checkDurationalBehs = function(durationalBehs, data, colorkey) {
