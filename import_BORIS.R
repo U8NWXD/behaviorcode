@@ -1,7 +1,7 @@
 # behavior_log = import_BORIS('my_log.csv', 15)
 
 import_BORIS = function(file, start_row_num) {
-	input_log = read.csv('~/Downloads/csv test.txt.csv', header = T, skip = start_row_num)
+	input_log = read.csv(file, header = T, skip = start_row_num)
 	log = data.frame(
 		time = input_log$Time,
 		behavior = input_log$Behavior,
