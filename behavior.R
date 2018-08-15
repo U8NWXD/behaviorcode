@@ -325,7 +325,18 @@ saveWarningsToOutfile = function(expression, outfile) {
 .getDataBatch = function (folderPath, groups = TRUE, assayStart = NA) {
 	filenames = paste(folderPath,list.files(folderPath, pattern = "txt$", recursive = groups),sep = "");
 	data = list();
-	if (!is.null(assayStart) && is.na(assayStart)) assayStart = if (.getYesOrNo("Did you mark assay starts in your score logs? ")) NULL else FALSE;
+	if (!is.null(assayStart) && is.na(assayStart)) {
+	  if (exists("config")) {
+	    marked = config$behavior$markAssayStarts
+	  } else {
+	    marked = .getYesOrNo("Did you mark assay starts in your score logs? ")
+	  }
+	  if (marked) {
+	    assayStart = NULL
+	  } else {
+	    assayStart = FALSE
+	  }
+	}
 	for (f in 1:length(filenames)) {
 		cat("Loading file \"", filenames[f], "\"...\n", sep = "");
 		datOut = .getData(filenames[f], assayStart, single = FALSE);
@@ -487,7 +498,12 @@ unfolder = function(logList) {
 	cat("Behaviors found:\n");
 	.printFindDupBehaviors(data);
 	cat('There may be some behaviors in the list above that should be combined (for example, "Female Follows" and "female follows").\n');
-	if (!.getYesOrNo("Are there any behaviors in the list that should be combined? ")) {
+  if (exists("config")) {
+    combine = config$behavior$combineBehaviors
+  } else {
+    combine = .getYesOrNo("Are there any behaviors in the list that should be combined? ")
+  }
+	if (!combine) {
 		return(data);
 	}
 	
@@ -563,8 +579,17 @@ unfolder = function(logList) {
 }
 
 .promptForAssayLength = function(logList) {
-	if(.getYesOrNo("Were all of your assays the same length of time? ")) {
-		assayLength = .getNumeric("Please enter the length of your assay in seconds: ", negative = F);
+  if (exists("config")) {
+    uniform = config$behavior$assaysSameLength
+  } else {
+    uniform = .getYesOrNo("Were all of your assays the same length of time? ")
+  }
+	if(uniform) {
+	  if (exists("config")) {
+	    assayLength = config$behavior$assayDuration
+	  } else {
+	    assayLength = .getNumeric("Please enter the length of your assay in seconds: ", negative = F);
+	  }
 		behsAfterEnd = unlist(lapply(logList, function(log){max(log$time)})) > assayLength;
 		behsAfterEnd[is.na(behsAfterEnd)] <- F;
 		# ^^^ logical vec
@@ -798,7 +823,7 @@ unfolder = function(logList) {
 # for each group and a column for each timepoint. This is all done by prompting the user.
 # If there is only one folder, or if there is only one timepoint/only one experimental group,
 # the function prompts the user less.
-.getGroupPairingMat = function(groupNames, groupLengths) {
+.getGroupPairingMat = function(groupNames, groupLengths, findFolderFunction = NULL) {
 	if (length(groupNames) == 1) {
 		return(matrix(data = groupNames, nrow = 1, ncol = 1, dimnames = list(groupNames, groupNames)));
 	}
@@ -806,9 +831,15 @@ unfolder = function(logList) {
 	cat("Folder names found:\n  \"");
 	cat(groupNames, sep = '" "');
 	cat('"\n');
-	
+
+  stopConf = FALSE
 	repeat {
-		ngroups = .getInteger("How many experimental groups were there? ", negative = F);
+	  if (exists("config") && !stopConf) {
+	    ngroups = config$behavior$expGroups
+	  } else {
+	    ngroups = .getInteger("How many experimental groups were there? ", negative = F);
+	  }
+	  stopCpnf = TRUE
 		if (length(groupNames) %% ngroups) cat(length(groupNames), " is not a multiple of ", ngroups, ".\n", sep = '')
 		else {
 			ntimepoints = length(groupNames) / ngroups;
@@ -825,10 +856,18 @@ unfolder = function(logList) {
 	groupPairingMat = matrix(nrow = ngroups, ncol = ntimepoints, dimnames = list(1:ngroups, 1:ntimepoints));	
 	repeat {
 		for (i in 1:ngroups) {
-			dimnames(groupPairingMat)[[1]][i] = .getString("Please enter the name of a group (ie 'Control', 'Injected', etc.).\n  > ");
+		  if (exists("config")) {
+		    dimnames(groupPairingMat)[[1]][i] = config$behavior$groups[i]
+		  } else {
+		    dimnames(groupPairingMat)[[1]][i] = .getString("Please enter the name of a group (ie 'Control', 'Injected', etc.).\n  > ");
+		  }
 		}
 		for (i in 1:ntimepoints) {
-			dimnames(groupPairingMat)[[2]][i] = .getString("Please enter the name of a timepoint (ie 'Baseline', 'Day 4', etc.).\n  > ");
+		  if (exists("config")) {
+		    dimnames(groupPairingMat)[[2]][i] = config$behavior$timepoints[i]
+		  } else {
+		    dimnames(groupPairingMat)[[2]][i] = .getString("Please enter the name of a timepoint (ie 'Baseline', 'Day 4', etc.).\n  > ");
+		  }
 		}
 		cat("Groups:\n  \"");
 		cat(dimnames(groupPairingMat)[[1]], sep = '" "');
@@ -857,6 +896,8 @@ unfolder = function(logList) {
 				folder = unusedGroupNames[matches]
 				cat('Folder "', folder, '" matches group "', gName, '" at timepoint "', tName, '".\n', sep = '')
 				groupPairingMat[i,j] = folder;
+			} else if (!is.null(findFolderFunction)) {
+			  groupPairingMat[i,j] = findFolderFunction(gName, tName, unusedGroupNames)
 			} else {
 				groupPairingMat[i,j] = .getInputFromList(prompt, unusedGroupNames);
 			}
@@ -1142,10 +1183,10 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 #'	   return(pairLog);
 #' }
 #' my_data <- pairGroups(my_data, myPairLogsFn)
-.pairGroups = function(data, pairLogsFn = NULL) {
+.pairGroups = function(data, pairLogsFn = NULL, findFolderFunction = NULL) {
 	groupwiseData = .sepGroups(data);
 	groupNames = groupwiseData$groupNames;
-	groupPairingMat = .getGroupPairingMat(groupNames, unlist(lapply(groupwiseData$groupData, length)));	
+	groupPairingMat = .getGroupPairingMat(groupNames, unlist(lapply(groupwiseData$groupData, length)), findFolderFunction);	
 	data = lapply(data, function(log){attr(log, 'group.pairing') <- groupPairingMat; return(log)})
 	
 	data = .standardizeLogOrder(data, pairLogsFn);
