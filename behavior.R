@@ -2131,7 +2131,7 @@ pointsStaggered = function(x, y, color, pointsspace = .05) {
 	if (cmpDiffs & !dir.exists(paste(outfilePrefix, '_diffs', sep = ''))) dir.create(paste(outfilePrefix, '_diffs', sep = ''))
 	
 	if (!(cmpGroups | cmpTimepoints | cmpDiffs)) {
-		.runStatsTwoGroups(dataByGroup, outfilePrefix, ...);
+		.runStatsTwoGroups(dataByGroup, outfilePrefix, tests = tests, ...);
 		return();
 	}
 	
