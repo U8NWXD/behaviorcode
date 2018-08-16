@@ -839,7 +839,7 @@ unfolder = function(logList) {
 	  } else {
 	    ngroups = .getInteger("How many experimental groups were there? ", negative = F);
 	  }
-	  stopCpnf = TRUE
+	  stopConf = TRUE
 		if (length(groupNames) %% ngroups) cat(length(groupNames), " is not a multiple of ", ngroups, ".\n", sep = '')
 		else {
 			ntimepoints = length(groupNames) / ngroups;
