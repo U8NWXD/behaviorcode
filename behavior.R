@@ -425,7 +425,14 @@ saveWarningsToOutfile = function(expression, outfile) {
 	marks = lapply(marks, function(f) gsub('^ *','', gsub(' *$','', f)));
 	markNames = unlist(lapply(marks, function(f) f[[3]]));
 	
-	if (!is.null(assayStart) && sum(markNames %in% assayStart) == 1) {
+	if (exists("config")) {
+	  for (conf_start in config$behavior$startMarks) {
+	    if (sum(markNames %in% conf_start) == 1) {
+	      markIndex = which(markNames %in% conf_start)
+	      break
+	    }
+	  }
+	} else if (!is.null(assayStart) && sum(markNames %in% assayStart) == 1) {
 		markIndex = which(markNames %in% assayStart);
 	} else {
 		promptMsg = if (is.null(assayStart)) {""}
